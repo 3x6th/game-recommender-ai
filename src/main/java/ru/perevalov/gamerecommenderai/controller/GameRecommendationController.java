@@ -23,26 +23,14 @@ public class GameRecommendationController {
         
         log.info("Received game recommendation request: {}", request);
         
-        try {
-            String recommendation = deepSeekService.generateGameRecommendation(request.getPreferences());
-            
-            GameRecommendationResponse response = GameRecommendationResponse.builder()
-                    .recommendation(recommendation)
-                    .success(true)
-                    .build();
-            
-            return ResponseEntity.ok(response);
-            
-        } catch (Exception e) {
-            log.error("Error processing game recommendation request", e);
-            
-            GameRecommendationResponse response = GameRecommendationResponse.builder()
-                    .recommendation("Извините, произошла ошибка при обработке запроса.")
-                    .success(false)
-                    .build();
-            
-            return ResponseEntity.internalServerError().body(response);
-        }
+        String recommendation = deepSeekService.generateGameRecommendation(request.getPreferences());
+        
+        GameRecommendationResponse response = GameRecommendationResponse.builder()
+                .recommendation(recommendation)
+                .success(true)
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
 
     @PostMapping("/chat")
@@ -51,30 +39,13 @@ public class GameRecommendationController {
         
         log.info("Received chat request: {}", request);
         
-        try {
-            String response = deepSeekService.generateResponse(request.getPreferences());
-            
-            GameRecommendationResponse gameResponse = GameRecommendationResponse.builder()
-                    .recommendation(response)
-                    .success(true)
-                    .build();
-            
-            return ResponseEntity.ok(gameResponse);
-            
-        } catch (Exception e) {
-            log.error("Error processing chat request", e);
-            
-            GameRecommendationResponse response = GameRecommendationResponse.builder()
-                    .recommendation("Извините, произошла ошибка при обработке запроса.")
-                    .success(false)
-                    .build();
-            
-            return ResponseEntity.internalServerError().body(response);
-        }
-    }
-
-    @GetMapping("/health")
-    public ResponseEntity<String> health() {
-        return ResponseEntity.ok("Game Recommender AI is running!");
+        String aiResponse = deepSeekService.generateResponse(request.getPreferences());
+        
+        GameRecommendationResponse response = GameRecommendationResponse.builder()
+                .recommendation(aiResponse)
+                .success(true)
+                .build();
+        
+        return ResponseEntity.ok(response);
     }
 } 
