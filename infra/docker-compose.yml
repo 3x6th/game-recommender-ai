@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ../services/backend
+    depends_on: [ ai-service ]
+    environment:
+      - JAVA_OPTS=-Xms256m -Xmx512m
+      - GRPC_AI_SERVICE_HOST=ai-service
+      - GRPC_AI_SERVICE_PORT=9090
+    ports:
+      - "8080:8080"
+    networks: [ playcure ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  ai-service:
+    build: ../services/ai-service
+    environment:
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - GIGACHAT_API_KEY=${GIGACHAT_API_KEY:-}
+      - GRPC_PORT=9090
+      - HTTP_PORT=8000
+    ports:
+      - "8000:8000"  # FastAPI health/metrics
+      - "9090:9090"  # gRPC
+    networks: [ playcure ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  playcure:
+    driver: bridge
+
+#volumes:
+  # Optional: persist data if needed
+  # backend-data:
+  # ai-service-data:
