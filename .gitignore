@@ -1,35 +1,53 @@
-HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
+# Environment variables
 .env
-application-dev.properties
+.env.local
+.env.*.local
 
-### STS ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
+# IDE
 .vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java
+services/backend/target/
+services/backend/*.jar
+services/backend/*.war
+services/backend/*.ear
+services/backend/*dev.properties
+
+# Python
+services/ai-service/__pycache__/
+services/ai-service/*.pyc
+services/ai-service/*.pyo
+services/ai-service/*.pyd
+services/ai-service/.Python
+services/ai-service/env/
+services/ai-service/venv/
+services/ai-service/.venv/
+services/ai-service/pip-log.txt
+services/ai-service/pip-delete-this-directory.txt
+services/ai-service/.tox/
+services/ai-service/.coverage
+services/ai-service/.pytest_cache/
+services/ai-service/.mypy_cache/
+
+# gRPC generated files
+services/ai-service/app/proto/
+services/backend/src/main/java/ru/perevalov/gamerecommenderai/grpc/
+
+# Docker
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
