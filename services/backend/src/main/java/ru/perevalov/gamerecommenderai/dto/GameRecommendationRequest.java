@@ -11,4 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class GameRecommendationRequest {
     private String preferences;
+    private Integer maxRecommendations;
+    private String context;
 } 

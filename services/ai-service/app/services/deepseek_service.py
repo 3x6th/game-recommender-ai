@@ -1,34 +1,31 @@
 """
-DeepSeek AI service implementation.
+DeepSeek AI service implementation using official SDK.
 """
 
 import logging
 import os
 import json
-import aiohttp
 import asyncio
 import time
 from typing import List, Dict, Any
 
+from deepseek_ai import DeepSeekAI
 from app.services.base import BaseAIService
 
 logger = logging.getLogger(__name__)
 
 class DeepSeekService(BaseAIService):
-    """DeepSeek AI service provider"""
+    """DeepSeek AI service provider using official SDK"""
     
     def __init__(self, api_key: str = None):
         super().__init__(api_key or os.getenv('DEEPSEEK_API_KEY'))
-        self.base_url = "https://api.deepseek.com/v1"
         self.model = "deepseek-chat"
-        # Increased timeouts for slow API responses
-        self.timeout = aiohttp.ClientTimeout(
-            total=120,      # Total timeout: 2 minutes
-            connect=30,     # Connection timeout: 30 seconds
-            sock_read=90    # Socket read timeout: 90 seconds
-        )
-        self.max_retries = 3
-        self.retry_delay = 2  # Base delay in seconds
+        
+        # Initialize DeepSeek client
+        if self.api_key:
+            self.client = DeepSeekAI(api_key=self.api_key)
+        else:
+            self.client = None
         
         # Circuit breaker state
         self.failure_count = 0
@@ -76,8 +73,8 @@ class DeepSeekService(BaseAIService):
     ) -> List[Dict[str, Any]]:
         """Get game recommendations from DeepSeek"""
         try:
-            if not self.api_key:
-                logger.warning("No DeepSeek API key provided")
+            if not self.api_key or not self.client:
+                logger.warning("No DeepSeek API key or client available")
                 return self._get_mock_recommendations(max_recommendations)
             
             # Check circuit breaker
@@ -150,10 +147,7 @@ class DeepSeekService(BaseAIService):
                     logger.warning(f"Failed to parse JSON from chat response: {e}")
                     logger.warning(f"Raw content: {content[:500]}...")
                 
-                # If JSON parsing fails, try to extract recommendations manually
-                logger.info("Attempting to extract recommendations manually from text response")
-                
-                # Try to extract game information from text
+                # Try to extract recommendations manually from text
                 extracted_recommendations = self._extract_recommendations_from_text(content, max_recommendations)
                 if extracted_recommendations:
                     self._record_success()
@@ -176,8 +170,8 @@ class DeepSeekService(BaseAIService):
     async def chat(self, message: str, context: str = "") -> str:
         """Chat with DeepSeek AI"""
         try:
-            if not self.api_key:
-                logger.warning("No DeepSeek API key provided")
+            if not self.api_key or not self.client:
+                logger.warning("No DeepSeek API key or client available")
                 return "Sorry, DeepSeek API key is not configured. Please set DEEPSEEK_API_KEY environment variable."
             
             # Check circuit breaker
@@ -212,34 +206,25 @@ class DeepSeekService(BaseAIService):
             return f"Sorry, I encountered an error: {str(e)}"
     
     async def _call_deepseek_api_with_retry(self, prompt: str, is_chat: bool = False) -> Dict[str, Any]:
-        """Make API call to DeepSeek with retry logic"""
+        """Make API call to DeepSeek with retry logic using SDK"""
         start_time = time.time()
+        max_retries = 3
+        retry_delay = 2
         
-        for attempt in range(self.max_retries):
+        for attempt in range(max_retries):
             try:
-                logger.info(f"DeepSeek API call attempt {attempt + 1}/{self.max_retries}")
+                logger.info(f"DeepSeek API call attempt {attempt + 1}/{max_retries}")
                 response = await self._call_deepseek_api(prompt, is_chat)
                 if response:
                     elapsed_time = time.time() - start_time
                     logger.info(f"DeepSeek API call successful in {elapsed_time:.2f} seconds")
                     return response
                     
-            except asyncio.TimeoutError:
-                elapsed_time = time.time() - start_time
-                logger.warning(f"DeepSeek API timeout on attempt {attempt + 1} after {elapsed_time:.2f} seconds")
-                if attempt < self.max_retries - 1:
-                    delay = self.retry_delay * (2 ** attempt)  # Exponential backoff
-                    logger.info(f"Retrying in {delay} seconds...")
-                    await asyncio.sleep(delay)
-                else:
-                    logger.error("All retry attempts failed due to timeout")
-                    raise
-                    
             except Exception as e:
                 elapsed_time = time.time() - start_time
                 logger.error(f"DeepSeek API error on attempt {attempt + 1} after {elapsed_time:.2f} seconds: {e}")
-                if attempt < self.max_retries - 1:
-                    delay = self.retry_delay * (2 ** attempt)
+                if attempt < max_retries - 1:
+                    delay = retry_delay * (2 ** attempt)
                     logger.info(f"Retrying in {delay} seconds...")
                     await asyncio.sleep(delay)
                 else:
@@ -248,53 +233,31 @@ class DeepSeekService(BaseAIService):
         return None
     
     async def _call_deepseek_api(self, prompt: str, is_chat: bool = False) -> Dict[str, Any]:
-        """Make actual API call to DeepSeek"""
+        """Make actual API call to DeepSeek using SDK"""
         try:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
+            # Use SDK for API call
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=1000,
+                temperature=0.7
+            )
             
-            data = {
-                "model": self.model,
-                "messages": [
-                    {"role": "user", "content": prompt}
-                ],
-                "max_tokens": 1000,
-                "temperature": 0.7
+            # Convert SDK response to dict-like structure
+            response_dict = {
+                'choices': [
+                    {
+                        'message': {
+                            'content': response.choices[0].message.content
+                        }
+                    }
+                ] if response.choices else []
             }
-            
-            # Use persistent session for better performance
-            async with aiohttp.ClientSession(timeout=self.timeout) as session:
-                async with session.post(
-                    f"{self.base_url}/chat/completions",
-                    headers=headers,
-                    json=data
-                ) as response:
-                    
-                    if response.status == 200:
-                        result = await response.json()
-                        logger.info("DeepSeek API call successful")
+            logger.info("DeepSeek API call successful via SDK")
+            return response_dict
                         
-                        # Log the actual response structure for debugging
-                        logger.info(f"DeepSeek API response keys: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")
-                        if isinstance(result, dict) and 'choices' in result:
-                            logger.info(f"Choices count: {len(result['choices'])}")
-                            if result['choices']:
-                                content = result['choices'][0].get('message', {}).get('content', '')
-                                logger.info(f"Content preview: {content[:200]}...")
-                        
-                        return result
-                    else:
-                        error_text = await response.text()
-                        logger.error(f"DeepSeek API error: {response.status} - {error_text}")
-                        return None
-                        
-        except asyncio.TimeoutError:
-            logger.error("DeepSeek API request timed out")
-            raise
         except Exception as e:
-            logger.error(f"Error calling DeepSeek API: {e}")
+            logger.error(f"Error calling DeepSeek API via SDK: {e}")
             return None
     
     def _get_mock_recommendations(self, max_recommendations: int) -> List[Dict[str, Any]]:
@@ -399,7 +362,7 @@ class DeepSeekService(BaseAIService):
     
     async def is_available(self) -> bool:
         """Check if DeepSeek service is available"""
-        if not self.api_key:
+        if not self.api_key or not self.client:
             return False
         
         # Check circuit breaker status

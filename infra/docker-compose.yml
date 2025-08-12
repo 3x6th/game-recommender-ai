@@ -40,7 +40,7 @@ networks:
   playcure:
     driver: bridge
 
-volumes:
+#volumes:
   # Optional: persist data if needed
   # backend-data:
   # ai-service-data:

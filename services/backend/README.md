@@ -1,93 +1,76 @@
-# Game Recommender AI
+# Game Recommender AI Backend
 
-Сервис для рекомендации игр с использованием DeepSeek AI.
+## Архитектура
 
-## Настройка
+Backend сервис построен на Spring Boot с использованием gRPC для коммуникации с AI сервисом.
 
-### 1. Получите API ключ DeepSeek
+## gRPC Архитектура
 
-1. Зарегистрируйтесь на [DeepSeek](https://platform.deepseek.com/)
-2. Получите API ключ в разделе API Keys
+### Spring Boot Starters
+Проект использует `net.devh` Spring Boot gRPC Starters для упрощения работы с gRPC:
 
-### 2. Настройте переменные окружения
+- **grpc-client-spring-boot-starter** - для gRPC клиента
 
-Создайте файл `.env` в корне проекта или установите переменную окружения:
+### Компоненты
 
-```bash
-export DEEPSEEK_API_KEY=your-api-key-here
+#### 1. GameRecommenderGrpcClient
+Отдельный клиент для работы с gRPC AI сервисом:
+- Инкапсулирует всю логику gRPC коммуникации
+- Использует `@GrpcClient("ai-service")` для автоматической конфигурации
+- Обрабатывает ошибки и логирование
+
+#### 2. GameRecommenderService
+Бизнес-логика сервиса:
+- Использует `GameRecommenderGrpcClient` для коммуникации
+- Преобразует gRPC ответы в DTO
+- Обрабатывает бизнес-логику
+
+#### 3. GameRecommendationController
+REST контроллер:
+- Предоставляет HTTP API для получения рекомендаций
+- Включает health check для gRPC соединения
+
+## Конфигурация
+
+### application.properties
+```properties
+# gRPC Client Configuration
+grpc.client.ai-service.address=localhost:9090
+grpc.client.ai-service.negotiationType=plaintext
+grpc.client.ai-service.deadline=30s
 ```
 
-### 3. Запуск приложения
+### Зависимости
+- Spring Boot 3.2+
+- gRPC Spring Boot Starter 2.15.0
+- Protobuf Maven Plugin для генерации кода
+
+## Запуск
 
 ```bash
 mvn spring-boot:run
 ```
 
-Приложение будет доступно по адресу: http://localhost:8080
+## Тестирование
 
-## API Endpoints
-
-### Получить рекомендации игр
-
-```http
-POST /api/games/recommend
-Content-Type: application/json
-
-{
-  "preferences": "Ищу игру в жанре RPG с открытым миром, похожую на Skyrim"
-}
+```bash
+mvn test
 ```
-
-### Чат с AI
-
-```http
-POST /api/games/chat
-Content-Type: application/json
-
-{
-  "preferences": "Расскажи о последних играх 2024 года"
-}
-```
-
-### Проверка здоровья сервиса
-
-```http
-GET /api/games/health
-```
-
-## Конфигурация
-
-Основные настройки в `application.properties`:
-
-- `deepseek.api.url` - URL API DeepSeek
-- `deepseek.model` - модель для использования
-- `deepseek.max-tokens` - максимальное количество токенов
-- `deepseek.temperature` - температура генерации (0.0 - 1.0)
 
 ## Структура проекта
 
 ```
 src/main/java/ru/perevalov/gamerecommenderai/
-├── config/                    # Конфигурация
-│   ├── DeepSeekConfig.java   # Настройки DeepSeek
-│   ├── OpenApiConfig.java    # Конфигурация OpenAPI
-│   └── WebClientConfig.java  # Конфигурация HTTP клиента
-├── controller/               # REST контроллеры
+├── client/
+│   └── GameRecommenderGrpcClient.java
+├── controller/
 │   └── GameRecommendationController.java
-├── dto/                     # Data Transfer Objects
-│   ├── DeepSeekRequest.java
-│   ├── DeepSeekResponse.java
+├── dto/
+│   ├── GameRecommendation.java
 │   ├── GameRecommendationRequest.java
 │   └── GameRecommendationResponse.java
-├── service/                 # Бизнес-логика
-│   └── DeepSeekService.java
-└── GameRecommenderAiApplication.java
-```
-
-## Технологии
-
-- Spring Boot 3.5.4
-- Spring WebFlux (для HTTP клиента)
-- Lombok
-- H2 Database (для разработки)
-- DeepSeek AI API 
+├── exception/
+│   └── GameRecommenderException.java
+└── service/
+    └── GameRecommenderService.java
+``` 

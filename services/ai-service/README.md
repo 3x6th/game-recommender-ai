@@ -219,10 +219,10 @@ grpc.ai-service.port=9090
 
 ```bash
 # Запуск с автоперезагрузкой
-uvicorn app.main:create_app_with_lifespan --host 0.0.0.0 --port 8000 --reload
+poetry run uvicorn app.main:create_app_with_lifespan --host 0.0.0.0 --port 8000 --reload
 
 # Запуск в фоне
-nohup uvicorn app.main:create_app_with_lifespan --host 0.0.0.0 --port 8000 &
+nohup poetry run uvicorn app.main:create_app_with_lifespan --host 0.0.0.0 --port 8000 &
 ```
 
 ### Docker
@@ -277,14 +277,6 @@ curl http://localhost:8000/healthz
 curl http://localhost:8000/metrics
 ```
 
-### Логи
-
-Сервис использует стандартное Python логирование:
-
-```python
-import logging
-logging.basicConfig(level=logging.INFO)
-```
 
 ## 🐛 Troubleshooting
 
@@ -334,13 +326,6 @@ logging.basicConfig(level=logging.INFO)
 - [DeepSeek API](https://platform.deepseek.com/)
 - [Python dotenv](https://pypi.org/project/python-dotenv/)
 
-## 🤝 Вклад в проект
-
-1. Fork репозитория
-2. Создайте feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit изменения (`git commit -m 'Add amazing feature'`)
-4. Push в branch (`git push origin feature/amazing-feature`)
-5. Откройте Pull Request
 
 ## 📄 Лицензия
 
