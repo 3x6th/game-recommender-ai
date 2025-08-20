@@ -6,31 +6,34 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy Poetry project files for dependency installation (build context is repo root)
+COPY services/ai-service/pyproject.toml services/ai-service/poetry.lock ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies using Poetry (system site-packages, no venv)
+RUN pip install --no-cache-dir poetry && \
+    poetry config virtualenvs.create false && \
+    poetry install --no-interaction --no-ansi --only main --no-root
 
 # Copy application code
-COPY app/ ./app/
+COPY services/ai-service/app/ ./app/
 
-# Create proto directory
-RUN mkdir -p proto
+# Create proto directory inside app and at root for generation
+RUN mkdir -p app proto
 
 # Copy proto files (will be generated during build)
-COPY ../../contracts/proto/reco.proto ./proto/
+COPY contracts/proto/reco.proto ./proto/
 
-# Generate gRPC code
+# Generate gRPC code into app package so it can be imported as app.reco_pb2
 RUN python -m grpc_tools.protoc \
     -I./proto \
-    --python_out=./app \
-    --grpc_python_out=./app \
+    --python_out=. \
+    --grpc_python_out=. \
     ./proto/reco.proto
 
-# Set environment variables
+# Set environment variables so generated modules are importable
 ENV PYTHONPATH=/app
 ENV GRPC_PORT=9090
 ENV HTTP_PORT=8000

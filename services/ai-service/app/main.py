@@ -50,9 +50,6 @@ class AIService:
             servicer = GameRecommenderServicer(self.service_registry)
             
             # Import gRPC generated code
-            import sys
-            from pathlib import Path
-            sys.path.insert(0, str(Path(__file__).parent.parent / "proto"))
             import reco_pb2_grpc
             
             reco_pb2_grpc.add_GameRecommenderServiceServicer_to_server(servicer, self.grpc_server)

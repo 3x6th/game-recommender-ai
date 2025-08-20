@@ -9,11 +9,6 @@ from typing import List
 import grpc
 from grpc import ServicerContext
 from app.services.registry import ServiceRegistry
-import sys
-from pathlib import Path
-
-# Add proto directory to Python path
-sys.path.insert(0, str(Path(__file__).parent.parent / "proto"))
 import reco_pb2
 import reco_pb2_grpc
 
