@@ -18,8 +18,3 @@ public class PreAuthResponse {
     private String  sessionId;
     private Long steamId;
 }
-
-
-
-
-
