@@ -25,4 +25,3 @@ public class SteamOwnedGamesResponse {
         private int playtimeForever;
     }
 }
-
