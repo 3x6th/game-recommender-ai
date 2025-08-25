@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
+import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenRequest;
 import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenResponse;
 import ru.perevalov.gamerecommenderai.service.AuthService;
 
@@ -28,8 +29,8 @@ public class AuthController {
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<RefreshAccessTokenResponse> refreshAccessToken(@RequestBody Map<String,String> body) {
-        RefreshAccessTokenResponse response = authService.refresh(body.get("refreshToken"));
+    public ResponseEntity<RefreshAccessTokenResponse> refreshAccessToken(@RequestBody RefreshAccessTokenRequest request) {
+        RefreshAccessTokenResponse response = authService.refresh(request.getRefreshToken());
         return ResponseEntity.ok(response);
     }
 }
