@@ -26,7 +26,7 @@ public class JwtUtil {
         return JWT.create()
                 .withIssuer(issuer)
                 .withSubject("guest:" + sessionId)
-                .withClaim("role", "guest")
+                .withClaim("role", UserRole.GUEST.getAuthority())
                 .withIssuedAt(Date.from(now))
                 .withExpiresAt(expiresAt)
                 .sign(alg);
