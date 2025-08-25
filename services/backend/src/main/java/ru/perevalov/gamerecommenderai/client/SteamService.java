@@ -1,6 +1,7 @@
 package ru.perevalov.gamerecommenderai.client;
 
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -13,12 +14,12 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SteamService {
 
-    private final WebClient steamWebClient;
-
-    @Value("${steam.apiKey}")
-    private String apiKey;
     private static final String GET_PLAYER_SUMMARIES_PATH = "/ISteamUser/GetPlayerSummaries/v0002/";
     private static final String GET_OWNED_GAMES_PATH = "/IPlayerService/GetOwnedGames/v0001/";
+    private final WebClient steamWebClient;
+    @Setter
+    @Value("${steam.apiKey}")
+    private String apiKey;
 
     public SteamPlayerResponse getPlayerSummaries(List<String> steamIds) {
         String idsCsv = String.join(",", steamIds);
@@ -32,7 +33,7 @@ public class SteamService {
                 )
                 .retrieve()
                 .bodyToMono(SteamPlayerResponse.class)
-                .block(); // синхронный вызов (как в Feign)
+                .block();
     }
 
     public SteamOwnedGamesResponse getOwnedGames(String steamId,
@@ -49,6 +50,6 @@ public class SteamService {
                 )
                 .retrieve()
                 .bodyToMono(SteamOwnedGamesResponse.class)
-                .block(); // тоже синхронно
+                .block();
     }
 }
