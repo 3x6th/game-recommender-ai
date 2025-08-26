@@ -1,263 +1,331 @@
-# PlayCure - Game Recommendation AI Platform
+# Game Recommender AI
 
-Монорепо с Java Spring Boot backend и Python AI сервисом, использующий gRPC для коммуникации.
+Система рекомендаций игр с использованием AI, построенная на микросервисной архитектуре с поддержкой отказоустойчивости, кэширования и лимитов запросов.
 
-## 🏗️ Архитектура
+## Архитектура
 
-```
-game-recommender-ai/
-├── contracts/           # Общие контракты
-│   └── proto/          # gRPC proto файлы
-├── services/            # Микросервисы
-│   ├── backend/        # Java Spring Boot (порт 8080)
-│   └── ai-service/     # Python gRPC + FastAPI (порты 8000, 9090)
-└── infra/              # Инфраструктура
-    ├── docker-compose.yml
-    └── Makefile
-```
+### Сервисы
 
-## 🚀 Быстрый старт
+- **AI Service** (Python/gRPC) - сервис AI для генерации рекомендаций
+- **Backend Service** (Java/Spring Boot) - основной API сервис
+- **Redis** - распределенное кэширование и хранение лимитов
 
-### Предварительные требования
+### Ключевые компоненты
 
-- Docker и Docker Compose
-- Java 21 (для локальной разработки)
-- Python 3.11 (для локальной разработки)
-- Make (опционально)
+#### Resilience4j
+- **Circuit Breaker** - защита от каскадных отказов
+- **Retry** - автоматические повторные попытки
+- **Time Limiter** - таймауты для внешних вызовов
+
+#### Кэширование
+- **Caffeine** - локальное кэширование (рекомендации, пользовательские предпочтения)
+- **Redis** - распределенное кэширование (данные Steam API)
+
+#### Лимиты запросов
+- **Rate Limiting** - контроль QPS к Steam API
+- **Concurrent Users** - ограничение параллельных пользователей
+- **Throttling** - троттлинг запросов по времени
+
+## Требования
+
+- Java 21
+- Python 3.11+
+- Docker & Docker Compose
+- Redis 7+
+
+## Быстрый старт
 
 ### 1. Клонирование и настройка
 
 ```bash
-git clone <repository-url>
-cd PlayCure
-
-# Скопировать переменные окружения
+git clone <repository>
+cd game-recommender-ai
 cp env.example .env
-
-# Отредактировать .env файл с вашими API ключами
-nano .env
+# Настройте переменные окружения в .env
 ```
 
-### 2. Запуск с Docker Compose
+### 2. Запуск сервисов
 
 ```bash
 cd infra
-
-# Сгенерировать gRPC код и запустить сервисы
-make proto.gen
 make up
+```
 
-# Проверить статус
+### 3. Проверка статуса
+
+```bash
 make status
-
-# Посмотреть логи
-make logs
+make health
 ```
 
-### 3. Тестирование
+## Конфигурация
 
-```bash
-# Проверить health endpoints
-make test
+### Resilience4j
 
-# Или вручную:
-curl http://localhost:8000/healthz          # AI Service health
-curl http://localhost:8080/actuator/health  # Backend health
-curl http://localhost:8080/api/games/test   # Test gRPC connection
+```properties
+# Circuit Breaker
+resilience4j.circuitbreaker.instances.grpcClient.sliding-window-size=10
+resilience4j.circuitbreaker.instances.grpcClient.failure-rate-threshold=50
+
+# Retry
+resilience4j.retry.instances.grpcClient.max-attempts=3
+resilience4j.retry.instances.grpcClient.wait-duration=1s
+
+# Time Limiter
+resilience4j.timelimiter.instances.grpcClient.timeout-duration=10s
 ```
 
-## 🔧 Разработка
+### Кэширование
 
-### Генерация gRPC кода
+```properties
+# Caffeine (локальное)
+spring.cache.caffeine.spec=maximumSize=1000,expireAfterWrite=1h
 
-```bash
-# Python
-make proto.gen.py
-
-# Java
-make proto.gen.java
-
-# Все языки
-make proto.gen
+# Redis (распределенное)
+spring.data.redis.host=localhost
+spring.data.redis.port=6379
 ```
 
-### Локальная разработка
+### Лимиты запросов
 
-#### Backend (Java)
-```bash
-cd services/backend
-mvn spring-boot:run
+```properties
+# Steam API
+app.rate-limit.steam-api.max-requests-per-second=10
+app.rate-limit.steam-api.max-requests-per-minute=100
+app.rate-limit.steam-api.max-requests-per-hour=1000
+
+# Пользователи
+app.rate-limit.concurrent-users.max=100
 ```
 
-#### AI Service (Python)
-```bash
-cd services/ai-service
-pip install -r requirements.txt
-python -m app.main
+## API Endpoints
+
+### Рекомендации игр
 ```
-
-### Полезные команды
-
-```bash
-make help      # Показать все доступные команды
-make up        # Запустить сервисы
-make down      # Остановить сервисы
-make restart   # Перезапустить сервисы
-make clean     # Очистить все контейнеры и образы
-make logs      # Показать логи всех сервисов
-make test      # Протестировать сервисы
-```
-
-## 📡 API Endpoints
-
-### Backend (Java Spring Boot)
-- **Health**: `GET /actuator/health`
-- **Metrics**: `GET /actuator/metrics`
-- **Prometheus**: `GET /actuator/prometheus`
-- **Game Recommendations**: `POST /api/games/recommend`
-- **Chat**: `POST /api/games/chat`
-- **Test gRPC**: `GET /api/games/test`
-
-### AI Service (Python)
-- **Health**: `GET /healthz`
-- **Metrics**: `GET /metrics`
-- **gRPC**: `localhost:9090`
-
-## 🔌 gRPC API
-
-### GameRecommenderService
-
-```protobuf
-service GameRecommenderService {
-  rpc Recommend(RecommendationRequest) returns (RecommendationResponse);
-  rpc Chat(ChatRequest) returns (ChatResponse);
+POST /api/games/recommendations
+{
+  "preferences": "action, adventure, open world"
 }
 ```
 
-### Примеры использования
-
-#### Java Client
-```java
-@Autowired
-private GameRecommenderServiceGrpc.GameRecommenderServiceBlockingStub stub;
-
-RecommendationRequest request = RecommendationRequest.newBuilder()
-    .setPreferences("action games with good story")
-    .setMaxRecommendations(5)
-    .build();
-
-RecommendationResponse response = stub.recommend(request);
+### Чат с AI
+```
+POST /api/chat
+{
+  "message": "Какие игры похожи на GTA V?"
+}
 ```
 
-#### Python Client
-```python
-import grpc
-from app.proto import reco_pb2, reco_pb2_grpc
-
-channel = grpc.insecure_channel('localhost:9090')
-stub = reco_pb2_grpc.GameRecommenderServiceStub(channel)
-
-request = reco_pb2.RecommendationRequest(
-    preferences="action games with good story",
-    max_recommendations=5
-)
-
-response = stub.Recommend(request)
+### Steam API интеграция
+```
+GET /api/steam/games/{gameId}
+GET /api/steam/users/{userId}/games
 ```
 
-## 🤖 AI Providers
+## Мониторинг
 
-### Поддерживаемые провайдеры
+### Health Checks
+- `/actuator/health` - общее состояние сервиса
+- `/actuator/health/grpcClient` - состояние gRPC клиента
+- `/actuator/health/redis` - состояние Redis
 
-- **DeepSeek** - основной AI провайдер
-- **GigaChat** - альтернативный провайдер
+### Метрики
+- `/actuator/metrics` - Prometheus метрики
+- `/actuator/prometheus` - экспорт метрик
 
-### Конфигурация
-
+### Логирование
 ```bash
-# В .env файле
-DEEPSEEK_API_KEY=your-deepseek-api-key
-GIGACHAT_API_KEY=your-gigachat-api-key
+make logs-backend    # Логи backend
+make logs-ai         # Логи AI сервиса
+make logs-redis      # Логи Redis
 ```
 
-## 🐳 Docker
+## Управление
 
-### Образы
-
-- **backend**: Java 21 + Spring Boot
-- **ai-service**: Python 3.11 + gRPC + FastAPI
-
-### Порты
-
-- **8080**: Backend HTTP API
-- **8000**: AI Service HTTP (health/metrics)
-- **9090**: AI Service gRPC
-
-## 🔮 BentoML готовность
-
-Архитектура подготовлена для будущей миграции на BentoML:
-
-- **Стабильный gRPC контракт** - `reco.proto` остается неизменным
-- **Переиспользуемая логика провайдеров** - в `app/services/`
-- **Простая замена** - заменить Python entrypoint на `bentoml serve-grpc`
-
-## 🧪 Тестирование
-
+### Основные команды
 ```bash
-# Backend tests
+make up              # Запуск
+make down            # Остановка
+make restart         # Перезапуск
+make build           # Пересборка
+make clean           # Очистка
+```
+
+### Мониторинг
+```bash
+make status          # Статус сервисов
+make health          # Проверка здоровья
+make monitor         # Мониторинг ресурсов
+```
+
+## Производительность
+
+### Критерии
+- **N параллельных логинов**: 100 пользователей
+- **QPS к Steam API**: 10 запросов/сек
+- **Время отклика**: < 2 секунды
+- **Доступность**: 99.9%
+
+### Стратегии оптимизации
+1. **Кэширование** - снижение нагрузки на внешние API
+2. **Circuit Breaker** - быстрый отказ при недоступности
+3. **Retry** - автоматическое восстановление
+4. **Rate Limiting** - контроль нагрузки
+5. **Connection Pooling** - переиспользование соединений
+
+## Разработка
+
+### Тестирование
+```bash
+make test            # Запуск всех тестов
+cd services/backend && ./mvnw test
+cd services/ai-service && python -m pytest
+```
+
+### Локальная разработка
+```bash
+# Backend
 cd services/backend
-mvn test
+./mvnw spring-boot:run
 
-# AI Service tests
+# AI Service
 cd services/ai-service
-pytest
+python -m uvicorn app.main:app --reload
+
+# Redis
+docker run -d -p 6379:6379 redis:7-alpine
 ```
 
-## 📊 Мониторинг
+## Тестирование системы
 
-- **Health checks** для всех сервисов
-- **Prometheus метрики** в backend
-- **Базовые метрики** в AI service
-- **Docker health checks** с автоматическим перезапуском
-
-## 🚨 Troubleshooting
-
-### Проблемы с gRPC
-
-1. Проверить, что AI service запущен на порту 9090
-2. Проверить логи: `make logs.ai`
-3. Проверить health endpoint: `curl http://localhost:8000/healthz`
-
-### Проблемы с Backend
-
-1. Проверить логи: `make logs.backend`
-2. Проверить health endpoint: `curl http://localhost:8080/actuator/health`
-3. Проверить gRPC соединение: `curl http://localhost:8080/api/games/test`
-
-### Пересборка
+### 1. Проверка Resilience4j
 
 ```bash
-make rebuild  # Полная пересборка всех сервисов
+# Запустите тесты
+cd services/backend
+./mvnw test -Dtest=Resilience4jTest
+
+# Проверьте Circuit Breaker
+curl http://localhost:8080/actuator/health/grpcClient
 ```
 
-## 📝 TODO
+### 2. Проверка кэширования
 
-- [ ] Реализовать реальные API вызовы к DeepSeek
-- [ ] Реализовать реальные API вызовы к GigaChat
-- [ ] Добавить аутентификацию
-- [ ] Добавить rate limiting
-- [ ] Улучшить метрики и мониторинг
-- [ ] Добавить CI/CD pipeline
-- [ ] Подготовить к продакшену
+```bash
+# Первый запрос (без кэша)
+curl -X POST http://localhost:8080/api/games/recommendations \
+  -H "Content-Type: application/json" \
+  -d '{"preferences": "action games"}'
 
-## 🤝 Вклад в проект
+# Второй запрос (из кэша)
+curl -X POST http://localhost:8080/api/games/recommendations \
+  -H "Content-Type: application/json" \
+  -d '{"preferences": "action games"}'
+```
 
-1. Fork репозитория
-2. Создать feature branch
-3. Внести изменения
-4. Добавить тесты
-5. Создать Pull Request
+### 3. Проверка Rate Limiting
 
-## 📄 Лицензия
+```bash
+# Симуляция множественных запросов
+for i in {1..15}; do
+  curl -X POST http://localhost:8080/api/chat \
+    -H "Content-Type: application/json" \
+    -d "{\"message\": \"test message $i\"}"
+  echo "Request $i completed"
+  sleep 0.1
+done
+```
 
-MIT License
+### 4. Проверка Redis
+
+```bash
+# Подключение к Redis
+make redis-cli
+
+# В Redis CLI
+KEYS *
+INFO memory
+```
+
+## Troubleshooting
+
+### Частые проблемы
+
+1. **Redis недоступен**
+   ```bash
+   make logs-redis
+   docker-compose exec redis redis-cli ping
+   ```
+
+2. **gRPC соединение**
+   ```bash
+   make logs-backend
+   curl http://localhost:8080/actuator/health/grpcClient
+   ```
+
+3. **Rate Limiting**
+   ```bash
+   make logs-backend | grep "Rate limit"
+   ```
+
+### Логи и отладка
+```bash
+# Подробные логи
+docker-compose logs -f --tail=100
+
+# Отладка конкретного сервиса
+docker-compose exec backend sh
+docker-compose exec ai-service sh
+```
+
+## Метрики и мониторинг
+
+### Prometheus метрики
+
+```bash
+# Получение метрик
+curl http://localhost:8080/actuator/prometheus
+
+# Основные метрики
+curl http://localhost:8080/actuator/metrics
+curl http://localhost:8080/actuator/metrics/resilience4j.circuitbreaker.calls
+curl http://localhost:8080/actuator/metrics/cache.gets
+```
+
+### Логирование
+
+```bash
+# Фильтрация логов по компонентам
+make logs-backend | grep "CircuitBreaker"
+make logs-backend | grep "Rate limit"
+make logs-backend | grep "Cache"
+```
+
+## Производительность в продакшене
+
+### Настройки JVM
+
+```bash
+# Оптимизированные настройки для продакшена
+JAVA_OPTS="-Xms2g -Xmx4g -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+```
+
+### Мониторинг Redis
+
+```bash
+# Проверка производительности Redis
+docker-compose exec redis redis-cli --latency
+docker-compose exec redis redis-cli --latency-history
+```
+
+### Нагрузочное тестирование
+
+```bash
+# Установка Apache Bench
+sudo apt-get install apache2-utils
+
+# Тест производительности
+ab -n 1000 -c 10 -H "Content-Type: application/json" \
+   -p test-data.json \
+   http://localhost:8080/api/games/recommendations
+```
