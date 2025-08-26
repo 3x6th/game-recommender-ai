@@ -19,14 +19,14 @@ public class JwtUtil {
     @Value("${spring.application.name}")
     private String issuer;
 
-    public String createGuestAccessToken(String sessionId, Duration ttl) {
+    public String createToken(String sessionId, Duration ttl, UserRole role) {
         Algorithm alg = Algorithm.HMAC256(jwtSecret);
         Instant now = Instant.now();
         Date expiresAt = Date.from(now.plus(ttl));
         return JWT.create()
                 .withIssuer(issuer)
-                .withSubject("guest:" + sessionId)
-                .withClaim("role", UserRole.GUEST.getAuthority())
+                .withSubject("SessionId:" + sessionId)
+                .withClaim("role", role.getAuthority())
                 .withIssuedAt(Date.from(now))
                 .withExpiresAt(expiresAt)
                 .sign(alg);

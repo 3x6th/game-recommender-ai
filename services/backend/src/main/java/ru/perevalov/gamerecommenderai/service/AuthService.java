@@ -1,9 +1,11 @@
 package ru.perevalov.gamerecommenderai.service;
 
+import com.auth0.jwt.interfaces.DecodedJWT;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
 import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenResponse;
 import ru.perevalov.gamerecommenderai.entity.RefreshToken;
@@ -27,25 +29,26 @@ public class AuthService {
     private long accessTtl;
     @Value("${tokens.refresh-token.ttl-in-days}")
     private long refreshTtl;
-    private final Duration ACCESS_TTL = Duration.ofMinutes(accessTtl);
-    private final Duration REFRESH_TTL = Duration.ofDays(refreshTtl);
 
+    private Duration getAccessTtl()  {return Duration.ofMinutes(accessTtl);}
+    private Duration getRefreshTtl() {return Duration.ofDays(refreshTtl)  ;}
+
+    @Transactional
     public PreAuthResponse preAuthorize() {
         String sessionId = UUID.randomUUID().toString();
-        String accessToken = jwtUtil.createGuestAccessToken(sessionId, ACCESS_TTL);
-        String refreshToken = UUID.randomUUID().toString();
+        String accessToken = jwtUtil.createToken(sessionId, getAccessTtl(), UserRole.GUEST);
 
+        String refreshToken = jwtUtil.createToken(sessionId, getRefreshTtl(), UserRole.GUEST);
         RefreshToken entity = new RefreshToken();
         entity.setToken(refreshToken);
         entity.setSessionId(sessionId);
-        entity.setExpiresAt(Instant.now().plus(REFRESH_TTL));
         refreshTokenRepository.save(entity);
 
         return PreAuthResponse.builder()
                 .accessToken(accessToken)
-                .accessExpiresIn(ACCESS_TTL.toSeconds())
+                .accessExpiresIn(getAccessTtl().toSeconds())
                 .refreshToken(refreshToken)
-                .refreshExpiresIn(REFRESH_TTL.toSeconds())
+                .refreshExpiresIn(getRefreshTtl().toSeconds())
                 .role(UserRole.GUEST.getAuthority())
                 .sessionId(sessionId)
                 .build();
@@ -64,11 +67,22 @@ public class AuthService {
                     "AUTH_REFRESH_TOKEN_INVALID",
                     HttpStatus.UNAUTHORIZED.value());
         }
-        String newAccessToken = jwtUtil.createGuestAccessToken(refreshToken.getSessionId(), ACCESS_TTL);
+
+        DecodedJWT decoded = jwtUtil.decodeToken(refreshToken.getToken());
+        Instant expiresAt = decoded.getExpiresAtAsInstant();
+
+        if (expiresAt.isBefore(Instant.now())) {
+            throw new GameRecommenderException(
+                    "Refresh token expired",
+                    "AUTH_REFRESH_TOKEN_INVALID",
+                    HttpStatus.UNAUTHORIZED.value());
+        }
+
+        String newAccessToken = jwtUtil.createToken(refreshToken.getSessionId(), getAccessTtl(), UserRole.GUEST);
 
         return RefreshAccessTokenResponse.builder()
                 .accessToken(newAccessToken)
-                .accessExpiresIn(ACCESS_TTL.toSeconds())
+                .accessExpiresIn(getAccessTtl().toSeconds())
                 .build();
     }
 }

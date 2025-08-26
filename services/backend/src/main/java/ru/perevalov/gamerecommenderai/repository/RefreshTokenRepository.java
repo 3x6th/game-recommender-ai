@@ -7,6 +7,6 @@ import java.util.List;
 import java.util.Optional;
 
 public interface RefreshTokenRepository extends JpaRepository<RefreshToken, Long> {
-    Optional<RefreshToken> findByToken(String token);
+    Optional<RefreshToken> findByToken(String token); //TODO: Поставить индекс на поле в настоящей базе
     List<RefreshToken> findBySessionId(String sessionId);
 }

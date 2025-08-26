@@ -19,12 +19,9 @@ public class RefreshToken {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true)
-    private String token; // UUID string
+    @Column(nullable = false, unique = true, length = 2048)
+    private String token;
 
     @Column(nullable = false)
     private String sessionId;
-
-    @Column(nullable = false)
-    private Instant expiresAt;
 }
