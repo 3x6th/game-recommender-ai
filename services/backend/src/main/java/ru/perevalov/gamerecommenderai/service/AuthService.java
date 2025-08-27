@@ -55,11 +55,7 @@ public class AuthService {
     }
 
     public RefreshAccessTokenResponse refresh(String inputRefreshToken) {
-        RefreshToken refreshToken = refreshTokenRepository.findByToken(inputRefreshToken).orElseThrow(() ->
-                new GameRecommenderException(
-                        "Refresh token not found",
-                        "AUTH_REFRESH_TOKEN_INVALID",
-                        HttpStatus.UNAUTHORIZED.value()));
+        RefreshToken refreshToken = refreshTokenRepository.findByTokenOrThrow(inputRefreshToken);
 
         if (refreshToken.getToken() == null || refreshToken.getToken().isBlank()) {
             throw new GameRecommenderException(
