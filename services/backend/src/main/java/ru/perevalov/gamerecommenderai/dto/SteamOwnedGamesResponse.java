@@ -21,6 +21,8 @@ public class SteamOwnedGamesResponse {
         @JsonProperty("appid")
         private long appId;
         private String name;
+        @JsonProperty("playtime_2weeks")
+        private int playtime2weeks;
         @JsonProperty("playtime_forever")
         private int playtimeForever;
     }
