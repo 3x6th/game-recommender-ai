@@ -36,10 +36,10 @@ public class SteamApiService {
      * @param userId идентификатор пользователя (для rate limiting)
      * @return реактивный Mono с картой результата
      */
-    @CircuitBreaker(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @Retry(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @TimeLimiter(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @Cacheable(value = "steamData", key = "#gameId")
+    @CircuitBreaker(name = SteamApiConstants.STEAM_API_CIRCUIT_BREAKER_VALUE, fallbackMethod = "steamApiFallback")
+    @Retry(name = SteamApiConstants.STEAM_API_RETRY_VALUE, fallbackMethod = "steamApiFallback")
+    @TimeLimiter(name = SteamApiConstants.STEAM_API_TIME_LIMITER_VALUE, fallbackMethod = "steamApiFallback")
+    @Cacheable(value = SteamApiConstants.STEAM_DATA_CACHE_VALUE, key = "#gameId")
     public Mono<Map<String, Object>> getGameDetails(String gameId, String userId) {
         if (rateLimitService.isRateLimited(userId)) {
             log.warn("Rate limit exceeded for user: {}", userId);
@@ -66,10 +66,10 @@ public class SteamApiService {
      * @param userId идентификатор пользователя Steam
      * @return реактивный Mono с картой результата
      */
-    @CircuitBreaker(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @Retry(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @TimeLimiter(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @Cacheable(value = "steamData", key = "'user_games_' + #userId")
+    @CircuitBreaker(name = SteamApiConstants.STEAM_API_CIRCUIT_BREAKER_VALUE, fallbackMethod = "steamApiFallback")
+    @Retry(name = SteamApiConstants.STEAM_API_RETRY_VALUE, fallbackMethod = "steamApiFallback")
+    @TimeLimiter(name = SteamApiConstants.STEAM_API_TIME_LIMITER_VALUE, fallbackMethod = "steamApiFallback")
+    @Cacheable(value = SteamApiConstants.STEAM_DATA_CACHE_VALUE, key = "'user_games_' + #userId")
     public Mono<Map<String, Object>> getUserGames(String userId) {
         if (rateLimitService.isRateLimited(userId)) {
             log.warn("Rate limit exceeded for user: {}", userId);
@@ -97,10 +97,10 @@ public class SteamApiService {
      * @param userId идентификатор пользователя (для rate limiting)
      * @return реактивный Mono с картой результата
      */
-    @CircuitBreaker(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @Retry(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @TimeLimiter(name = "steamApi", fallbackMethod = "steamApiFallback")
-    @Cacheable(value = "steamData", key = "'game_recommendations_' + #gameId")
+    @CircuitBreaker(name = SteamApiConstants.STEAM_API_CIRCUIT_BREAKER_VALUE, fallbackMethod = "steamApiFallback")
+    @Retry(name = SteamApiConstants.STEAM_API_RETRY_VALUE, fallbackMethod = "steamApiFallback")
+    @TimeLimiter(name = SteamApiConstants.STEAM_API_TIME_LIMITER_VALUE, fallbackMethod = "steamApiFallback")
+    @Cacheable(value = SteamApiConstants.STEAM_DATA_CACHE_VALUE, key = "'game_recommendations_' + #gameId")
     public Mono<Map<String, Object>> getGameRecommendations(String gameId, String userId) {
         if (rateLimitService.isRateLimited(userId)) {
             log.warn("Rate limit exceeded for user: {}", userId);
