@@ -5,18 +5,19 @@ import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
 @Entity
-@Table(name = "refresh_tokens")
+@Table(name = "users")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class RefreshToken extends BaseEntity {
+public class User extends BaseEntity {
 
-    @Column(nullable = false, unique = true, length = 2048)
-    private String token;
+    @Column(unique = true)
+    private Long steamId;
 
-    @Column(nullable = false)
-    private String sessionId;
+    @Enumerated(EnumType.STRING)
+    private UserRole role;
 }

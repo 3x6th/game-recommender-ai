@@ -16,6 +16,7 @@ public class PreAuthResponse {
     private long    refreshExpiresIn; // seconds
     private String  role;
     private String  sessionId;
+    private Long steamId;
 }
 
 
