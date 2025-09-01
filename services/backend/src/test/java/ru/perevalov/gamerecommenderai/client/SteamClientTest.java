@@ -6,9 +6,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import ru.perevalov.gamerecommenderai.config.SteamProps;
 import ru.perevalov.gamerecommenderai.dto.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.SteamPlayerResponse;
 
@@ -19,30 +19,22 @@ import java.util.function.Function;
 
 class SteamClientTest {
     private WebClient webClientMock;
-    private WebClient.Builder webClientBuilderMock;
     private SteamClient steamClient;
-
-    @Value("${steam.getPlayerSummariesPath}")
-    private String getPlayerSummariesPath;
-    @Value("${steam.getOwnedGamesPath}")
-    private String getOwnedGamesPath;
-
 
     @BeforeEach
     void setUp() {
         webClientMock = Mockito.mock(WebClient.class, Mockito.RETURNS_DEEP_STUBS);
 
-        webClientBuilderMock = Mockito.mock(WebClient.Builder.class, Mockito.RETURNS_DEEP_STUBS);
-        Mockito.when(webClientBuilderMock.baseUrl(ArgumentMatchers.anyString())).thenReturn(webClientBuilderMock);
-        Mockito.when(webClientBuilderMock.build()).thenReturn(webClientMock);
-
-        steamClient = new SteamClient(
-                webClientBuilderMock,
+        SteamProps steamProps = new SteamProps(
                 "https://dummy.url",
                 "dummyKey",
-                getPlayerSummariesPath,
-                getOwnedGamesPath
+                "/ISteamUser/GetPlayerSummaries/v0002/",
+                "/IPlayerService/GetOwnedGames/v0001/",
+                3,
+                5L
         );
+
+        steamClient = new SteamClient(webClientMock, steamProps);
     }
 
     @Test
@@ -107,7 +99,7 @@ class SteamClientTest {
     }
 
     @Test
-    void testFetchPlayerSummaries_PrivateProfile_returnsEmptyPlayers() {
+    void testFetchPlayerSummaries_privateProfile_returnsEmptyPlayers() {
 
         SteamPlayerResponse emptyProfile = new SteamPlayerResponse();
 
@@ -126,7 +118,7 @@ class SteamClientTest {
     }
 
     @Test
-    void testFetchOwnedGames_EmptyLibrary_returnsZeroGames() {
+    void testFetchOwnedGames_emptyLibrary_returnsZeroGames() {
 
         SteamOwnedGamesResponse emptyGames = new SteamOwnedGamesResponse();
         SteamOwnedGamesResponse.Response inner = new SteamOwnedGamesResponse.Response();

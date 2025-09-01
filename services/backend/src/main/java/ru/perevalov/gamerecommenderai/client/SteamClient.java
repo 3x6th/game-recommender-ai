@@ -1,55 +1,62 @@
 package ru.perevalov.gamerecommenderai.client;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.util.retry.Retry;
+import ru.perevalov.gamerecommenderai.config.SteamProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
 import ru.perevalov.gamerecommenderai.dto.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.SteamPlayerResponse;
 
 import java.time.Duration;
 
+/**
+ * Client for interacting with the Steam Web API.
+ * <p>
+ * Provides methods to fetch player summaries and owned games using the Steam API.
+ * The client handles retries and logging of requests and responses.
+ * </p>
+ */
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class SteamClient {
 
-    private final WebClient webClient;
-    private final String apiKey;
-    private final String getPlayerSummariesPath;
-    private final String getOwnedGamesPath;
-    @Value("${steam.retry.attempts}")
-    private int retryAttempts;
-    @Value("${steam.retry.delaySeconds}")
-    private long retryDelaySeconds;
+    /**
+     * WebClient instance used to make HTTP requests to the Steam API.
+     */
+    private final WebClient steamWebClient;
 
-    public SteamClient(WebClient.Builder builder,
-                       @Value("${steam.baseUrl}") String baseUrl,
-                       @Value("${steam.apiKey}") String apiKey,
-                       @Value("${steam.getPlayerSummariesPath}") String getPlayerSummariesPath,
-                       @Value("${steam.getOwnedGamesPath}") String getOwnedGamesPath) {
-        this.webClient = builder.baseUrl(baseUrl).build();
-        this.apiKey = apiKey;
-        this.getPlayerSummariesPath = getPlayerSummariesPath;
-        this.getOwnedGamesPath = getOwnedGamesPath;
-    }
+    /**
+     * Configuration properties for the Steam API, including base URL, API key,
+     * endpoint paths, and retry settings.
+     */
+    private final SteamProps props;
 
+    /**
+     * Fetches player summary information for a single Steam ID.
+     *
+     * @param steamId the Steam ID of the player to fetch
+     * @return a {@link SteamPlayerResponse} containing player information
+     * @throws RuntimeException if the request to Steam API fails
+     */
     public SteamPlayerResponse fetchPlayerSummaries(String steamId) {
 
         try {
             log.debug("Fetching player summary for steamId={}", steamId);
 
-            SteamPlayerResponse response = webClient.get()
+            SteamPlayerResponse response = steamWebClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path(getPlayerSummariesPath)
-                            .queryParam(SteamApiConstant.KEY, apiKey)
+                            .path(props.getPlayerSummariesPath())
+                            .queryParam(SteamApiConstant.KEY, props.apiKey())
                             .queryParam(SteamApiConstant.STEAMIDS, steamId)
                             .build()
                     )
                     .retrieve()
                     .bodyToMono(SteamPlayerResponse.class)
-                    .retryWhen(Retry.fixedDelay(retryAttempts, Duration.ofSeconds(retryDelaySeconds)))
+                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))
                     .block();
 
             log.debug("Player summary response: {}", response);
@@ -61,6 +68,15 @@ public class SteamClient {
         }
     }
 
+    /**
+     * Fetches the list of games owned by a player.
+     *
+     * @param steamId                 the Steam ID of the player
+     * @param includeAppInfo          whether to include additional app info
+     * @param includePlayedFreeGames  whether to include free games played
+     * @return a {@link SteamOwnedGamesResponse} containing owned games
+     * @throws RuntimeException if the request to Steam API fails
+     */
     public SteamOwnedGamesResponse fetchOwnedGames(String steamId,
                                                    boolean includeAppInfo,
                                                    boolean includePlayedFreeGames) {
@@ -68,10 +84,10 @@ public class SteamClient {
         try {
             log.debug("Fetching owned games for steamId={}", steamId);
 
-            SteamOwnedGamesResponse response = webClient.get()
+            SteamOwnedGamesResponse response = steamWebClient.get()
                     .uri(uriBuilder -> uriBuilder
-                            .path(getOwnedGamesPath)
-                            .queryParam(SteamApiConstant.KEY, apiKey)
+                            .path(props.getOwnedGamesPath())
+                            .queryParam(SteamApiConstant.KEY, props.apiKey())
                             .queryParam(SteamApiConstant.STEAMID, steamId)
                             .queryParam(SteamApiConstant.INCLUDE_APPINFO, includeAppInfo)
                             .queryParam(SteamApiConstant.INCLUDE_PLAYED_FREE_GAMES, includePlayedFreeGames)
@@ -79,7 +95,7 @@ public class SteamClient {
                     )
                     .retrieve()
                     .bodyToMono(SteamOwnedGamesResponse.class)
-                    .retryWhen(Retry.fixedDelay(retryAttempts, Duration.ofSeconds(retryDelaySeconds)))
+                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))
                     .block();
 
             log.debug("Owned games response: {}", response);
