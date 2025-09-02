@@ -39,6 +39,9 @@ public class Resilience4jConfig {
     @Value("${resilience4j.timelimiter.instances.grpcClient.timeout-duration:10s}")
     private Duration timeoutDuration;
 
+    @Value("${app.grpc.resilience.instance-name:grpcClient}")
+    private String grpcInstanceName;
+
     @Bean
     public CircuitBreaker grpcCircuitBreaker() {
         CircuitBreakerConfig config = CircuitBreakerConfig.custom()
@@ -50,7 +53,7 @@ public class Resilience4jConfig {
                 .recordExceptions(Exception.class)
                 .build();
 
-        return CircuitBreaker.of("grpcClient", config);
+        return CircuitBreaker.of(grpcInstanceName, config);
     }
 
     @Bean
@@ -61,7 +64,7 @@ public class Resilience4jConfig {
                 .retryExceptions(Exception.class)
                 .build();
 
-        return Retry.of("grpcClient", config);
+        return Retry.of(grpcInstanceName, config);
     }
 
     @Bean
@@ -70,6 +73,6 @@ public class Resilience4jConfig {
                 .timeoutDuration(timeoutDuration)
                 .build();
 
-        return TimeLimiter.of("grpcClient", config);
+        return TimeLimiter.of(grpcInstanceName, config);
     }
 }

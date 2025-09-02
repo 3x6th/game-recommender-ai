@@ -5,6 +5,7 @@ import io.github.resilience4j.retry.annotation.Retry;
 import io.github.resilience4j.timelimiter.annotation.TimeLimiter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
@@ -23,6 +24,27 @@ public class GameRecommenderService {
     private final SteamApiService steamApiService;
     private final RateLimitService rateLimitService;
 
+    @Value("${app.grpc.recommendation.count:5}")
+    private int defaultRecommendationCount;
+
+    @Value("${app.grpc.errors.communication.code:GRPC_COMMUNICATION_ERROR}")
+    private String grpcCommunicationErrorCode;
+
+    @Value("${app.grpc.errors.ai.code:GRPC_AI_ERROR}")
+    private String grpcAiErrorCode;
+
+    @Value("${app.grpc.messages.comm-error-prefix:Ошибка при обращении к AI сервису: }")
+    private String grpcCommunicationErrorPrefix;
+
+    @Value("${app.grpc.messages.ai-error-prefix:Ошибка от AI сервиса: }")
+    private String grpcAiErrorPrefix;
+
+    @Value("${app.grpc.messages.fallback.recommendations:Сервис временно недоступен. Попробуйте позже.}")
+    private String recommendationsFallbackMessage;
+
+    @Value("${app.grpc.messages.fallback.chat:AI сервис временно недоступен. Попробуйте позже.}")
+    private String chatFallbackMessage;
+
     /**
      * Returns game recommendations from AI service via gRPC.
      * Applies caching, retries, timeout and circuit breaker.
@@ -31,22 +53,22 @@ public class GameRecommenderService {
      * @return response with game recommendations
      * @throws GameRecommenderException when AI service communication fails
      */
-    @CircuitBreaker(name = "grpcClient", fallbackMethod = "getGameRecommendationFallback")
-    @Retry(name = "grpcClient", fallbackMethod = "getGameRecommendationFallback")
-    @TimeLimiter(name = "grpcClient", fallbackMethod = "getGameRecommendationFallback")
-    @Cacheable(value = "gameRecommendations", key = "#preferences")
+    @CircuitBreaker(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "getGameRecommendationFallback")
+    @Retry(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "getGameRecommendationFallback")
+    @TimeLimiter(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "getGameRecommendationFallback")
+    @Cacheable(value = GrpcConstants.CACHE_GAME_RECOMMENDATIONS, key = "#preferences")
     public GameRecommendationResponse getGameRecommendation(String preferences) {
         try {
             log.info("Requesting game recommendations via gRPC for preferences: {}", preferences);
             
-            RecommendationResponse grpcResponse = grpcClient.getRecommendations(preferences, 5);
+            RecommendationResponse grpcResponse = grpcClient.getRecommendations(preferences, defaultRecommendationCount);
             return processGrpcResponse(grpcResponse);
             
         } catch (Exception e) {
             log.error("Error calling gRPC service", e);
             throw new GameRecommenderException(
-                "Ошибка при обращении к AI сервису: " + e.getMessage(),
-                "GRPC_COMMUNICATION_ERROR",
+                grpcCommunicationErrorPrefix + e.getMessage(),
+                grpcCommunicationErrorCode,
                 500
             );
         }
@@ -65,7 +87,7 @@ public class GameRecommenderService {
         
         // Возвращаем базовые рекомендации в случае ошибки
         return GameRecommendationResponse.builder()
-                .recommendation("Сервис временно недоступен. Попробуйте позже.")
+                .recommendation(recommendationsFallbackMessage)
                 .success(false)
                 .build();
     }
@@ -73,8 +95,8 @@ public class GameRecommenderService {
     private GameRecommendationResponse processGrpcResponse(RecommendationResponse grpcResponse) {
         if (!grpcResponse.getSuccess()) {
             throw new GameRecommenderException(
-                "Ошибка от AI сервиса: " + grpcResponse.getMessage(),
-                "GRPC_AI_ERROR",
+                grpcAiErrorPrefix + grpcResponse.getMessage(),
+                grpcAiErrorCode,
                 500
             );
         }
@@ -118,10 +140,10 @@ public class GameRecommenderService {
      * @return ответ AI сервиса
      * @throws GameRecommenderException при ошибке обращения к AI сервису
      */
-    @CircuitBreaker(name = "grpcClient", fallbackMethod = "chatWithAIFallback")
-    @Retry(name = "grpcClient", fallbackMethod = "chatWithAIFallback")
-    @TimeLimiter(name = "grpcClient", fallbackMethod = "chatWithAIFallback")
-    @Cacheable(value = "userPreferences", key = "#message")
+    @CircuitBreaker(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "chatWithAIFallback")
+    @Retry(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "chatWithAIFallback")
+    @TimeLimiter(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "chatWithAIFallback")
+    @Cacheable(value = GrpcConstants.CACHE_USER_PREFERENCES, key = "#message")
     public GameRecommendationResponse chatWithAI(String message) {
         try {
             log.info("Sending chat message via gRPC: {}", message);
@@ -151,7 +173,7 @@ public class GameRecommenderService {
                 message, exception.getMessage());
         
         return GameRecommendationResponse.builder()
-                .recommendation("AI сервис временно недоступен. Попробуйте позже.")
+                .recommendation(chatFallbackMessage)
                 .success(false)
                 .build();
     }
