@@ -6,47 +6,48 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * Represents the response from the Steam API for player summaries.
+ * Представляет ответ от Steam API для получения сводной информации об игроках.
  */
 @Data
 public class SteamPlayerResponse {
 
     /**
-     * Wrapper object containing the list of players.
+     * Объект-обёртка, содержащий список игроков.
      */
     private Response response;
 
     /**
-     * Inner class representing the response wrapper from the Steam API.
+     * Внутренний класс, представляющий обёртку ответа Steam API.
      */
     @Data
     public static class Response {
+
         /**
-         * List of Steam players returned by the API.
+         * Список игроков, возвращаемых API.
          */
         private List<Player> players;
     }
 
     /**
-     * Represents a single Steam player.
+     * Модель одного игрока Steam.
      */
     @Data
     public static class Player {
 
         /**
-         * Unique Steam ID of the player.
+         * Уникальный Steam ID игрока.
          */
         @JsonProperty("steamid")
         private String steamId;
 
         /**
-         * Display persona name of the player.
+         * Отображаемое имя (persona name) игрока.
          */
         @JsonProperty("personaname")
         private String personaName;
 
         /**
-         * Full URL to the player's avatar image.
+         * Полный URL аватарки игрока.
          */
         @JsonProperty("avatarfull")
         private String avatarFull;

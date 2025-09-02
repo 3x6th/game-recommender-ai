@@ -13,10 +13,10 @@ import ru.perevalov.gamerecommenderai.dto.SteamPlayerResponse;
 import java.time.Duration;
 
 /**
- * Client for interacting with the Steam Web API.
+ * Клиент для взаимодействия с Steam Web API.
  * <p>
- * Provides methods to fetch player summaries and owned games using the Steam API.
- * The client handles retries and logging of requests and responses.
+ * Предоставляет методы для получения информации о пользователях и их играх через Steam API.
+ * Клиент обрабатывает повторные попытки запросов и ведёт логирование запросов и ответов.
  * </p>
  */
 @Component
@@ -25,22 +25,22 @@ import java.time.Duration;
 public class SteamClient {
 
     /**
-     * WebClient instance used to make HTTP requests to the Steam API.
+     * Экземпляр WebClient, используемый для выполнения HTTP-запросов к Steam API.
      */
     private final WebClient steamWebClient;
 
     /**
-     * Configuration properties for the Steam API, including base URL, API key,
-     * endpoint paths, and retry settings.
+     * Конфигурационные параметры Steam API, включающие базовый URL, API-ключ,
+     * пути к эндпоинтам и настройки повторных попыток.
      */
     private final SteamProps props;
 
     /**
-     * Fetches player summary information for a single Steam ID.
+     * Получает информацию о пользователе по одному Steam ID.
      *
-     * @param steamId the Steam ID of the player to fetch
-     * @return a {@link SteamPlayerResponse} containing player information
-     * @throws RuntimeException if the request to Steam API fails
+     * @param steamId Steam ID пользователя, информацию о котором нужно получить
+     * @return {@link SteamPlayerResponse}, содержащий данные о пользователе
+     * @throws RuntimeException если запрос к Steam API завершился неудачно
      */
     public SteamPlayerResponse fetchPlayerSummaries(String steamId) {
 
@@ -69,13 +69,13 @@ public class SteamClient {
     }
 
     /**
-     * Fetches the list of games owned by a player.
+     * Получает список игр, принадлежащих пользователю.
      *
-     * @param steamId                 the Steam ID of the player
-     * @param includeAppInfo          whether to include additional app info
-     * @param includePlayedFreeGames  whether to include free games played
-     * @return a {@link SteamOwnedGamesResponse} containing owned games
-     * @throws RuntimeException if the request to Steam API fails
+     * @param steamId                Steam ID пользователя
+     * @param includeAppInfo         указывает, нужно ли включать дополнительную информацию об играх
+     * @param includePlayedFreeGames указывает, нужно ли включать бесплатные игры, в которые играл пользователь
+     * @return {@link SteamOwnedGamesResponse}, содержащий список игр пользователя
+     * @throws RuntimeException если запрос к Steam API завершился неудачно
      */
     public SteamOwnedGamesResponse fetchOwnedGames(String steamId,
                                                    boolean includeAppInfo,

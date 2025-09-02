@@ -6,59 +6,59 @@ import lombok.Data;
 import java.util.List;
 
 /**
- * Model for the Steam API response when fetching a user's owned games.
+ * Модель ответа Steam API при получении списка игр пользователя.
  */
 @Data
 public class SteamOwnedGamesResponse {
 
     /**
-     * Contains the games data and their count.
+     * Содержит данные об играх и их количестве.
      */
     private Response response;
 
     /**
-     * Inner class representing the response wrapper from the Steam API.
+     * Внутренний класс, представляющий обёртку ответа Steam API.
      */
     @Data
     public static class Response {
 
         /**
-         * Total number of games owned by the user.
+         * Общее количество игр у пользователя.
          */
         @JsonProperty("game_count")
         private int gameCount;
 
         /**
-         * List of the user's games.
+         * Список игр пользователя.
          */
         private List<Game> games;
     }
 
     /**
-     * Model for a single game owned by the user.
+     * Модель отдельной игры пользователя.
      */
     @Data
     public static class Game {
 
         /**
-         * Steam App ID of the game.
+         * Steam App ID игры.
          */
         @JsonProperty("appid")
         private long appId;
 
         /**
-         * Name of the game.
+         * Название игры.
          */
         private String name;
 
         /**
-         * Playtime in the last 2 weeks, in minutes.
+         * Время игры за последние 2 недели в минутах.
          */
         @JsonProperty("playtime_2weeks")
         private int playtime2weeks;
 
         /**
-         * Total playtime, in minutes.
+         * Общее время игры в минутах.
          */
         @JsonProperty("playtime_forever")
         private int playtimeForever;
