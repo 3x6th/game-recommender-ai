@@ -38,7 +38,7 @@ class SteamClientTest {
     }
 
     @Test
-    void testFetchPlayerSummaries_mapping() throws Exception {
+    void fetchPlayerSummaries_validJsonResponse_correctMapping() throws Exception {
 
         String json = Files.readString(
                 Paths.get(getClass().getClassLoader().getResource("steam/player_summaries.json").toURI())
@@ -64,7 +64,7 @@ class SteamClientTest {
     }
 
     @Test
-    void testFetchOwnedGames_mapping() throws Exception {
+    void fetchOwnedGames_validJsonResponse_correctMapping() throws Exception {
 
         String json = Files.readString(
                 Paths.get(getClass().getClassLoader().getResource("steam/fetch_owned_games.json").toURI())
@@ -99,7 +99,7 @@ class SteamClientTest {
     }
 
     @Test
-    void testFetchPlayerSummaries_privateProfile_returnsEmptyPlayers() {
+    void fetchPlayerSummaries_privateProfile_returnsEmptyPlayers() {
 
         SteamPlayerResponse emptyProfile = new SteamPlayerResponse();
 
@@ -118,7 +118,7 @@ class SteamClientTest {
     }
 
     @Test
-    void testFetchOwnedGames_emptyLibrary_returnsZeroGames() {
+    void fetchOwnedGames_emptyLibrary_returnsZeroGames() {
 
         SteamOwnedGamesResponse emptyGames = new SteamOwnedGamesResponse();
         SteamOwnedGamesResponse.Response inner = new SteamOwnedGamesResponse.Response();
