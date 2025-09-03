@@ -6,38 +6,16 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryConfig;
 import io.github.resilience4j.timelimiter.TimeLimiter;
 import io.github.resilience4j.timelimiter.TimeLimiterConfig;
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.time.Duration;
-
 @Configuration
+@RequiredArgsConstructor
 public class Resilience4jConfig {
 
-    @Value("${resilience4j.circuitbreaker.instances.grpcClient.sliding-window-size:10}")
-    private int slidingWindowSize;
-
-    @Value("${resilience4j.circuitbreaker.instances.grpcClient.minimum-number-of-calls:5}")
-    private int minimumNumberOfCalls;
-
-    @Value("${resilience4j.circuitbreaker.instances.grpcClient.permitted-number-of-calls-in-half-open-state:3}")
-    private int permittedNumberOfCallsInHalfOpenState;
-
-    @Value("${resilience4j.circuitbreaker.instances.grpcClient.wait-duration-in-open-state:30s}")
-    private Duration waitDurationInOpenState;
-
-    @Value("${resilience4j.circuitbreaker.instances.grpcClient.failure-rate-threshold:50}")
-    private float failureRateThreshold;
-
-    @Value("${resilience4j.retry.instances.grpcClient.max-attempts:3}")
-    private int maxAttempts;
-
-    @Value("${resilience4j.retry.instances.grpcClient.wait-duration:1s}")
-    private Duration retryWaitDuration;
-
-    @Value("${resilience4j.timelimiter.instances.grpcClient.timeout-duration:10s}")
-    private Duration timeoutDuration;
+    private final GrpcResilienceProperties grpcResilienceProperties;
 
     @Value("${app.grpc.resilience.instance-name:grpcClient}")
     private String grpcInstanceName;
@@ -45,11 +23,11 @@ public class Resilience4jConfig {
     @Bean
     public CircuitBreaker grpcCircuitBreaker() {
         CircuitBreakerConfig config = CircuitBreakerConfig.custom()
-                .slidingWindowSize(slidingWindowSize)
-                .minimumNumberOfCalls(minimumNumberOfCalls)
-                .permittedNumberOfCallsInHalfOpenState(permittedNumberOfCallsInHalfOpenState)
-                .waitDurationInOpenState(waitDurationInOpenState)
-                .failureRateThreshold(failureRateThreshold)
+                .slidingWindowSize(grpcResilienceProperties.getCircuitBreaker().getInstances().getGrpcClient().getSlidingWindowSize())
+                .minimumNumberOfCalls(grpcResilienceProperties.getCircuitBreaker().getInstances().getGrpcClient().getMinimumNumberOfCalls())
+                .permittedNumberOfCallsInHalfOpenState(grpcResilienceProperties.getCircuitBreaker().getInstances().getGrpcClient().getPermittedNumberOfCallsInHalfOpenState())
+                .waitDurationInOpenState(grpcResilienceProperties.getCircuitBreaker().getInstances().getGrpcClient().getWaitDurationInOpenState())
+                .failureRateThreshold(grpcResilienceProperties.getCircuitBreaker().getInstances().getGrpcClient().getFailureRateThreshold())
                 .recordExceptions(Exception.class)
                 .build();
 
@@ -59,8 +37,8 @@ public class Resilience4jConfig {
     @Bean
     public Retry grpcRetry() {
         RetryConfig config = RetryConfig.custom()
-                .maxAttempts(maxAttempts)
-                .waitDuration(retryWaitDuration)
+                .maxAttempts(grpcResilienceProperties.getRetry().getInstances().getGrpcClient().getMaxAttempts())
+                .waitDuration(grpcResilienceProperties.getRetry().getInstances().getGrpcClient().getWaitDuration())
                 .retryExceptions(Exception.class)
                 .build();
 
@@ -70,7 +48,7 @@ public class Resilience4jConfig {
     @Bean
     public TimeLimiter grpcTimeLimiter() {
         TimeLimiterConfig config = TimeLimiterConfig.custom()
-                .timeoutDuration(timeoutDuration)
+                .timeoutDuration(grpcResilienceProperties.getTimeLimiter().getInstances().getGrpcClient().getTimeoutDuration())
                 .build();
 
         return TimeLimiter.of(grpcInstanceName, config);
