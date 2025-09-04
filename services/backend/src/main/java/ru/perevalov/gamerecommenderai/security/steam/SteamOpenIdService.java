@@ -1,0 +1,103 @@
+package ru.perevalov.gamerecommenderai.security.steam;
+
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
+import org.springframework.web.reactive.function.client.WebClient;
+import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
+import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.security.openid.OpenIdMode;
+import ru.perevalov.gamerecommenderai.security.openid.OpenIdParam;
+
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+@Slf4j
+@Service
+@RequiredArgsConstructor
+public class SteamOpenIdService {
+    private final WebClient webClient;
+    @Value("${steam.openid.endpoint}")
+    private String steamOpenIdLoginUrl;
+
+    /**
+     * Отправляем запрос в Steam для проверки аутентификации пользователя.
+     * Проверяем действительно ли запрос пришел от Steam, а не подделан.
+     */
+    public void verifyResponse(OpenIdResponse openIdResponse) {
+        MultiValueMap<String, String> form = responseToMultiValueMap(openIdResponse);
+        String endpoint = openIdResponse.getOpEndpoint();
+        boolean opEndpointCheckOutSuccessfully = isValidOpEndpoint(endpoint);
+        if (!opEndpointCheckOutSuccessfully) {
+            throw new GameRecommenderException(
+                    "OpenID validation failed: opEndpoint differs from expected in openId authorization flow through Steam." +
+                            " Endpoint: " + openIdResponse.getOpEndpoint(),
+                    "OPENID_VALIDATION_FAILED",
+                    HttpStatus.UNAUTHORIZED.value()
+            );
+        }
+
+        String body = webClient.post()
+                .uri(endpoint)
+                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                .body(BodyInserters.fromFormData(form))
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+
+        if (body == null || !body.contains("is_valid:true")) {
+            throw new GameRecommenderException(
+                    "OpenID validation failed: Steam returned invalid response. Endpoint: "
+                            + openIdResponse.getOpEndpoint() + ", body: " + body,
+                    "OPENID_VALIDATION_FAILED",
+                    HttpStatus.UNAUTHORIZED.value()
+            );
+        }
+    }
+
+    private boolean isValidOpEndpoint(String opEndpoint) {
+        return opEndpoint.equals(steamOpenIdLoginUrl);
+    }
+
+    /**
+     * Вытаскиваем steam id из url.
+     *
+     * @param claimedId передается из объекта класса OpenIdResponse.
+     * @return steam id в формате long
+     */
+    public Long extractSteamIdFromClaimedId(String claimedId) {
+        Matcher m = Pattern.compile(".*/id/(\\d+)$").matcher(claimedId);
+
+        if (!m.find()) {
+            log.error("Steam id extraction failed from claimedId={}", claimedId);
+            throw new RuntimeException("Extract steam id exception. " +
+                    "Expected correct string with claim id, e.g. https://steamcommunity.com/id/76561197973845818");
+        }
+
+        String steamId64 = m.group(1);
+        return Long.parseLong(steamId64);
+    }
+
+    private MultiValueMap<String, String> responseToMultiValueMap(OpenIdResponse openIdResponse) {
+        MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
+
+        form.add(OpenIdParam.NS.getKey(), openIdResponse.getNs());
+        form.add(OpenIdParam.MODE.getKey(), OpenIdMode.CHECK_AUTHENTICATION.getValue());
+        form.add(OpenIdParam.OP_ENDPOINT.getKey(), openIdResponse.getOpEndpoint());
+        form.add(OpenIdParam.CLAIMED_ID.getKey(), openIdResponse.getClaimedId());
+        form.add(OpenIdParam.IDENTITY.getKey(), openIdResponse.getIdentity());
+        form.add(OpenIdParam.RETURN_TO.getKey(), openIdResponse.getReturnTo());
+        form.add(OpenIdParam.RESPONSE_NONCE.getKey(), openIdResponse.getResponseNonce());
+        form.add(OpenIdParam.ASSOC_HANDLE.getKey(), openIdResponse.getAssocHandle());
+        form.add(OpenIdParam.SIGNED.getKey(), openIdResponse.getSigned());
+        form.add(OpenIdParam.SIG.getKey(), openIdResponse.getSig());
+
+        return form;
+    }
+}
