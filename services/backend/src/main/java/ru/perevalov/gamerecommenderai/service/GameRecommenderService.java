@@ -21,8 +21,6 @@ import java.util.List;
 public class GameRecommenderService {
 
     private final GameRecommenderGrpcClient grpcClient;
-    private final SteamApiService steamApiService;
-    private final RateLimitService rateLimitService;
 
     @Value("${app.grpc.recommendation.count:5}")
     private int defaultRecommendationCount;
@@ -53,7 +51,6 @@ public class GameRecommenderService {
      * @return response with game recommendations
      * @throws GameRecommenderException when AI service communication fails
      */
-    @CircuitBreaker(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "getGameRecommendationFallback")
     @Retry(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "getGameRecommendationFallback")
     @TimeLimiter(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "getGameRecommendationFallback")
     @Cacheable(value = GrpcConstants.CACHE_GAME_RECOMMENDATIONS, key = "#preferences")
@@ -140,7 +137,6 @@ public class GameRecommenderService {
      * @return ответ AI сервиса
      * @throws GameRecommenderException при ошибке обращения к AI сервису
      */
-    @CircuitBreaker(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "chatWithAIFallback")
     @Retry(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "chatWithAIFallback")
     @TimeLimiter(name = GrpcConstants.GRPC_CLIENT, fallbackMethod = "chatWithAIFallback")
     @Cacheable(value = GrpcConstants.CACHE_USER_PREFERENCES, key = "#message")

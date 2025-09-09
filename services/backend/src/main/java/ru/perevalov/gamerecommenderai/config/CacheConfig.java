@@ -1,14 +1,10 @@
 package ru.perevalov.gamerecommenderai.config;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import ru.perevalov.gamerecommenderai.service.SteamApiConstants;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
-import org.springframework.cache.caffeine.CaffeineCacheManager;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -17,17 +13,10 @@ import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
-import java.util.List;
 
 @Configuration
 @EnableCaching
 public class CacheConfig {
-
-    @Value("${spring.cache.caffeine.spec}")
-    private String caffeineSpec;
-
-    @Value("${app.cache.caffeine.names}")
-    private List<String> caffeineCacheNames;
 
     @Value("${app.cache.redis.default-ttl:PT1H}")
     private Duration redisDefaultTtl;
@@ -35,14 +24,6 @@ public class CacheConfig {
     @Value("${app.cache.redis.steam-ttl:PT30M}")
     private Duration steamCacheTtl;
 
-    @Bean
-    @Primary
-    public CacheManager caffeineCacheManager() {
-        CaffeineCacheManager cacheManager = new CaffeineCacheManager();
-        cacheManager.setCaffeine(Caffeine.from(caffeineSpec));
-        cacheManager.setCacheNames(caffeineCacheNames);
-        return cacheManager;
-    }
 
     @Bean
     public CacheManager redisCacheManager(RedisConnectionFactory connectionFactory) {
@@ -54,7 +35,7 @@ public class CacheConfig {
 
         return RedisCacheManager.builder(connectionFactory)
                 .cacheDefaults(config)
-                .withCacheConfiguration(SteamApiConstants.STEAM_DATA_CACHE_VALUE,
+                .withCacheConfiguration("steamData",
                     RedisCacheConfiguration.defaultCacheConfig().entryTtl(steamCacheTtl))
                 .build();
     }
