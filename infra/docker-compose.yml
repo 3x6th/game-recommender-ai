@@ -2,7 +2,11 @@ version: '3.8'
 
 services:
   backend:
-    build: ../services/backend
+    build:
+      context: ..
+      dockerfile: services/backend/Dockerfile
+      platforms:
+        - linux/amd64
     depends_on: [ ai-service ]
     environment:
       - JAVA_OPTS=-Xms256m -Xmx512m
@@ -19,7 +23,9 @@ services:
       start_period: 60s
 
   ai-service:
-    build: ../services/ai-service
+    build:
+      context: ..
+      dockerfile: services/ai-service/Dockerfile
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
       - GIGACHAT_API_KEY=${GIGACHAT_API_KEY:-}

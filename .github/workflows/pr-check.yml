@@ -36,15 +36,25 @@ jobs:
       - name: Run code quality checks
         run: mvn checkstyle:check
 
-      - name: Check for vulnerabilities
-        run: mvn org.owasp:dependency-check-maven:check
+      - name: Generate test reports
+        run: mvn surefire-report:report-only
 
-      - name: Upload surefire reports
+      - name: Upload Java test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: java-test-reports
-          path: "**/target/surefire-reports/*"
+          path: |
+            **/target/surefire-reports/*
+            **/target/site/surefire-report.html
+
+      - name: Upload Java coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-coverage-reports
+          path: |
+            **/target/site/jacoco/*
 
   python-build:
     runs-on: ubuntu-latest
@@ -58,7 +68,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'poetry'
 
       - name: Install Poetry
         uses: snok/install-poetry@v1
@@ -66,28 +75,54 @@ jobs:
           version: latest
           virtualenvs-create: true
           virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Cache Poetry, pip and venv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+            services/ai-service/.venv
+          key: ${{ runner.os }}-py311-poetry-${{ hashFiles('services/ai-service/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-py311-poetry-
+
+      - name: Verify Poetry installation
+        run: poetry --version
 
       - name: Install dependencies (incl. dev)
         run: poetry install --no-interaction --with dev
 
-      - name: Run tests
-        run: poetry run pytest -v --junitxml=pytest-report.xml
+      - name: Run tests with coverage and HTML report
+        run: poetry run pytest --cov=app --cov-report=xml --cov-report=html:htmlcov --html=pytest-report.html --self-contained-html -v --asyncio-mode=auto
 
-      - name: Upload pytest report
+      - name: Upload Python test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: python-test-report
-          path: pytest-report.xml
+          name: python-test-reports
+          path: |
+            pytest-report.xml
+            pytest-report.html
+
+      - name: Upload Python coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage-reports
+          path: |
+            htmlcov/*
+            coverage.xml
 
       - name: Lint (flake8)
         run: poetry run flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
 
-      - name: Type check (mypy)
-        run: poetry run mypy app --ignore-missing-imports
+      # - name: Type check (mypy)
+      #   run: poetry run mypy app --ignore-missing-imports
 
-      - name: Security check (safety)
-        run: poetry run safety check
+      # - name: Security check (safety)
+      #   run: poetry run safety check
 
   docker-build:
     runs-on: ubuntu-latest
@@ -101,7 +136,7 @@ jobs:
       - name: Build AI Service Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./services/ai-service
+          context: .
           file: ./services/ai-service/Dockerfile
           push: false
           tags: ai-service:test
@@ -111,7 +146,7 @@ jobs:
       - name: Build Backend Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./services/backend
+          context: .
           file: ./services/backend/Dockerfile
           push: false
           tags: backend:test

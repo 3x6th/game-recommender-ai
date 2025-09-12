@@ -7,6 +7,7 @@ import os
 import json
 import asyncio
 import time
+import re
 from typing import List, Dict, Any
 
 from deepseek_ai import DeepSeekAI

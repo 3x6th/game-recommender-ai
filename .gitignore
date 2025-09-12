@@ -57,3 +57,4 @@ temp/
 /services/ai-service/proto/reco_pb2_grpc.py
 
 /services/ai-service/ai-service.iml
+/services/ai-service/pytest-report.xml
