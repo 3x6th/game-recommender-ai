@@ -18,16 +18,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class GrpcRequestIdClientInterceptor implements ClientInterceptor {
     @Value("${requestid.header.key}")
-    private String requestHeaderKey;
+    private String requestIdHeaderKey;
 
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method,
                                                                CallOptions callOptions, Channel next) {
         Metadata headers = new Metadata();
-        String rqUid = MDC.get(requestHeaderKey);
+        String rqUid = MDC.get(requestIdHeaderKey);
 
         if (rqUid != null && !rqUid.isEmpty()) {
-            Metadata.Key<String> rqUidHeader = Metadata.Key.of(requestHeaderKey, Metadata.ASCII_STRING_MARSHALLER);
+            Metadata.Key<String> rqUidHeader = Metadata.Key.of(requestIdHeaderKey, Metadata.ASCII_STRING_MARSHALLER);
             headers.put(rqUidHeader, rqUid);
         }
 

@@ -23,7 +23,7 @@ import java.util.UUID;
 public class RequestIdFilter extends OncePerRequestFilter {
 
     @Value("${requestid.header.key}")
-    private String requestHeaderKey;
+    private String requestIdHeaderKey;
 
     @Value("${requestid.logging.param}")
     private String requestIdLoggingParam;
@@ -32,14 +32,14 @@ public class RequestIdFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String rqUID = request.getHeader(requestHeaderKey);
+        String rqUID = request.getHeader(requestIdHeaderKey);
 
         if (rqUID == null || rqUID.isEmpty()) {
             rqUID = UUID.randomUUID().toString();
         }
 
         MDC.put(requestIdLoggingParam, rqUID);
-        response.setHeader(requestHeaderKey, rqUID);
+        response.setHeader(requestIdHeaderKey, rqUID);
 
         try {
             filterChain.doFilter(request, response);
