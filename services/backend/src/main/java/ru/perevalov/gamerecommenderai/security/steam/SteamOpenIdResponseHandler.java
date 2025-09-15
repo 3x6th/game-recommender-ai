@@ -6,11 +6,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
 import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenResponse;
 import ru.perevalov.gamerecommenderai.entity.User;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.security.AuthService;
 import ru.perevalov.gamerecommenderai.security.CookieService;
@@ -60,10 +60,7 @@ public class SteamOpenIdResponseHandler {
             if (refreshTokenFromHeader == null || refreshTokenFromHeader.isBlank()) {
                 log.error("Missing authorization header when trying to inject steam id in to the JWT token " +
                         "for user with id {}", user.getId());
-                throw new GameRecommenderException(
-                        "Missing authorization header. Expected JWT token.",
-                        "MISSING_AUTHORIZATION_HEADER",
-                        HttpStatus.UNAUTHORIZED.value());
+                throw new GameRecommenderException(ErrorType.MISSING_AUTHORIZATION_HEADER);
             }
             return authService.linkSteamIdToToken(refreshTokenFromHeader, user.getSteamId(), response);
         }

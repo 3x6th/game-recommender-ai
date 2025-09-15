@@ -5,12 +5,12 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
 import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenResponse;
 import ru.perevalov.gamerecommenderai.entity.RefreshToken;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.repository.RefreshTokenRepository;
 import ru.perevalov.gamerecommenderai.security.jwt.JwtClaimKey;
@@ -128,10 +128,8 @@ public class AuthService {
 
     private DecodedJWT decodeAndValidate(RefreshToken refreshToken) {
         if (refreshToken.getToken() == null || refreshToken.getToken().isBlank()) {
-            throw new GameRecommenderException(
-                    "Refresh token invalid",
-                    "AUTH_REFRESH_TOKEN_INVALID",
-                    HttpStatus.UNAUTHORIZED.value());
+            log.warn("Refresh token is null or blank during validation");
+            throw new GameRecommenderException(ErrorType.AUTH_REFRESH_TOKEN_INVALID);
         }
 
         DecodedJWT decoded = jwtUtil.decodeToken(refreshToken.getToken());
