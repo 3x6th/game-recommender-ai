@@ -4,18 +4,20 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Date;
-
+@Slf4j
 @Component
 public class JwtUtil {
+
     @Value("${security.jwt.secret}")
     private String jwtSecret;
 
@@ -27,13 +29,13 @@ public class JwtUtil {
         Instant now = Instant.now();
         Date expiresAt = Date.from(now.plus(ttl));
         return JWT.create()
-                .withIssuer(issuer)
-                .withSubject("SessionId:" + sessionId)
-                .withClaim(JwtClaimKey.STEAM_ID.getKey(), steamId)
-                .withClaim(JwtClaimKey.ROLE.getKey(), role.getAuthority())
-                .withIssuedAt(Date.from(now))
-                .withExpiresAt(expiresAt)
-                .sign(alg);
+                  .withIssuer(issuer)
+                  .withSubject("SessionId:" + sessionId)
+                  .withClaim(JwtClaimKey.STEAM_ID.getKey(), steamId)
+                  .withClaim(JwtClaimKey.ROLE.getKey(), role.getAuthority())
+                  .withIssuedAt(Date.from(now))
+                  .withExpiresAt(expiresAt)
+                  .sign(alg);
     }
 
     public void validateTokenExpiration(DecodedJWT decodedJWT) {
@@ -51,4 +53,5 @@ public class JwtUtil {
         JWTVerifier verifier = JWT.require(alg).withIssuer(issuer).build();
         return verifier.verify(token);
     }
+
 }
