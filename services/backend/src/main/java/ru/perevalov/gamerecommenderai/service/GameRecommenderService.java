@@ -5,8 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
-import ru.perevalov.gamerecommenderai.grpc.*;
+import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
+import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
+import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 
 import java.util.List;
 
@@ -20,34 +23,26 @@ public class GameRecommenderService {
     public GameRecommendationResponse getGameRecommendation(String preferences) {
         try {
             log.info("Requesting game recommendations via gRPC for preferences: {}", preferences);
-            
+
             RecommendationResponse grpcResponse = grpcClient.getRecommendations(preferences, 5);
             return processGrpcResponse(grpcResponse);
-            
+
         } catch (Exception e) {
-            log.error("Error calling gRPC service", e);
-            throw new GameRecommenderException(
-                "Ошибка при обращении к AI сервису: " + e.getMessage(),
-                "GRPC_COMMUNICATION_ERROR",
-                500
-            );
+            log.error("Error calling gRPC service for preferences '{}'. Exception message: '{}'", preferences, e.getMessage(), e);
+            throw new GameRecommenderException(ErrorType.GRPC_COMMUNICATION_ERROR);
         }
     }
 
     private GameRecommendationResponse processGrpcResponse(RecommendationResponse grpcResponse) {
         if (!grpcResponse.getSuccess()) {
-            throw new GameRecommenderException(
-                "Ошибка от AI сервиса: " + grpcResponse.getMessage(),
-                "GRPC_AI_ERROR",
-                500
-            );
+            throw new GameRecommenderException(ErrorType.GRPC_AI_ERROR, grpcResponse.getMessage());
         }
 
-        List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations = 
-            extractRecommendations(grpcResponse);
-        
+        List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations =
+                extractRecommendations(grpcResponse);
+
         logRecommendations(recommendations);
-        
+
         return buildResponse(recommendations);
     }
 
@@ -77,27 +72,19 @@ public class GameRecommenderService {
     public GameRecommendationResponse chatWithAI(String message) {
         try {
             log.info("Sending chat message via gRPC: {}", message);
-            
+
             ChatResponse grpcResponse = grpcClient.chatWithAI(message, null);
             return processChatResponse(grpcResponse);
-            
+
         } catch (Exception e) {
-            log.error("Error calling gRPC service", e);
-            throw new GameRecommenderException(
-                "Ошибка при обращении к AI сервису: " + e.getMessage(),
-                "GRPC_COMMUNICATION_ERROR",
-                500
-            );
+            log.error("Error calling gRPC service. Exception message: '{}'", e.getMessage(), e);
+            throw new GameRecommenderException(ErrorType.GRPC_COMMUNICATION_ERROR);
         }
     }
 
     private GameRecommendationResponse processChatResponse(ChatResponse grpcResponse) {
         if (!grpcResponse.getSuccess()) {
-            throw new GameRecommenderException(
-                "Ошибка от AI сервиса: " + grpcResponse.getMessage(),
-                "GRPC_AI_ERROR",
-                500
-            );
+            throw new GameRecommenderException(ErrorType.GRPC_AI_ERROR, grpcResponse.getMessage());
         }
 
         return GameRecommendationResponse.builder()

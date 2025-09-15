@@ -3,7 +3,6 @@ package ru.perevalov.gamerecommenderai.security.steam;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
@@ -11,6 +10,7 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.security.openid.OpenIdMode;
 import ru.perevalov.gamerecommenderai.security.openid.OpenIdParam;
@@ -35,12 +35,7 @@ public class SteamOpenIdService {
         String endpoint = openIdResponse.getOpEndpoint();
         boolean opEndpointCheckOutSuccessfully = isValidOpEndpoint(endpoint);
         if (!opEndpointCheckOutSuccessfully) {
-            throw new GameRecommenderException(
-                    "OpenID validation failed: opEndpoint differs from expected in openId authorization flow through Steam." +
-                            " Endpoint: " + openIdResponse.getOpEndpoint(),
-                    "OPENID_VALIDATION_FAILED",
-                    HttpStatus.UNAUTHORIZED.value()
-            );
+            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_ENDPOINT, openIdResponse.getOpEndpoint());
         }
 
         String body = webClient.post()
@@ -52,12 +47,7 @@ public class SteamOpenIdService {
                 .block();
 
         if (body == null || !body.contains("is_valid:true")) {
-            throw new GameRecommenderException(
-                    "OpenID validation failed: Steam returned invalid response. Endpoint: "
-                            + openIdResponse.getOpEndpoint() + ", body: " + body,
-                    "OPENID_VALIDATION_FAILED",
-                    HttpStatus.UNAUTHORIZED.value()
-            );
+            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_RESPONSE, openIdResponse.getOpEndpoint(), body);
         }
     }
 
@@ -66,18 +56,19 @@ public class SteamOpenIdService {
     }
 
     /**
-     * Вытаскиваем steam id из url.
+     * Extracts the Steam ID from a claimedId URL.
      *
-     * @param claimedId передается из объекта класса OpenIdResponse.
-     * @return steam id в формате long
+     * @param claimedId the claimedId obtained from an {@link OpenIdResponse} object
+     * @return the Steam ID in long format
+     * @throws GameRecommenderException if the claimedId format is invalid and Steam ID cannot be extracted
+     * @see ErrorType#STEAM_ID_EXTRACTION_FAILED
      */
     public Long extractSteamIdFromClaimedId(String claimedId) {
         Matcher m = Pattern.compile(".*/id/(\\d+)$").matcher(claimedId);
 
         if (!m.find()) {
             log.error("Steam id extraction failed from claimedId={}", claimedId);
-            throw new RuntimeException("Extract steam id exception. " +
-                    "Expected correct string with claim id, e.g. https://steamcommunity.com/id/76561197973845818");
+            throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED, claimedId);
         }
 
         String steamId64 = m.group(1);

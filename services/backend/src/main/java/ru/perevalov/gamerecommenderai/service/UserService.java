@@ -2,9 +2,9 @@ package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import ru.perevalov.gamerecommenderai.entity.User;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.repository.UserRepository;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
@@ -17,11 +17,10 @@ public class UserService {
 
     public User findBySteamId(Long steamId) {
         User user = userRepository.findBySteamId(steamId)
-                .orElseThrow(() -> new GameRecommenderException(
-                        "User with steam id " + " was not found in system.",
-                        "USER_NOT_FOUND",
-                        HttpStatus.NOT_FOUND.value()
-                ));
+                .orElseThrow(() -> {
+                    log.error("User with steam id {} was not found in system.", steamId);
+                    return new GameRecommenderException(ErrorType.USER_NOT_FOUND, steamId);
+                });
         log.info("User with steamId={} found in DB (userId={}).", user.getSteamId(), user.getId());
         return user;
     }
