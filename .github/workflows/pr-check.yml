@@ -8,7 +8,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
+  checks: write
 
 concurrency:
   group: pr-${{ github.event.pull_request.number }}
@@ -31,7 +32,10 @@ jobs:
           cache: 'maven'
 
       - name: Build & test (verify)
-        run: mvn -B -ntp clean verify
+        run: mvn -B -ntp clean verify -DskipTests=false
+
+      - name: Generate JaCoCo report (xml+html)
+        run: mvn -B -ntp jacoco:report
 
       - name: Run code quality checks
         run: mvn checkstyle:check
@@ -55,6 +59,36 @@ jobs:
           name: java-coverage-reports
           path: |
             **/target/site/jacoco/*
+
+      - name: Publish Java test results to Checks
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: services/backend/target/surefire-reports/*.xml
+          check_name: Java tests
+        continue-on-error: true
+
+      - name: Coverage summary (JaCoCo)
+        if: always()
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: services/backend/target/site/jacoco/jacoco.xml
+          badge: false
+          format: markdown
+          output: file
+          fail_below_min: false
+        continue-on-error: true
+
+      - name: Add Java coverage to summary
+        if: always()
+        run: |
+          echo "### Java Coverage (JaCoCo)" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$GITHUB_WORKSPACE/code-coverage-results.md" ]; then
+            cat "$GITHUB_WORKSPACE/code-coverage-results.md" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No coverage data available" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
 
   python-build:
     runs-on: ubuntu-latest
@@ -95,7 +129,7 @@ jobs:
         run: poetry install --no-interaction --with dev
 
       - name: Run tests with coverage and HTML report
-        run: poetry run pytest --cov=app --cov-report=xml --cov-report=html:htmlcov --html=pytest-report.html --self-contained-html -v --asyncio-mode=auto
+        run: poetry run pytest --cov=app --cov-report=xml:coverage.xml --cov-report=html:htmlcov --junitxml=pytest-report.xml --html=pytest-report.html --self-contained-html -v --asyncio-mode=auto
 
       - name: Upload Python test reports
         if: always()
@@ -103,8 +137,8 @@ jobs:
         with:
           name: python-test-reports
           path: |
-            pytest-report.xml
-            pytest-report.html
+            services/ai-service/pytest-report.xml
+            services/ai-service/pytest-report.html
 
       - name: Upload Python coverage reports
         if: always()
@@ -112,8 +146,38 @@ jobs:
         with:
           name: python-coverage-reports
           path: |
-            htmlcov/*
-            coverage.xml
+            services/ai-service/htmlcov/*
+            services/ai-service/coverage.xml
+
+      - name: Publish Python test results to Checks
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: services/ai-service/pytest-report.xml
+          check_name: Python tests
+        continue-on-error: true
+
+      - name: Coverage summary (pytest-cov)
+        if: always()
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: services/ai-service/coverage.xml
+          badge: false
+          format: markdown
+          output: file
+          fail_below_min: false
+        continue-on-error: true
+
+      - name: Add Python coverage to summary
+        if: always()
+        run: |
+          echo "### Python Coverage (pytest-cov)" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$GITHUB_WORKSPACE/code-coverage-results.md" ]; then
+            cat "$GITHUB_WORKSPACE/code-coverage-results.md" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No coverage data available" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
 
       - name: Lint (flake8)
         run: poetry run flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
