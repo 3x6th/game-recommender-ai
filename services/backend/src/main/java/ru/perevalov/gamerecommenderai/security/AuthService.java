@@ -1,6 +1,7 @@
 package ru.perevalov.gamerecommenderai.security;
 
 import com.auth0.jwt.interfaces.DecodedJWT;
+import io.micrometer.core.annotation.Counted;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class AuthService {
     }
 
     @Transactional
+    @Counted(value = "auth.preauthorize.calls", description = "Number of preauthorize calls")
     public PreAuthResponse preAuthorize(HttpServletResponse response) {
         String sessionId = UUID.randomUUID().toString();
         String accessToken = jwtUtil.createToken(sessionId, getAccessTtl(), UserRole.GUEST, null);

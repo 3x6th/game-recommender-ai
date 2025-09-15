@@ -78,26 +78,9 @@ src/main/java/ru/perevalov/gamerecommenderai/
 ## Метрики Prometheus и Grafana
 
 Необходимы docker images: prom/prometheus и grafana/grafana
-Запустить докер и в директроии файла prometheus.yml ввести команды:
+Запустить докер и в директроии /infra ввести команду:
 ```bash
-docker network create PCAI_monitoring
-```
-
-```bash
-docker run -d \
-  --name PCAI_prometheus \
-  --network GR_monitoring \
-  -p 9999:9090 \
-  -v $(pwd)/prometheus.yml:/etc/prometheus/prometheus.yml \
-  prom/prometheus
-```
-
-```bash
-docker run -d \
-  --name PCAI_grafana \
-  --network GR_monitoring \
-  -p 3000:3000 \
-  grafana/grafana
+docker compose -f observability-compose.yml up --build
 ```
 
 В Grafana добавляем data source - prometheus с URL: http://host.docker.internal:9999
