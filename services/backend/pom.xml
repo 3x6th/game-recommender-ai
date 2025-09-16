@@ -29,6 +29,12 @@
         <java.version>21</java.version>
         <bucket4j-starter.version>0.13.0</bucket4j-starter.version>
         <bucket4j-core.version>8.15.0</bucket4j-core.version>
+        <!--suppress UnresolvedMavenProperty -->
+        <db.url>${.env.DB_URL}</db.url>
+        <!--suppress UnresolvedMavenProperty -->
+        <db.username>${.env.DB_USERNAME}</db.username>
+        <!--suppress UnresolvedMavenProperty -->
+        <db.password>${.env.DB_PASSWORD}</db.password>
     </properties>
 
     <dependencyManagement>
@@ -176,6 +182,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.3</version>
+        </dependency>
 
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -238,7 +249,23 @@
                     </execution>
                 </executions>
             </plugin>
-
+            <plugin>
+                <groupId>org.liquibase</groupId>
+                <artifactId>liquibase-maven-plugin</artifactId>
+                <version>4.33.0</version> <!-- Версия плагина -->
+                <configuration>
+                    <changeLogFile>src/main/resources/db/changelog/changelog-master.xml</changeLogFile>
+                    <propertyFile>src/main/resources/liquibase.properties</propertyFile>
+                    <driver>org.postgresql.Driver</driver>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>42.7.3</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
 
             <!-- Checkstyle for code style (only in CI) -->
             <plugin>
