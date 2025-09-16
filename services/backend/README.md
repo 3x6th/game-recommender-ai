@@ -124,3 +124,15 @@ src/main/java/ru/perevalov/gamerecommenderai/
 └── service/
     └── GameRecommenderService.java
 ``` 
+
+## Метрики Prometheus и Grafana
+
+Необходимы docker images: prom/prometheus и grafana/grafana
+Запустить докер и в директроии /infra ввести команду:
+```bash
+docker compose -f observability-compose.yml up --build
+```
+
+В Grafana добавляем data source - prometheus с URL: http://host.docker.internal:9999
+Импортируем дашборды из директории infra/grafana
+Вместо импората dashboard-jvm.json можно загрузить этот дашборд по id 4701
