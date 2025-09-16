@@ -7,28 +7,24 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
-import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
 import java.time.LocalDateTime;
-
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Table(name = "steam_profiles")
 @Entity
-@Table(name = "users", indexes = {
-        @Index(columnList = "steam_id", name = "idx_users_steam_id")
-})
-public class User {
+public class SteamProfile {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
-    @SequenceGenerator(name = "user_seq", sequenceName = "user_id_seq", allocationSize = 5)
+    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "steam_profile_seq")
+    @SequenceGenerator(name = "steam_profile_seq", sequenceName = "steam_profile_id_seq", allocationSize = 1)
     @Column(columnDefinition = "bigint")
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private Long steamId;
+    private Integer steamCreated;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -38,9 +34,13 @@ public class User {
     @Column(nullable = false)
     private LocalDateTime updatedAt;
 
-    @Column(nullable = false)
-    private boolean isActive;
+    @Column
+    private String profileUrl;
 
-    @Enumerated(EnumType.STRING)
-    private UserRole role;
+    @Column
+    private String profileImg;
+
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    private User user;
 }
