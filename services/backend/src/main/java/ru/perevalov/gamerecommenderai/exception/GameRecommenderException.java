@@ -4,19 +4,12 @@ import lombok.Getter;
 
 @Getter
 public class GameRecommenderException extends RuntimeException {
-    
-    private final String errorCode;
-    private final int httpStatus;
-    
-    public GameRecommenderException(String message, String errorCode, int httpStatus) {
-        super(message);
-        this.errorCode = errorCode;
-        this.httpStatus = httpStatus;
-    }
-    
-    public GameRecommenderException(String message, String errorCode, int httpStatus, Throwable cause) {
-        super(message, cause);
-        this.errorCode = errorCode;
-        this.httpStatus = httpStatus;
+    private final ErrorType errorType;
+    private final Object[] params;
+
+    public GameRecommenderException(ErrorType errorType, Object... params) {
+        super(String.format(errorType.getDescription(), params));
+        this.errorType = errorType;
+        this.params = params;
     }
 } 

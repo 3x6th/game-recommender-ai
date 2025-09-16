@@ -1,0 +1,218 @@
+name: Backend PR Check
+
+on:
+  pull_request:
+    branches: [ master, develop ]
+    types: [opened, synchronize, reopened]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  java-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./services/backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build & test (verify)
+        run: mvn -B -ntp clean verify -DskipTests=false
+
+      - name: Generate JaCoCo report (xml+html)
+        run: mvn -B -ntp jacoco:report
+
+      - name: Run code quality checks
+        run: mvn checkstyle:check
+
+      - name: Generate test reports
+        run: mvn surefire-report:report-only
+
+      - name: Upload Java test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-reports
+          path: |
+            **/target/surefire-reports/*
+            **/target/site/surefire-report.html
+
+      - name: Upload Java coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-coverage-reports
+          path: |
+            **/target/site/jacoco/*
+
+      - name: Publish Java test results to Checks
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: services/backend/target/surefire-reports/*.xml
+          check_name: Java tests
+        continue-on-error: true
+
+      - name: Coverage summary (JaCoCo)
+        if: always()
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: services/backend/target/site/jacoco/jacoco.xml
+          badge: false
+          format: markdown
+          output: file
+          fail_below_min: false
+        continue-on-error: true
+
+      - name: Add Java coverage to summary
+        if: always()
+        run: |
+          echo "### Java Coverage (JaCoCo)" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$GITHUB_WORKSPACE/code-coverage-results.md" ]; then
+            cat "$GITHUB_WORKSPACE/code-coverage-results.md" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No coverage data available" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+  python-build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./services/ai-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          installer-parallel: true
+
+      - name: Cache Poetry, pip and venv
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/pypoetry
+            ~/.cache/pip
+            services/ai-service/.venv
+          key: ${{ runner.os }}-py311-poetry-${{ hashFiles('services/ai-service/poetry.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-py311-poetry-
+
+      - name: Verify Poetry installation
+        run: poetry --version
+
+      - name: Install dependencies (incl. dev)
+        run: poetry install --no-interaction --with dev
+
+      - name: Run tests with coverage and HTML report
+        run: poetry run pytest --cov=app --cov-report=xml:coverage.xml --cov-report=html:htmlcov --junitxml=pytest-report.xml --html=pytest-report.html --self-contained-html -v --asyncio-mode=auto
+
+      - name: Upload Python test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-test-reports
+          path: |
+            services/ai-service/pytest-report.xml
+            services/ai-service/pytest-report.html
+
+      - name: Upload Python coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage-reports
+          path: |
+            services/ai-service/htmlcov/*
+            services/ai-service/coverage.xml
+
+      - name: Publish Python test results to Checks
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: services/ai-service/pytest-report.xml
+          check_name: Python tests
+        continue-on-error: true
+
+      - name: Coverage summary (pytest-cov)
+        if: always()
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: services/ai-service/coverage.xml
+          badge: false
+          format: markdown
+          output: file
+          fail_below_min: false
+        continue-on-error: true
+
+      - name: Add Python coverage to summary
+        if: always()
+        run: |
+          echo "### Python Coverage (pytest-cov)" >> $GITHUB_STEP_SUMMARY
+          if [ -f "$GITHUB_WORKSPACE/code-coverage-results.md" ]; then
+            cat "$GITHUB_WORKSPACE/code-coverage-results.md" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No coverage data available" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: Lint (flake8)
+        run: poetry run flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics
+
+      # - name: Type check (mypy)
+      #   run: poetry run mypy app --ignore-missing-imports
+
+      # - name: Security check (safety)
+      #   run: poetry run safety check
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: [java-build, python-build]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build AI Service Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./services/ai-service/Dockerfile
+          push: false
+          tags: ai-service:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Backend Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./services/backend/Dockerfile
+          push: false
+          tags: backend:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

@@ -8,20 +8,23 @@ RUN apt-get update && apt-get install -y \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Install Poetry
+RUN pip install poetry
+
+# Copy Poetry files
+COPY services/ai-service/pyproject.toml services/ai-service/poetry.lock ./
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN poetry config virtualenvs.create false && poetry install --only=main --no-root
 
 # Copy application code
-COPY app/ ./app/
+COPY services/ai-service/app/ ./app/
 
 # Create proto directory
 RUN mkdir -p proto
 
 # Copy proto files (will be generated during build)
-COPY ../../contracts/proto/reco.proto ./proto/
+COPY contracts/proto/reco.proto ./proto/
 
 # Generate gRPC code
 RUN python -m grpc_tools.protoc \

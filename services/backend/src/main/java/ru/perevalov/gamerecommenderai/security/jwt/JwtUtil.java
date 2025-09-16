@@ -5,8 +5,8 @@ import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
@@ -38,11 +38,7 @@ public class JwtUtil {
 
     public void validateTokenExpiration(DecodedJWT decodedJWT) {
         if (decodedJWT.getExpiresAtAsInstant().isBefore(Instant.now())) {
-            throw new GameRecommenderException(
-                    "Access token expired",
-                    "ACCESS_TOKEN_EXPIRED",
-                    HttpStatus.UNAUTHORIZED.value()
-            );
+            throw new GameRecommenderException(ErrorType.ACCESS_TOKEN_EXPIRED);
         }
     }
 
