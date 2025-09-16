@@ -44,7 +44,6 @@ public class AuthService {
     }
 
     @Transactional
-    @Counted(value = "auth.preauthorize.calls", description = "Number of preauthorize calls")
     public PreAuthResponse preAuthorize(HttpServletResponse response) {
         String sessionId = UUID.randomUUID().toString();
         String accessToken = jwtUtil.createToken(sessionId, getAccessTtl(), UserRole.GUEST, null);
