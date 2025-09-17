@@ -1,14 +1,15 @@
 package ru.perevalov.gamerecommenderai.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -17,13 +18,13 @@ import java.time.LocalDateTime;
 @Table(name = "steam_profiles")
 @Entity
 public class SteamProfile extends BaseEntity {
-    @Column(nullable = false, unique = true)
+    @Column(name = "steam_created", nullable = false, unique = true)
     private Integer steamCreated;
 
-    @Column
+    @Column(name = "profile_url")
     private String profileUrl;
 
-    @Column
+    @Column(name = "profile_img")
     private String profileImg;
 
     @OneToOne(fetch = FetchType.LAZY)

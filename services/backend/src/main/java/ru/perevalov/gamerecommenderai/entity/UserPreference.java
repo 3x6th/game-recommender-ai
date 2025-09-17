@@ -27,10 +27,10 @@ public class UserPreference extends BaseEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     private String tags;
 
-    @Column
+    @Column(name = "generated_at")
     private LocalDateTime generatedAt;
 
-    @Column
+    @Column(name = "game_name")
     private String gameName;
 
     @ManyToOne(fetch = FetchType.LAZY)

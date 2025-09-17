@@ -1,13 +1,12 @@
 package ru.perevalov.gamerecommenderai.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.UpdateTimestamp;
-
-import java.time.LocalDateTime;
 
 @Getter
 @Setter
@@ -15,47 +14,43 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Table(name = "user_game_stats")
 @Entity
-public class UserGameStats extends BaseEntity{
+public class UserGameStats extends BaseEntity {
     @Column(nullable = false)
     private Long steamId;
 
-    @Column
+    @Column(name = "total_games_owned")
     private Integer totalGamesOwned;
 
-    @Column
+    @Column(name = "total_playtime_forever")
     private Integer totalPlaytimeForever;
 
-    @Column
+    @Column(name = "total_playtime_last_two_weeks")
     private Integer totalPlaytimeLastTwoWeeks;
 
-    @Column(columnDefinition = "bigint")
+    @Column(name = "most_played_game_id")
     private Long mostPlayedGameId;
 
-    @Column
+    @Column(name = "most_played_game_hours")
     private Integer mostPlayedGameHours;
 
-    @Column(columnDefinition = "bigint")
+    @Column(name = "last_played_game_id")
     private Long lastPlayedGameId;
 
-    @Column
+    @Column(name = "last_playtime")
     private Integer lastPlaytime;
 
-    @Column
+    @Column(name = "favorite_genre_count")
     private Integer favoriteGenreCount;
 
-    @Column
+    @Column(name = "favorite_genre_hours")
     private Integer favoriteGenreHours;
 
-    @UpdateTimestamp
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
-
-    @Column
+    @Column(name = "most_played_game_name")
     private String mostPlayedGameName;
 
-    @Column
+    @Column(name = "last_played_game_name")
     private String lastPlayedGameName;
 
-    @Column(length = 100)
+    @Column(name = "favorite_genre", length = 100)
     private String favoriteGenre;
 }

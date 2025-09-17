@@ -2,9 +2,7 @@ package ru.perevalov.gamerecommenderai.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
 import jakarta.persistence.Table;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -14,14 +12,20 @@ import lombok.Setter;
 @Getter
 @Setter
 @NoArgsConstructor
-@AllArgsConstructor
-public class RefreshToken {
-    @Id
-    private Long id;
-
-    @Column(nullable = false, unique = true, length = 2048)
+public class RefreshToken extends BaseEntity {
+    @Column(name = "token", nullable = false, unique = true, length = 2048)
     private String token;
 
-    @Column(nullable = false)
+    @Column(name = "session_id", nullable = false)
     private String sessionId;
+    private String refreshToken;
+
+    /**
+     * TODO: {@link ru.perevalov.gamerecommenderai.security.AuthService#preAuthorize})
+     */
+    //todo delete after fix #preAuthorize
+    public RefreshToken(String refreshToken, String sessionId) {
+        this.refreshToken = refreshToken;
+        this.sessionId = sessionId;
+    }
 }
