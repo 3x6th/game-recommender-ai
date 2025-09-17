@@ -11,21 +11,16 @@ import java.util.UUID;
 @MappedSuperclass
 @Data
 public abstract class BaseEntity {
-
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(columnDefinition = "uuid")
     private UUID id;
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
 
     @CreationTimestamp
-    private void onCreate() {
-        setCreatedAt(LocalDateTime.now());
-        setUpdatedAt(LocalDateTime.now());
-    }
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
     @UpdateTimestamp
-    private void onUpdate() {
-        setUpdatedAt(LocalDateTime.now());
-    }
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 }

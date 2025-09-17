@@ -17,7 +17,8 @@ public class DataUtils {
 
     public static User getUserPersisted(Long steamId) {
         User user = new User(steamId, UserRole.USER);
-        user.setId(UUID.randomUUID());
+        //todo
+//        user.setId(UUID.randomUUID());
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
         return user;

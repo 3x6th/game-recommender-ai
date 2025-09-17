@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="2-create-api_logs" author="Alexandr Petrovich">
+        <sql>
+            CREATE TABLE game_recommender.api_logs
+            (
+                id               UUID PRIMARY KEY,
+                user_id          UUID         NOT NULL,
+                ai_agent_id      UUID         NOT NULL,
+                endpoint         VARCHAR(100) NOT NULL,
+                timestamp        TIMESTAMP(6) NOT NULL,
+                log_type         VARCHAR(10)  NOT NULL,
+                message          TEXT         NOT NULL,
+                status_code      SMALLINT,
+                response_time_ms INTEGER,
+                created_at       TIMESTAMP(6) NOT NULL,
+                updated_at       TIMESTAMP(6) NOT NULL
+            );
+
+            -- Check log type
+            ALTER TABLE game_recommender.api_logs
+                ADD CONSTRAINT ck_api_logs_log_type
+                    CHECK (log_type IN ('REQUEST', 'RESPONSE'));
+
+            -- FK on users
+            ALTER TABLE game_recommender.api_logs
+                ADD CONSTRAINT fk_api_logs_user_id
+                    FOREIGN KEY (user_id) REFERENCES game_recommender.users (id);
+
+            -- FK on ai_agents
+            ALTER TABLE game_recommender.api_logs
+                ADD CONSTRAINT fk_api_logs_ai_agent_id
+                    FOREIGN KEY (ai_agent_id) REFERENCES game_recommender.ai_agents (id);
+
+            CREATE INDEX idx_api_logs_user_id ON game_recommender.api_logs (user_id);
+            CREATE INDEX idx_api_logs_ai_agent_id ON game_recommender.api_logs (ai_agent_id);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

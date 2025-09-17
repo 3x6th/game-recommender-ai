@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="7-create-users" author="Alexandr Petrovich">
+        <sql>
+            CREATE TABLE game_recommender.users
+            (
+                id         UUID PRIMARY KEY,
+                steam_id   BIGINT       NOT NULL UNIQUE,
+                is_active  BOOLEAN      NOT NULL,
+                role       VARCHAR(255),
+                created_at TIMESTAMP(6) NOT NULL,
+                updated_at TIMESTAMP(6) NOT NULL
+            );
+
+            -- Check role
+            ALTER TABLE game_recommender.users
+                ADD CONSTRAINT ck_users_role
+                    CHECK (role IN ('GUEST', 'USER'));
+
+            CREATE INDEX idx_users_steam_id ON game_recommender.users (steam_id);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
