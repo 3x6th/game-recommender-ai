@@ -14,13 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Table(name = "request_logs")
 @Entity
-public class RequestLog {
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "request_log_seq")
-    @SequenceGenerator(name = "request_log_seq", sequenceName = "request_log_id_seq", allocationSize = 10)
-    @Column(columnDefinition = "bigint")
-    private Long id;
-
+public class RequestLog extends BaseEntity {
     @Column
     private Short statusCode;
 

@@ -20,27 +20,20 @@ import java.time.LocalDateTime;
 @Table(name = "users", indexes = {
         @Index(columnList = "steam_id", name = "idx_users_steam_id")
 })
-public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_seq")
-    @SequenceGenerator(name = "user_seq", sequenceName = "user_id_seq", allocationSize = 5)
-    @Column(columnDefinition = "bigint")
-    private Long id;
-
+public class User extends BaseEntity{
     @Column(nullable = false, unique = true)
     private Long steamId;
-
-    @CreationTimestamp
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
 
     @Column(nullable = false)
     private boolean isActive;
 
     @Enumerated(EnumType.STRING)
     private UserRole role;
+
+    /**
+     * TODO: {@link ru.perevalov.gamerecommenderai.service.UserService#createIfNotExists})
+     */
+    //todo delete after fix #createIfNotExists
+    public User(Long steamId, UserRole userRole) {
+    }
 }

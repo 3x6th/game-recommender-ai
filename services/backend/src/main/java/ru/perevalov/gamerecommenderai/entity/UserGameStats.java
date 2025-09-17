@@ -15,13 +15,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Table(name = "user_game_stats")
 @Entity
-public class UserGameStats {
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_game_stats_seq")
-    @SequenceGenerator(name = "user_game_stats_seq", sequenceName = "user_game_stats_id_seq", allocationSize = 1)
-    @Column(columnDefinition = "bigint")
-    private Long id;
-
+public class UserGameStats extends BaseEntity{
     @Column(nullable = false)
     private Long steamId;
 

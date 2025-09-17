@@ -12,13 +12,7 @@ import lombok.Setter;
 @AllArgsConstructor
 @Table(name = "ai_agents")
 @Entity
-public class AiAgent {
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "ai_agent_seq")
-    @SequenceGenerator(name = "ai_agent_seq", sequenceName = "ai_agent_id_seq", allocationSize = 1)
-    @Column(columnDefinition = "bigint")
-    private Long id;
-
+public class AiAgent extends BaseEntity{
     @Column(nullable = false)
     private Boolean isActive;
 

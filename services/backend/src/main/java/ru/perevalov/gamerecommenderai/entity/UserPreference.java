@@ -17,13 +17,7 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "user_preferences")
-public class UserPreference {
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "user_preference_seq")
-    @SequenceGenerator(name = "user_preference_seq", sequenceName = "user_preference_id_seq", allocationSize = 1)
-    @Column(columnDefinition = "bigint")
-    private Long id;
-
+public class UserPreference extends BaseEntity {
     @Column
     private Long gameId;
 

@@ -16,23 +16,9 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Table(name = "steam_profiles")
 @Entity
-public class SteamProfile {
-    @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "steam_profile_seq")
-    @SequenceGenerator(name = "steam_profile_seq", sequenceName = "steam_profile_id_seq", allocationSize = 1)
-    @Column(columnDefinition = "bigint")
-    private Long id;
-
+public class SteamProfile extends BaseEntity {
     @Column(nullable = false, unique = true)
     private Integer steamCreated;
-
-    @CreationTimestamp
-    @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @UpdateTimestamp
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
 
     @Column
     private String profileUrl;
