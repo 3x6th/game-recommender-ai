@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog 
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <include file="db/changelog/changeset/0000__CreateSchema.xml"/>
+    <include file="/db/changelog/changeset/0001__CreateTableUsers.xml"/>
+    <include file="/db/changelog/changeset/0002__CreateTableAiAgents.xml"/>
+    <include file="db/changelog/changeset/0003__CreateTableRefreshTokens.xml"/>
+    <include file="db/changelog/changeset/0004__CreateTableSteamProfiles.xml"/>
+    <include file="db/changelog/changeset/0005__CreateTableUserGameStats.xml"/>
+    <include file="db/changelog/changeset/0006__CreateTableUserPreferences.xml"/>
+    <include file="/db/changelog/changeset/0007__CreateTableApiLogs.xml"/>
+
+</databaseChangeLog>

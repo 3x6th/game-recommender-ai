@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="4-create-steam_profiles" author="Alexandr Petrovich">
+        <sql>
+            CREATE TABLE game_recommender.steam_profiles
+            (
+                id            UUID PRIMARY KEY,
+                user_id       UUID         NOT NULL UNIQUE,
+                profile_img   VARCHAR(255),
+                profile_url   VARCHAR(255),
+                steam_created INTEGER      NOT NULL UNIQUE,
+                created_at    TIMESTAMP(6) NOT NULL,
+                updated_at    TIMESTAMP(6) NOT NULL
+            );
+
+            -- FK on users
+            ALTER TABLE game_recommender.steam_profiles
+                ADD CONSTRAINT fk_steam_profiles_user_id
+                    FOREIGN KEY (user_id) REFERENCES game_recommender.users (id);
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

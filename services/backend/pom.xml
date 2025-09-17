@@ -176,6 +176,11 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.3</version>
+        </dependency>
 
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -238,7 +243,25 @@
                     </execution>
                 </executions>
             </plugin>
-
+            <plugin>
+                <groupId>org.liquibase</groupId>
+                <artifactId>liquibase-maven-plugin</artifactId>
+                <version>4.33.0</version> <!-- Версия плагина -->
+                <configuration>
+                    <changeLogFile>src/main/resources/db/changelog/changelog-master.xml</changeLogFile>
+                    <url>jdbc:postgresql://localhost:5432/game_recommender_ai_db</url>
+                    <username>postgres</username>
+                    <password>123</password>
+                    <driver>org.postgresql.Driver</driver>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.postgresql</groupId>
+                        <artifactId>postgresql</artifactId>
+                        <version>42.7.3</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
 
             <!-- Checkstyle for code style (only in CI) -->
             <plugin>

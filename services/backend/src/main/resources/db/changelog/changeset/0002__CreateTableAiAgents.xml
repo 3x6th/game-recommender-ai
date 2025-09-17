@@ -1,0 +1,22 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="1-create-ai_agents" author="Alexandr Petrovich">
+        <sql>
+            CREATE TABLE game_recommender.ai_agents
+            (
+                id         UUID PRIMARY KEY,
+                ai_name    VARCHAR(50)  NOT NULL,
+                model_name VARCHAR(50),
+                is_active  BOOLEAN      NOT NULL,
+                created_at TIMESTAMP(6) NOT NULL,
+                updated_at TIMESTAMP(6) NOT NULL
+            );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>

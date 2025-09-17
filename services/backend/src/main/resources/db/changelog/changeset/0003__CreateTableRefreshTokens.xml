@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="
+        http://www.liquibase.org/xml/ns/dbchangelog
+        http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.3.xsd">
+
+    <changeSet id="3-create-refresh_tokens" author="Alexandr Petrovich">
+        <sql>
+            CREATE TABLE game_recommender.refresh_tokens
+            (
+                id         UUID PRIMARY KEY,
+                token      VARCHAR(2048) NOT NULL UNIQUE,
+                session_id VARCHAR(255)  NOT NULL,
+                created_at TIMESTAMP(6)  NOT NULL,
+                updated_at TIMESTAMP(6)  NOT NULL
+            );
+        </sql>
+    </changeSet>
+
+</databaseChangeLog>
