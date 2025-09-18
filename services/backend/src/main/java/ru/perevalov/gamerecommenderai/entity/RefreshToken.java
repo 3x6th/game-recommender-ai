@@ -18,6 +18,8 @@ public class RefreshToken extends BaseEntity {
 
     @Column(name = "session_id", nullable = false)
     private String sessionId;
+
+    @Column(name = "refresh_token", nullable = false, unique = true, length = 2048)
     private String refreshToken;
 
     /**
