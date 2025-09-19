@@ -29,6 +29,12 @@
         <java.version>21</java.version>
         <bucket4j-starter.version>0.13.0</bucket4j-starter.version>
         <bucket4j-core.version>8.15.0</bucket4j-core.version>
+        <!--suppress UnresolvedMavenProperty -->
+        <db.url>${.env.DB_URL}</db.url>
+        <!--suppress UnresolvedMavenProperty -->
+        <db.username>${.env.DB_USERNAME}</db.username>
+        <!--suppress UnresolvedMavenProperty -->
+        <db.password>${.env.DB_PASSWORD}</db.password>
     </properties>
 
     <dependencyManagement>
@@ -249,6 +255,9 @@
                 <version>4.33.0</version> <!-- Версия плагина -->
                 <configuration>
                     <changeLogFile>src/main/resources/db/changelog/changelog-master.xml</changeLogFile>
+                    <url>${db.url}</url>
+                    <username>${db.username}</username>
+                    <password>${db.password}</password>
                     <url>jdbc:postgresql://localhost:5433/game_recommender_ai_db</url>
                     <username>postgres</username>
                     <password>password</password>
