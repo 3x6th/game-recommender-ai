@@ -30,7 +30,8 @@ public enum ErrorType {
             " https://steamcommunity.com/id/76561197973845818",
             HttpStatus.BAD_REQUEST
     ),
-    USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
+    USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND),
+    FAILED_TO_BUILD_AI_CONTEXT("Failed to build full context for AI service", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String description;
     private final HttpStatus status;
