@@ -1,16 +1,25 @@
 package ru.perevalov.gamerecommenderai.controller;
 
+import com.auth0.jwt.interfaces.DecodedJWT;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
+import ru.perevalov.gamerecommenderai.security.jwt.JwtClaimKey;
+import ru.perevalov.gamerecommenderai.security.jwt.JwtUtil;
 import ru.perevalov.gamerecommenderai.service.GameRecommenderService;
+
+import java.security.Principal;
 
 @Slf4j
 @RestController
@@ -20,6 +29,25 @@ import ru.perevalov.gamerecommenderai.service.GameRecommenderService;
 public class GameRecommendationController {
 
     private final GameRecommenderService gameRecommenderService;
+    private final JwtUtil jwtUtil;
+
+    @PostMapping("/proceed")
+    public ResponseEntity<GameRecommendationResponse> getUserGames(
+            @RequestBody GameRecommendationRequest req, HttpServletRequest httpServletRequest) {
+
+        String header = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
+        String token = header.substring(7);
+        DecodedJWT decoded = jwtUtil.decodeToken(token);
+        Long steamId = decoded.getClaim("steamId").asLong();
+
+        if (req.getSteamId().isBlank()) {
+            req.setSteamId(steamId.toString());
+        }
+
+        GameRecommendationResponse response = gameRecommenderService.getGameRecommendationsWithContext(req);
+
+        return ResponseEntity.ok(response);
+    }
 
     @PostMapping("/recommend")
     public ResponseEntity<GameRecommendationResponse> getGameRecommendation(
@@ -28,7 +56,7 @@ public class GameRecommendationController {
         log.info("Received game recommendation request: {}", request);
         
         GameRecommendationResponse response = gameRecommenderService.getGameRecommendation(
-            request.getPreferences()
+            request.getContent()
         );
         
         log.info("Returning response with {} recommendations", 
@@ -44,7 +72,7 @@ public class GameRecommendationController {
         log.info("Received chat request: {}", request);
         
         GameRecommendationResponse response = gameRecommenderService.chatWithAI(
-            request.getPreferences()
+            request.getContent()
         );
         
         return ResponseEntity.ok(response);

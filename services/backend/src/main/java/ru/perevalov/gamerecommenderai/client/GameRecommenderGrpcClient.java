@@ -1,47 +1,62 @@
 package ru.perevalov.gamerecommenderai.client;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
-import ru.perevalov.gamerecommenderai.exception.ErrorType;
-import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
-import ru.perevalov.gamerecommenderai.grpc.ChatRequest;
-import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
-import ru.perevalov.gamerecommenderai.grpc.GameRecommenderServiceGrpc;
-import ru.perevalov.gamerecommenderai.grpc.RecommendationRequest;
-import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
+import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
+import ru.perevalov.gamerecommenderai.grpc.*;
+import ru.perevalov.gamerecommenderai.mapper.GrpcMapper;
 
 /**
  * gRPC client for AI service using Spring Boot Starters
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class GameRecommenderGrpcClient {
+    private final GrpcMapper mapper;
 
     @GrpcClient("ai-service")
     private GameRecommenderServiceGrpc.GameRecommenderServiceBlockingStub gameRecommenderStub;
 
+    public RecommendationResponse getGameRecommendations(AiContextRequest req) {
+        try {
+            log.debug("Sending recommendation request: message={}", req.getUserMessage());
+
+            FullAiContextRequestProto aiContext = mapper.toProto(req);
+
+            RecommendationResponse response = gameRecommenderStub.recommendGames(aiContext);
+
+            log.debug("Received recommendation response: response={}", response.getSuccess());
+
+            return response;
+        } catch (Exception e) {
+            log.error("Error getting recommendations from gRPC service", e);
+            throw new RuntimeException("Failed to get recommendations from AI service", e);
+        }
+    }
     /**
      * Get game recommendations
      */
     public RecommendationResponse getRecommendations(String preferences, int maxRecommendations) {
         try {
-            log.debug("Sending recommendation request: preferences={}, maxRecommendations={}",
-                    preferences, maxRecommendations);
-
+            log.debug("Sending recommendation request: preferences={}, maxRecommendations={}", 
+                     preferences, maxRecommendations);
+            
             RecommendationRequest request = RecommendationRequest.newBuilder()
                     .setPreferences(preferences)
                     .setMaxRecommendations(maxRecommendations)
                     .build();
 
             RecommendationResponse response = gameRecommenderStub.recommend(request);
-            log.debug("Received recommendation response: success={}, recommendationsCount={}",
-                    response.getSuccess(), response.getRecommendationsCount());
-
+            log.debug("Received recommendation response: success={}, recommendationsCount={}", 
+                     response.getSuccess(), response.getRecommendationsCount());
+            
             return response;
         } catch (Exception e) {
             log.error("Error getting recommendations from gRPC service", e);
-            throw new GameRecommenderException(ErrorType.AI_SERVICE_RECOMMENDATION_ERROR, preferences);
+            throw new RuntimeException("Failed to get recommendations from AI service", e);
         }
     }
 
@@ -51,7 +66,7 @@ public class GameRecommenderGrpcClient {
     public ChatResponse chatWithAI(String message, String context) {
         try {
             log.debug("Sending chat request: message={}, context={}", message, context);
-
+            
             ChatRequest request = ChatRequest.newBuilder()
                     .setMessage(message)
                     .setContext(context != null ? context : "")
@@ -59,11 +74,11 @@ public class GameRecommenderGrpcClient {
 
             ChatResponse response = gameRecommenderStub.chat(request);
             log.debug("Received chat response: success={}", response.getSuccess());
-
+            
             return response;
         } catch (Exception e) {
             log.error("Error chatting with AI via gRPC service", e);
-            throw new GameRecommenderException(ErrorType.CHATTING_WITH_AI_ERROR);
+            throw new RuntimeException("Failed to chat with AI service", e);
         }
     }
 }
