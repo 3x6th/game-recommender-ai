@@ -14,6 +14,13 @@ import reactor.core.publisher.Mono;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Класс конфигурации для настройки WebClient с ограничением запросов и логированием.
+ * <p>
+ * Настраивает WebClient для работы с Steam API, добавляя фильтры для ограничения
+ * запросов и логирования. Обеспечивает соблюдение лимитов Steam API и мониторинг запросов.
+ * </p>
+ */
 @Configuration
 @RequiredArgsConstructor
 @Slf4j
@@ -30,6 +37,16 @@ public class WebClientConfig {
                 .build();
     }
 
+    /**
+     * Создает фильтр для ограничения запросов на основе корзины токенов.
+     * <p>
+     * Фильтр проверяет доступность токенов перед выполнением запроса.
+     * Если токены доступны - запрос выполняется, если нет - возвращается ошибка 429.
+     * </p>
+     *
+     * @param bucket корзина токенов для проверки ограничений
+     * @return фильтр ограничения запросов
+     */
     private ExchangeFilterFunction rateLimiterFilter(Bucket bucket) {
         return (request, next) -> {
             ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
