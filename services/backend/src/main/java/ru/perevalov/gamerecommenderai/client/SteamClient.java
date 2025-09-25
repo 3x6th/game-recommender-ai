@@ -9,6 +9,8 @@ import ru.perevalov.gamerecommenderai.config.SteamProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
 import ru.perevalov.gamerecommenderai.dto.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.SteamPlayerResponse;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
+import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 
 import java.time.Duration;
 
@@ -64,7 +66,7 @@ public class SteamClient {
             return response;
         } catch (Exception e) {
             log.error("Error fetching player summaries for steamId={}", steamId, e);
-            throw new RuntimeException("Failed to fetch player summaries from Steam API", e);
+            throw new GameRecommenderException(ErrorType.STEAM_API_PLAYER_SUMMARY_ERROR, steamId);
         }
     }
 
@@ -103,7 +105,7 @@ public class SteamClient {
             return response;
         } catch (Exception e) {
             log.error("Error fetching owned games for steamId={}", steamId, e);
-            throw new RuntimeException("Failed to fetch owned games from Steam API", e);
+            throw new GameRecommenderException(ErrorType.STEAM_API_FETCH_OWNED_GAMES_ERROR, steamId);
         }
     }
 }
