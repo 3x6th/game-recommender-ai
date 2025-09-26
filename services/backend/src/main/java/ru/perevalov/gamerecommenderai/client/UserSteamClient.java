@@ -5,10 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.util.retry.Retry;
-import ru.perevalov.gamerecommenderai.config.SteamProps;
+import ru.perevalov.gamerecommenderai.config.UserSteamProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
-import ru.perevalov.gamerecommenderai.dto.SteamOwnedGamesResponse;
-import ru.perevalov.gamerecommenderai.dto.SteamPlayerResponse;
+import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
+import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 
@@ -24,7 +24,7 @@ import java.time.Duration;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class SteamClient {
+public class UserSteamClient {
 
     /**
      * Экземпляр WebClient, используемый для выполнения HTTP-запросов к Steam API.
@@ -35,7 +35,7 @@ public class SteamClient {
      * Конфигурационные параметры Steam API, включающие базовый URL, API-ключ,
      * пути к эндпоинтам и настройки повторных попыток.
      */
-    private final SteamProps props;
+    private final UserSteamProps props;
 
     /**
      * Получает информацию о пользователе по одному Steam ID.
@@ -51,6 +51,8 @@ public class SteamClient {
 
             SteamPlayerResponse response = steamWebClient.get()
                     .uri(uriBuilder -> uriBuilder
+                            .scheme(props.scheme())
+                            .host(props.host())
                             .path(props.getPlayerSummariesPath())
                             .queryParam(SteamApiConstant.KEY, props.apiKey())
                             .queryParam(SteamApiConstant.STEAMIDS, steamId)
@@ -88,6 +90,8 @@ public class SteamClient {
 
             SteamOwnedGamesResponse response = steamWebClient.get()
                     .uri(uriBuilder -> uriBuilder
+                            .scheme(props.scheme())
+                            .host(props.host())
                             .path(props.getOwnedGamesPath())
                             .queryParam(SteamApiConstant.KEY, props.apiKey())
                             .queryParam(SteamApiConstant.STEAMID, steamId)
@@ -108,4 +112,5 @@ public class SteamClient {
             throw new GameRecommenderException(ErrorType.STEAM_API_FETCH_OWNED_GAMES_ERROR, steamId);
         }
     }
+
 }

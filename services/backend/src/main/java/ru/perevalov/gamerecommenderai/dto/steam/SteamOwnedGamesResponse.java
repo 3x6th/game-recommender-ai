@@ -1,4 +1,4 @@
-package ru.perevalov.gamerecommenderai.dto;
+package ru.perevalov.gamerecommenderai.dto.steam;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;

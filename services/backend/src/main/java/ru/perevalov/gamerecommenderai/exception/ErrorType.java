@@ -28,10 +28,12 @@ public enum ErrorType {
             " body: %s", HttpStatus.UNAUTHORIZED),
     STEAM_API_FETCH_OWNED_GAMES_ERROR("Failed to fetch owned games from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_API_PLAYER_SUMMARY_ERROR("Failed to fetch player summary from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
+    STEAM_APP_DETAILS_NOT_FOUND("App details for app id %s were not found.", HttpStatus.NOT_FOUND),
     STEAM_ID_EXTRACTION_FAILED("Steam ID extraction failed: Invalid claimedId format '%s'. Expected format like" +
             " https://steamcommunity.com/id/76561197973845818",
             HttpStatus.BAD_REQUEST
     ),
+    STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE),
     USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
 
     private final String description;
