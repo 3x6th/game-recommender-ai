@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import ru.perevalov.gamerecommenderai.client.StoreSteamClient;
+import ru.perevalov.gamerecommenderai.client.SteamStoreClient;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 
 @Slf4j
@@ -18,11 +18,11 @@ import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 @CrossOrigin(origins = "*")
 public class TestFetchGameDetailsController {
 
-    private final StoreSteamClient storeSteamClient;
+    private final SteamStoreClient steamStoreClient;
 
     @GetMapping()
     public ResponseEntity<SteamGameDetailsResponseDto> getGameDetails(@RequestParam("id") String id) {
-        SteamGameDetailsResponseDto response = storeSteamClient.fetchGameDetails(id);
+        SteamGameDetailsResponseDto response = steamStoreClient.fetchGameDetails(id);
         return ResponseEntity.ok(response);
     }
 }

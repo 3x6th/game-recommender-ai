@@ -7,7 +7,7 @@ import org.springframework.validation.annotation.Validated;
 
 @ConfigurationProperties(prefix = "steam.store")
 @Validated
-public record StoreSteamProps(
+public record SteamStoreProps(
         @NotBlank String scheme,
         @NotBlank String host,
         @NotBlank String getAppDetailsPath,

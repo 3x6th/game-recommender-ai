@@ -7,7 +7,7 @@ import org.springframework.validation.annotation.Validated;
 
 @ConfigurationProperties(prefix = "steam.user")
 @Validated
-public record UserSteamProps(
+public record SteamUserProps(
         @NotBlank String scheme,
         @NotBlank String host,
         @NotBlank String apiKey,

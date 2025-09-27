@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.util.retry.Retry;
-import ru.perevalov.gamerecommenderai.config.UserSteamProps;
+import ru.perevalov.gamerecommenderai.config.SteamUserProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
@@ -24,7 +24,7 @@ import java.time.Duration;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class UserSteamClient {
+public class SteamUserClient {
 
     /**
      * Экземпляр WebClient, используемый для выполнения HTTP-запросов к Steam API.
@@ -35,7 +35,7 @@ public class UserSteamClient {
      * Конфигурационные параметры Steam API, включающие базовый URL, API-ключ,
      * пути к эндпоинтам и настройки повторных попыток.
      */
-    private final UserSteamProps props;
+    private final SteamUserProps props;
 
     /**
      * Получает информацию о пользователе по одному Steam ID.

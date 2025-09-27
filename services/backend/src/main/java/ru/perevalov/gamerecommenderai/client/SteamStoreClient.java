@@ -10,9 +10,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriComponentsBuilder;
 import reactor.util.retry.Retry;
-import ru.perevalov.gamerecommenderai.config.StoreSteamProps;
+import ru.perevalov.gamerecommenderai.config.SteamStoreProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
-import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDataResponseDto;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
@@ -26,7 +25,7 @@ import java.time.Duration;
  * It handles retry logic for failed requests and includes logging for request tracing.
  * </p>
  * <p>
- * This client depends on {@link StoreSteamProps} for configuration (e.g., base URL components, retry settings)
+ * This client depends on {@link SteamStoreProps} for configuration (e.g., base URL components, retry settings)
  * and uses constants from {@link SteamApiConstant} for query parameters and JSON nodes.
  * </p>
  *
@@ -36,10 +35,10 @@ import java.time.Duration;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class StoreSteamClient {
+public class SteamStoreClient {
     private final WebClient steamWebClient;
 
-    private final StoreSteamProps props;
+    private final SteamStoreProps props;
 
     /**
      * Fetches detailed information for one or more Steam apps.
@@ -115,7 +114,8 @@ public class StoreSteamClient {
 
             if (appNode.has(SteamApiConstant.DATA)) {
                 ObjectMapper mapper = new ObjectMapper();
-                SteamGameDataResponseDto data = mapper.treeToValue(appNode.get("data"), SteamGameDataResponseDto.class);
+                SteamGameDetailsResponseDto.SteamGameDataResponseDto data = mapper.treeToValue(appNode.get("data"),
+                        SteamGameDetailsResponseDto.SteamGameDataResponseDto.class);
 
                 SteamGameDetailsResponseDto response = SteamGameDetailsResponseDto.builder()
                         .appId(appIds)

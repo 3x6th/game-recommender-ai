@@ -8,7 +8,7 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import ru.perevalov.gamerecommenderai.config.UserSteamProps;
+import ru.perevalov.gamerecommenderai.config.SteamUserProps;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
 
@@ -17,15 +17,15 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.function.Function;
 
-class UserSteamClientTest {
+class SteamUserClientTest {
     private WebClient webClientMock;
-    private UserSteamClient userSteamClient;
+    private SteamUserClient steamUserClient;
 
     @BeforeEach
     void setUp() {
         webClientMock = Mockito.mock(WebClient.class, Mockito.RETURNS_DEEP_STUBS);
 
-        UserSteamProps steamProps = new UserSteamProps(
+        SteamUserProps steamProps = new SteamUserProps(
                 "https",
                 "dummy.url",
                 "dummyKey",
@@ -35,7 +35,7 @@ class UserSteamClientTest {
                 5L
         );
 
-        userSteamClient = new UserSteamClient(webClientMock, steamProps);
+        steamUserClient = new SteamUserClient(webClientMock, steamProps);
     }
 
     @Test
@@ -54,7 +54,7 @@ class UserSteamClientTest {
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
 
-        SteamPlayerResponse response = userSteamClient.fetchPlayerSummaries("76561198000000000");
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("76561198000000000");
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(1, response.getResponse().getPlayers().size(), "Response should have one player");
@@ -80,7 +80,7 @@ class UserSteamClientTest {
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
 
-        SteamOwnedGamesResponse response = userSteamClient.fetchOwnedGames("76561198000000000", true, true);
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("76561198000000000", true, true);
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(2, response.getResponse().getGameCount(), "Response should have two games");
@@ -110,7 +110,7 @@ class UserSteamClientTest {
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(emptyProfile));
 
-        SteamPlayerResponse response = userSteamClient.fetchPlayerSummaries("123456");
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("123456");
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertTrue(response.getResponse() == null
@@ -133,7 +133,7 @@ class UserSteamClientTest {
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(emptyGames));
 
-        SteamOwnedGamesResponse response = userSteamClient.fetchOwnedGames("123456", true, true);
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("123456", true, true);
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
