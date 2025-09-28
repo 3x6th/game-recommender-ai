@@ -23,6 +23,7 @@ public enum ErrorType {
     FETCH_STORE_GAMES_ERROR("Error occurred during fetch and store games execution", HttpStatus.INTERNAL_SERVER_ERROR),
     GRPC_AI_ERROR("Error from AI service: %s", HttpStatus.INTERNAL_SERVER_ERROR),
     GRPC_COMMUNICATION_ERROR("Error communicating with gRPC service with exception: %s", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_AUTHORIZATION_HEADER("Invalid Authorization header: %s", HttpStatus.UNAUTHORIZED),
     MISSING_AUTHORIZATION_HEADER("Missing authorization header. Expected JWT token.", HttpStatus.UNAUTHORIZED),
     OPENID_VALIDATION_FAILED_ENDPOINT("OpenID validation failed: opEndpoint '%s' differs from expected in openId" +
             " authorization flow through Steam.", HttpStatus.UNAUTHORIZED),
@@ -38,9 +39,7 @@ public enum ErrorType {
     STEAM_APP_DETAILS_NOT_FOUND("App details for appid %s were not found.", HttpStatus.NOT_FOUND),
     STEAM_DATA_IN_APP_DETAILS_NOT_FOUND("Data in appDetails for appid %s were not found.", HttpStatus.NOT_FOUND),
     STEAM_ID_EXTRACTION_FAILED("Steam ID extraction failed: Invalid claimedId format '%s'. Expected format like" +
-            " https://steamcommunity.com/id/76561197973845818",
-            HttpStatus.BAD_REQUEST
-    ),
+            " https://steamcommunity.com/id/76561197973845818", HttpStatus.BAD_REQUEST),
     STEAM_JSON_PROCESSING_ERROR("Failed to parse JSON response.", HttpStatus.INTERNAL_SERVER_ERROR),
     STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE),
     USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
