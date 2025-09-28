@@ -6,6 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -16,13 +17,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.context.SecurityContextHolder;
 import ru.perevalov.gamerecommenderai.entity.User;
+import ru.perevalov.gamerecommenderai.filter.JwtRequestFilter;
 import ru.perevalov.gamerecommenderai.security.jwt.JwtClaimKey;
-import ru.perevalov.gamerecommenderai.security.jwt.JwtRequestFilter;
 import ru.perevalov.gamerecommenderai.security.jwt.JwtUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 import ru.perevalov.gamerecommenderai.service.UserService;
 import ru.perevalov.gamerecommenderai.utils.DataUtils;
-import org.junit.jupiter.api.Assertions;
 
 @ExtendWith(MockitoExtension.class)
 class JwtRequestFilterTest {
@@ -37,12 +37,14 @@ class JwtRequestFilterTest {
     private FilterChain filterChain;
     @Mock
     private JwtUtil jwtUtil;
+    @Mock
+    private TokenService tokenService;
 
     private JwtRequestFilter filter;
 
     @BeforeEach
     void setUp() {
-        filter = new JwtRequestFilter(userService, jwtUtil);
+        filter = new JwtRequestFilter(userService, tokenService, jwtUtil);
     }
 
     @AfterEach

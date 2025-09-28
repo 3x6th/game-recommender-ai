@@ -10,16 +10,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
+import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
-import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenRequest;
-import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenResponse;
+import ru.perevalov.gamerecommenderai.security.TokenService;
 import ru.perevalov.gamerecommenderai.security.openid.OpenIdMode;
 import ru.perevalov.gamerecommenderai.security.openid.OpenIdParam;
 import ru.perevalov.gamerecommenderai.security.openid.OpenIdValue;
-import ru.perevalov.gamerecommenderai.security.AuthService;
 import ru.perevalov.gamerecommenderai.security.steam.SteamOpenIdResponseHandler;
 
 import java.net.URI;
@@ -35,21 +37,21 @@ public class AuthController {
     @Value("${steam.openid.endpoint}")
     private String steamOpenIdLoginUrl;
     private final SteamOpenIdResponseHandler steamOpenIdResponseHandler;
-    private final AuthService authService;
+    private final TokenService tokenService;
 
     @PostMapping("/preAuthorize")
     public ResponseEntity<PreAuthResponse> preAuthorize(HttpServletResponse response) {
-        PreAuthResponse resp = authService.preAuthorize(response);
+        PreAuthResponse resp = tokenService.preAuthorize(response);
         return ResponseEntity.ok()
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + resp.getAccessToken())
                 .body(resp);
     }
 
     @PostMapping("/refresh")
-    public ResponseEntity<RefreshAccessTokenResponse> refreshAccessToken(@RequestBody RefreshAccessTokenRequest request,
-                                                                         HttpServletResponse response) {
-        RefreshAccessTokenResponse refreshAccessTokenResponse = authService.refresh(request.getRefreshToken(), response);
-        return ResponseEntity.ok(refreshAccessTokenResponse);
+    public ResponseEntity<AccessTokenResponse> refreshAccessToken(HttpServletRequest request,
+                                                                  HttpServletResponse response) {
+        AccessTokenResponse accessTokenResponse = tokenService.refreshAccessToken(request, response);
+        return ResponseEntity.ok(accessTokenResponse);
     }
 
     /**
@@ -76,10 +78,10 @@ public class AuthController {
      * Возвращает новые Refresh и Access токены в случае привязки пользователя по Steam Id
      */
     @GetMapping("/steam/return")
-    public ResponseEntity<RefreshAccessTokenResponse> handleSteamCallback(OpenIdResponse openIdResponse,
-                                                                          HttpServletRequest request,
-                                                                          HttpServletResponse response) {
-        RefreshAccessTokenResponse handledResponse = steamOpenIdResponseHandler.handle(openIdResponse, request, response);
+    public ResponseEntity<AccessTokenResponse> handleSteamCallback(OpenIdResponse openIdResponse,
+                                                                   HttpServletRequest request,
+                                                                   HttpServletResponse response) {
+        AccessTokenResponse handledResponse = steamOpenIdResponseHandler.handle(openIdResponse, request, response);
         return ResponseEntity.ok(handledResponse);
     }
 
