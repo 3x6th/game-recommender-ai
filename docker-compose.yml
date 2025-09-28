@@ -1,7 +1,8 @@
 version: '3.8'
 services:
   game_recommender_ai_db:
-    image: postgres:15-alpine
+    container_name: game_recommender_postgres
+    image: postgres:17.4
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
