@@ -27,9 +27,8 @@ import java.util.concurrent.TimeUnit;
 public class WebClientConfig {
 
     @Bean
-    public WebClient steamWebClient(Bucket apiBucket, SteamProps props) {
+    public WebClient steamWebClient(Bucket apiBucket, SteamUserProps props) {
         return WebClient.builder()
-                .baseUrl(props.baseUrl())
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
                 .defaultHeader("X-API-Key", props.apiKey())
                 .filter(rateLimiterFilter(apiBucket))
