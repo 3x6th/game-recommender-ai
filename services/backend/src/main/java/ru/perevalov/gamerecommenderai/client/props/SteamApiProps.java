@@ -1,4 +1,4 @@
-package ru.perevalov.gamerecommenderai.config;
+package ru.perevalov.gamerecommenderai.client.props;
 
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
@@ -11,7 +11,7 @@ import org.springframework.validation.annotation.Validated;
 public record SteamApiProps(
         @NotBlank String scheme,
         @NotBlank String host,
-        @NotBlank String getAppList,
+        @NotBlank String getAppListPath,
         @Min(0) int retryAttempts,
         @Min(0) long retryDelaySeconds,
         @Min(0) long durationOfMinutes,

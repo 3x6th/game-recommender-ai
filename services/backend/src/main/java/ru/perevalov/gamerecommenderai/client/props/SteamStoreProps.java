@@ -1,4 +1,4 @@
-package ru.perevalov.gamerecommenderai.config;
+package ru.perevalov.gamerecommenderai.client.props;
 
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;

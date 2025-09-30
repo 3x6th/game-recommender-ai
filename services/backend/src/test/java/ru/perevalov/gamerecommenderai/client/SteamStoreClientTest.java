@@ -11,7 +11,7 @@ import org.mockito.Mockito;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import ru.perevalov.gamerecommenderai.config.SteamStoreProps;
+import ru.perevalov.gamerecommenderai.client.props.SteamStoreProps;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
