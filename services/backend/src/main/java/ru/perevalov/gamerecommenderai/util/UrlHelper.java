@@ -1,4 +1,4 @@
-package ru.perevalov.gamerecommenderai.client;
+package ru.perevalov.gamerecommenderai.util;
 
 import lombok.experimental.UtilityClass;
 import lombok.extern.slf4j.Slf4j;

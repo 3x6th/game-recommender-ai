@@ -1,5 +1,7 @@
 package ru.perevalov.gamerecommenderai.client;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.lettuce.core.api.StatefulRedisConnection;
 import io.netty.channel.ChannelOption;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,9 +19,11 @@ import ru.perevalov.gamerecommenderai.client.props.SteamApiProps;
 import ru.perevalov.gamerecommenderai.dto.steam.GameRootResponseDto;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.util.UrlHelper;
 
 import javax.annotation.PostConstruct;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 
 @Component
@@ -27,12 +31,16 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class SteamApiClient {
     private final SteamApiProps props;
+    private final StatefulRedisConnection<byte[], byte[]> redisConnection;
+    private final ObjectMapper objectMapper;
 
     private URI uri;
 
     private WebClient customWebClient;
 
     private RetryBackoffSpec retryBackoffSpec;
+
+    private static final String CACHE_KEY = "steam_apps";
 
     /**
      * Initializes the client:
@@ -87,6 +95,12 @@ public class SteamApiClient {
     public GameRootResponseDto fetchSteamApps() {
         log.debug("Start fetchSteamApps method... ");
         try {
+            GameRootResponseDto cached = getFromCache();
+            if (cached != null) {
+                log.info("Returning Steam apps from Redis cache");
+                return cached;
+            }
+
             GameRootResponseDto response = customWebClient.get()
                     .uri(uri)
                     .retrieve()
@@ -95,6 +109,8 @@ public class SteamApiClient {
                     .doOnError(error -> log.error("Request failed: {}", error.getMessage()))
                     .retryWhen(retryBackoffSpec)
                     .block();
+
+            saveToCache(response);
 
             log.debug("fetchSteamApps completed successfully.");
             return response;
@@ -115,6 +131,29 @@ public class SteamApiClient {
             return e.getStatusCode().is5xxServerError();
         }
         return true;
+    }
+
+    private GameRootResponseDto getFromCache() {
+        try {
+            byte[] cached = redisConnection.sync().get(CACHE_KEY.getBytes(StandardCharsets.UTF_8));
+            if (cached != null) {
+                return objectMapper.readValue(cached, GameRootResponseDto.class);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to read from Redis cache", e);
+        }
+        return null;
+    }
+
+    private void saveToCache(GameRootResponseDto response) {
+        if (response == null) return;
+        try {
+            redisConnection.sync().set(CACHE_KEY.getBytes(StandardCharsets.UTF_8),
+                    objectMapper.writeValueAsBytes(response));
+            log.info("Steam apps saved to Redis cache");
+        } catch (Exception e) {
+            log.warn("Failed to save Steam apps to Redis cache", e);
+        }
     }
 
 }
