@@ -16,6 +16,7 @@ import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Objects;
@@ -52,7 +53,7 @@ class SteamStoreClientTest {
 
         Mono<JsonNode> mockMono = Mono.just(jsonNode);
         Mockito.when(webClientMock.get()
-                        .uri(ArgumentMatchers.anyString())
+                        .uri(ArgumentMatchers.any(URI.class))
                         .retrieve()
                         .bodyToMono(JsonNode.class))
                 .thenReturn(mockMono);
@@ -84,7 +85,7 @@ class SteamStoreClientTest {
         Mono<JsonNode> mockMono = Mono.just(invalidJsonNode);
 
         Mockito.when(webClientMock.get()
-                        .uri(ArgumentMatchers.anyString())
+                        .uri(ArgumentMatchers.any(URI.class))
                         .retrieve()
                         .bodyToMono(JsonNode.class))
                 .thenReturn(mockMono);
