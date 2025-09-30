@@ -8,7 +8,7 @@ import java.util.List;
 
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record GameRootResponseDto(
+public record SteamAppResponseDto(
         @JsonProperty("applist") AppList appList) {
 
     public record AppList(

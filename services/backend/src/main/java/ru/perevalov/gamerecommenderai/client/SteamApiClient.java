@@ -16,15 +16,18 @@ import reactor.netty.http.client.HttpClient;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 import ru.perevalov.gamerecommenderai.client.props.SteamApiProps;
-import ru.perevalov.gamerecommenderai.dto.steam.GameRootResponseDto;
+import ru.perevalov.gamerecommenderai.dto.steam.SteamAppResponseDto;
+import ru.perevalov.gamerecommenderai.entity.SteamAppEntity;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.repository.SteamAppRepository;
 import ru.perevalov.gamerecommenderai.util.UrlHelper;
 
 import javax.annotation.PostConstruct;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 
 @Component
 @Slf4j
@@ -33,6 +36,7 @@ public class SteamApiClient {
     private final SteamApiProps props;
     private final StatefulRedisConnection<byte[], byte[]> redisConnection;
     private final ObjectMapper objectMapper;
+    private final SteamAppRepository steamAppRepository;
 
     private URI uri;
 
@@ -89,28 +93,29 @@ public class SteamApiClient {
      *     <li>Retry strategy for server errors and transient failures</li>
      * </ul>
      *
-     * @return {@link GameRootResponseDto} containing the list of Steam apps
+     * @return {@link SteamAppResponseDto} containing the list of Steam apps
      * @throws GameRecommenderException if fetching fails
      */
-    public GameRootResponseDto fetchSteamApps() {
+    public SteamAppResponseDto fetchSteamApps() {
         log.debug("Start fetchSteamApps method... ");
         try {
-            GameRootResponseDto cached = getFromCache();
+            SteamAppResponseDto cached = getFromCache();
             if (cached != null) {
                 log.info("Returning Steam apps from Redis cache");
                 return cached;
             }
 
-            GameRootResponseDto response = customWebClient.get()
+            SteamAppResponseDto response = customWebClient.get()
                     .uri(uri)
                     .retrieve()
-                    .bodyToMono(GameRootResponseDto.class)
+                    .bodyToMono(SteamAppResponseDto.class)
                     .doOnNext(resp -> log.info("Response received successfully. Fetched {} apps.", resp.appList().apps().size()))
                     .doOnError(error -> log.error("Request failed: {}", error.getMessage()))
                     .retryWhen(retryBackoffSpec)
                     .block();
 
             saveToCache(response);
+            saveToDatabase(response);
 
             log.debug("fetchSteamApps completed successfully.");
             return response;
@@ -133,11 +138,11 @@ public class SteamApiClient {
         return true;
     }
 
-    private GameRootResponseDto getFromCache() {
+    private SteamAppResponseDto getFromCache() {
         try {
             byte[] cached = redisConnection.sync().get(CACHE_KEY.getBytes(StandardCharsets.UTF_8));
             if (cached != null) {
-                return objectMapper.readValue(cached, GameRootResponseDto.class);
+                return objectMapper.readValue(cached, SteamAppResponseDto.class);
             }
         } catch (Exception e) {
             log.warn("Failed to read from Redis cache", e);
@@ -145,7 +150,7 @@ public class SteamApiClient {
         return null;
     }
 
-    private void saveToCache(GameRootResponseDto response) {
+    private void saveToCache(SteamAppResponseDto response) {
         if (response == null) return;
         try {
             redisConnection.sync().set(CACHE_KEY.getBytes(StandardCharsets.UTF_8),
@@ -154,6 +159,23 @@ public class SteamApiClient {
         } catch (Exception e) {
             log.warn("Failed to save Steam apps to Redis cache", e);
         }
+    }
+
+    private void saveToDatabase(SteamAppResponseDto response) {
+        if (response == null || response.appList() == null) {
+            log.warn("No Steam apps to save to database.");
+            return;
+        }
+
+        List<SteamAppEntity> entities = response.appList().apps().stream()
+                .map(app -> SteamAppEntity.builder()
+                        .appid(app.appid())
+                        .name(app.name())
+                        .build())
+                .toList();
+
+        steamAppRepository.saveAll(entities);
+        log.info("Saved {} Steam apps to database.", entities.size());
     }
 
 }
