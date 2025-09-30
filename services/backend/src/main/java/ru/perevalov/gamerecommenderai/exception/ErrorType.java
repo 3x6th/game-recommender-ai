@@ -26,6 +26,7 @@ public enum ErrorType {
             " authorization flow through Steam.", HttpStatus.UNAUTHORIZED),
     OPENID_VALIDATION_FAILED_RESPONSE("OpenID validation failed: Steam returned invalid response. Endpoint: %s," +
             " body: %s", HttpStatus.UNAUTHORIZED),
+    STEAM_API_FETCH_GAMES_LIST_ERROR("Failed to fetch games list from Steam API", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_API_FETCH_OWNED_GAMES_ERROR("Failed to fetch owned games from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_API_PLAYER_SUMMARY_ERROR("Failed to fetch player summary from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_APP_DETAILS_MAPPING_ERROR("Failed to map app details for appid %s.", HttpStatus.INTERNAL_SERVER_ERROR),
