@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
 
 import java.util.concurrent.TimeUnit;
 
