@@ -36,10 +36,9 @@ public enum ErrorType {
             HttpStatus.BAD_REQUEST
     ),
     USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND),
-    FAILED_TO_BUILD_AI_CONTEXT("Failed to build full context for AI service", HttpStatus.INTERNAL_SERVER_ERROR);
+    FAILED_TO_BUILD_AI_CONTEXT("Failed to build full context for AI service", HttpStatus.INTERNAL_SERVER_ERROR),
     STEAM_JSON_PROCESSING_ERROR("Failed to parse JSON response.", HttpStatus.INTERNAL_SERVER_ERROR),
-    STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE),
-    USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
+    STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE);
 
     private final String description;
     private final HttpStatus status;
