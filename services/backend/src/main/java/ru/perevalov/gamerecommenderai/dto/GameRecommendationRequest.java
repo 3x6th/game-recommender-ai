@@ -10,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class GameRecommendationRequest {
-    private String message;
+    private String content;
     private String[] tags;
-    private Long steamId;
+    private String steamId;
 } 

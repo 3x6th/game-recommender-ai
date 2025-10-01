@@ -25,19 +25,23 @@ public class GameRecommenderService {
     private final GameRecommenderGrpcClient grpcClient;
     private final SteamClient steamClient;
 
-    public AiContextRequest getFullAiContext(GameRecommendationRequest request) {
+    public GameRecommendationResponse getGameRecommendationsWithContext(GameRecommendationRequest request) {
         try {
             SteamOwnedGamesResponse steamLib = steamClient.fetchOwnedGames(
-                    request.getSteamId().toString(),
+                    request.getSteamId(),
                     true,
                     true
             );
 
-            return AiContextRequest.builder()
-                    .userMessage(request.getMessage())
+            AiContextRequest context = AiContextRequest.builder()
+                    .userMessage(request.getContent())
                     .selectedTags(request.getTags())
                     .gameLibrary(steamLib)
                     .build();
+
+            RecommendationResponse grpcResponse = grpcClient.getGameRecommendations(context);
+            return processGrpcResponse(grpcResponse);
+
         } catch (Exception e) {
             throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED);
         }
