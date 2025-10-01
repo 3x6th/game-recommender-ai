@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -20,6 +21,7 @@ import ru.perevalov.gamerecommenderai.dto.steam.SteamAppResponseDto;
 import ru.perevalov.gamerecommenderai.entity.SteamAppEntity;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.mapper.SteamAppMapper;
 import ru.perevalov.gamerecommenderai.repository.SteamAppRepository;
 import ru.perevalov.gamerecommenderai.util.UrlHelper;
 
@@ -27,6 +29,7 @@ import javax.annotation.PostConstruct;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 @Component
@@ -37,14 +40,14 @@ public class SteamApiClient {
     private final StatefulRedisConnection<byte[], byte[]> redisConnection;
     private final ObjectMapper objectMapper;
     private final SteamAppRepository steamAppRepository;
+    private final SteamAppMapper steamAppMapper;
 
     private URI uri;
-
     private WebClient customWebClient;
-
     private RetryBackoffSpec retryBackoffSpec;
 
     private static final String CACHE_KEY = "steam_apps";
+    private static final int BATCH_SIZE = 5000;
 
     /**
      * Initializes the client:
@@ -96,6 +99,7 @@ public class SteamApiClient {
      * @return {@link SteamAppResponseDto} containing the list of Steam apps
      * @throws GameRecommenderException if fetching fails
      */
+    @Transactional
     public SteamAppResponseDto fetchSteamApps() {
         log.debug("Start fetchSteamApps method... ");
         try {
@@ -167,15 +171,34 @@ public class SteamApiClient {
             return;
         }
 
-        List<SteamAppEntity> entities = response.appList().apps().stream()
-                .map(app -> SteamAppEntity.builder()
-                        .appid(app.appid())
-                        .name(app.name())
-                        .build())
-                .toList();
+        List<SteamAppResponseDto.AppList.App> fullApps = response.appList().apps();
 
-        steamAppRepository.saveAll(entities);
-        log.info("Saved {} Steam apps to database.", entities.size());
+        int testSize = 15000;
+        List<SteamAppResponseDto.AppList.App> apps = fullApps.size() > testSize ? fullApps.subList(0, testSize) : fullApps;
+
+        log.info("Starting batch save of {} Steam apps to database.", apps.size());
+        long startTime = System.currentTimeMillis();
+
+        for (int i = 0; i < apps.size(); i += BATCH_SIZE) {
+            int end = Math.min(i + BATCH_SIZE, apps.size());
+            List<SteamAppResponseDto.AppList.App> batchApps = apps.subList(i, end);
+
+            List<SteamAppEntity> entitiesBatch = new ArrayList<>(batchApps.size());
+            for (SteamAppResponseDto.AppList.App app : batchApps) {
+                entitiesBatch.add(steamAppMapper.toEntity(app));
+            }
+
+            long batchStart = System.currentTimeMillis();
+            steamAppRepository.batchInsert(entitiesBatch);
+            long batchEnd = System.currentTimeMillis();
+
+            log.info("Saved batch of {} in {} ms. Progress: {}/{}", batchApps.size(), (batchEnd - batchStart), end, apps.size());
+        }
+
+        long endTime = System.currentTimeMillis();
+        long duration = endTime - startTime;
+        log.info("Saved {} Steam apps to database in {} ms (average ~{} ms per record).",
+                apps.size(), duration, (double) duration / apps.size());
     }
 
 }
