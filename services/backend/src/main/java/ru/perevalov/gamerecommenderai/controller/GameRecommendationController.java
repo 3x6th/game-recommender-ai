@@ -32,7 +32,7 @@ public class GameRecommendationController {
     private final JwtUtil jwtUtil;
 
     @PostMapping("/proceed")
-    public ResponseEntity<AiContextRequest> getUserGames(
+    public ResponseEntity<GameRecommendationResponse> getUserGames(
             @RequestBody GameRecommendationRequest req, HttpServletRequest httpServletRequest) {
 
         String header = httpServletRequest.getHeader(HttpHeaders.AUTHORIZATION);
@@ -40,11 +40,11 @@ public class GameRecommendationController {
         DecodedJWT decoded = jwtUtil.decodeToken(token);
         Long steamId = decoded.getClaim("steamId").asLong();
 
-        if (req.getSteamId() == null) {
-            req.setSteamId(steamId);
+        if (req.getSteamId().isBlank()) {
+            req.setSteamId(steamId.toString());
         }
 
-        AiContextRequest response = gameRecommenderService.getFullAiContext(req);
+        GameRecommendationResponse response = gameRecommenderService.getGameRecommendationsWithContext(req);
 
         return ResponseEntity.ok(response);
     }
@@ -56,7 +56,7 @@ public class GameRecommendationController {
         log.info("Received game recommendation request: {}", request);
         
         GameRecommendationResponse response = gameRecommenderService.getGameRecommendation(
-            request.getMessage()
+            request.getContent()
         );
         
         log.info("Returning response with {} recommendations", 
@@ -72,7 +72,7 @@ public class GameRecommendationController {
         log.info("Received chat request: {}", request);
         
         GameRecommendationResponse response = gameRecommenderService.chatWithAI(
-            request.getMessage()
+            request.getContent()
         );
         
         return ResponseEntity.ok(response);

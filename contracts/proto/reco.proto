@@ -8,11 +8,39 @@ option java_multiple_files = true;
 
 // Service for game recommendations
 service GameRecommenderService {
+  // Get game recommendations based on user preferences and steam library
+  rpc RecommendGames(FullAiContextRequestProto) returns (RecommendationResponse);
+
   // Get game recommendations based on user preferences
   rpc Recommend(RecommendationRequest) returns (RecommendationResponse);
   
   // Chat with AI about games
   rpc Chat(ChatRequest) returns (ChatResponse);
+}
+// Полный контекст запроса к AI сервису
+message FullAiContextRequestProto {
+  string userMessage = 1;
+  repeated string selectedTags = 2;
+  SteamOwnedGamesResponseProto userSteamLibrary = 3;
+}
+
+// Модель ответа Steam API при получении списка игр пользователя.
+message SteamOwnedGamesResponseProto {
+  ResponseProto response = 1;
+}
+
+// Внутренний класс, представляющий обёртку ответа Steam API.
+message ResponseProto {
+  int32 gameCount = 1;
+  repeated GameProto games = 2;
+}
+
+// Модель отдельной игры пользователя.
+message GameProto {
+  int64 appId = 1;
+  string name = 2;
+  int32 playtime2weeks = 3;
+  int32 playtimeForever = 4;
 }
 
 // Request for game recommendations
