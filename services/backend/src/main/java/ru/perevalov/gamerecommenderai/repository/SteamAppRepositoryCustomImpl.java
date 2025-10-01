@@ -1,23 +1,22 @@
 package ru.perevalov.gamerecommenderai.repository;
 
-import org.springframework.jdbc.core.BatchPreparedStatementSetter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 import ru.perevalov.gamerecommenderai.entity.SteamAppEntity;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
+import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.util.List;
 
+@Slf4j
 @Repository
 @Transactional
+@RequiredArgsConstructor
 public class SteamAppRepositoryCustomImpl implements SteamAppRepositoryCustom {
     private final JdbcTemplate jdbcTemplate;
-
-    public SteamAppRepositoryCustomImpl(JdbcTemplate jdbcTemplate) {
-        this.jdbcTemplate = jdbcTemplate;
-    }
 
     @Override
     public void batchInsert(List<SteamAppEntity> entities) {
@@ -26,18 +25,19 @@ public class SteamAppRepositoryCustomImpl implements SteamAppRepositoryCustom {
         String sql = "INSERT INTO game_recommender.steam_apps (appid, name) VALUES (?, ?) " +
                 "ON CONFLICT (appid) DO NOTHING";
 
-        jdbcTemplate.batchUpdate(sql, new BatchPreparedStatementSetter() {
-            @Override
-            public void setValues(PreparedStatement ps, int i) throws SQLException {
-                SteamAppEntity entity = entities.get(i);
-                ps.setLong(1, entity.getAppid());
-                ps.setString(2, entity.getName());
-            }
-
-            @Override
-            public int getBatchSize() {
-                return entities.size();  // Все entities отправляются в одном batch
-            }
-        });
+        try {
+            jdbcTemplate.batchUpdate(
+                    sql,
+                    entities,
+                    entities.size(),
+                    (ps, entity) -> {
+                        ps.setLong(1, entity.getAppid());
+                        ps.setString(2, entity.getName());
+                    }
+            );
+        } catch (Exception e) {
+            log.error("Error batch inserting games to database", e);
+            throw new GameRecommenderException(ErrorType.DATABASE_BATCH_INSERT_ERROR, e);
+        }
     }
 }
