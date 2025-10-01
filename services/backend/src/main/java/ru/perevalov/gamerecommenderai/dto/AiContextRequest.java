@@ -9,8 +9,8 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GameRecommendationRequest {
-    private String content;
-    private String[] tags;
-    private String steamId;
-} 
+public class AiContextRequest {
+    private String userMessage;
+    private String[] selectedTags;
+    private SteamOwnedGamesResponse gameLibrary;
+}
