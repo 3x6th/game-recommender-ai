@@ -89,12 +89,6 @@
             <version>42.7.3</version>
         </dependency>
 
-        <!-- Database migration  -->
-        <dependency>
-            <groupId>org.liquibase</groupId>
-            <artifactId>liquibase-core</artifactId>
-        </dependency>
-
         <!-- HTTP Client for DeepSeek API -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
