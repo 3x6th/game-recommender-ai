@@ -1,0 +1,1 @@
+CREATE INDEX idx_steam_apps_name ON game_recommender.steam_apps (name);

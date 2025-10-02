@@ -30,12 +30,12 @@ public class GameService {
     private final StatefulRedisConnection<byte[], byte[]> redisConnection;
     private final SteamAppRepository steamAppRepository;
     private final AsyncSaveService asyncSaveService;
-    private Map<Long, String> appidToNameMap = new ConcurrentHashMap<>();
+    private Map<String, Long> appidToNameMap = new ConcurrentHashMap<>();
 
     @Value("${redis.cache.key}")
     private String cacheKey;
 
-    public Map<Long, String> getGames() {
+    public Map<String, Long> getGames() {
         appidToNameMap = getFromCache();
         if (!appidToNameMap.isEmpty()) {
             return appidToNameMap;
@@ -55,7 +55,7 @@ public class GameService {
         fetchAndStoreGames();
     }
 
-    private Map<Long, String> fetchAndStoreGames() {
+    private Map<String, Long> fetchAndStoreGames() {
         SteamAppResponseDto steamAppResponseDto = steamApiClient.fetchSteamApps();
         appidToNameMap = steamAppMapper.toAppMap(steamAppResponseDto);
         List<SteamAppEntity> gameEntities = steamAppMapper.toEntities(steamAppResponseDto.appList().apps());
@@ -74,14 +74,14 @@ public class GameService {
         return appidToNameMap;
     }
 
-    private Map<Long, String> getFromCache() {
+    private Map<String, Long> getFromCache() {
         try {
             Map<byte[], byte[]> redisMap = redisConnection.sync().hgetall(cacheKey.getBytes(StandardCharsets.UTF_8));
             if (!redisMap.isEmpty()) {
                 return redisMap.entrySet().stream()
                         .collect(Collectors.toMap(
-                                e -> Long.parseLong(new String(e.getKey(), StandardCharsets.UTF_8)),
-                                e -> new String(e.getValue(), StandardCharsets.UTF_8)
+                                e -> new String(e.getKey(), StandardCharsets.UTF_8),
+                                e -> Long.parseLong(new String(e.getValue(), StandardCharsets.UTF_8))
                         ));
             }
         } catch (Exception e) {

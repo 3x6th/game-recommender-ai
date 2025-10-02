@@ -47,14 +47,14 @@ public interface SteamAppMapper {
      * Converts {@link SteamAppResponseDto} to a map of appid to app name. Returns empty map if input is null or invalid.
      */
     @IterableMapping(qualifiedByName = "toMapEntry")
-    default Map<Long, String> toAppMap(SteamAppResponseDto dto) {
+    default Map<String, Long> toAppMap(SteamAppResponseDto dto) {
         if (dto == null || dto.appList() == null || dto.appList().apps() == null) {
             return Collections.emptyMap();
         }
         return dto.appList().apps().stream()
                 .collect(Collectors.toMap(
-                        SteamAppResponseDto.AppList.App::appid,
                         SteamAppResponseDto.AppList.App::name,
+                        SteamAppResponseDto.AppList.App::appid,
                         (existing, replacement) -> existing
                 ));
     }

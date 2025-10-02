@@ -29,15 +29,15 @@ public class AsyncSaveService {
     private int batchSize;
 
     @Async
-    public CompletableFuture<Void> saveToCache(Map<Long, String> appMap) {
+    public CompletableFuture<Void> saveToCache(Map<String, Long> appMap) {
         log.info("saveToCache started in thread: {}", Thread.currentThread().getName());
         if (appMap == null || appMap.isEmpty()) return CompletableFuture.completedFuture(null);
 
         try {
             Map<byte[], byte[]> redisMap = appMap.entrySet().stream()
                     .collect(Collectors.toMap(
-                            e -> e.getKey().toString().getBytes(StandardCharsets.UTF_8),
-                            e -> e.getValue().getBytes(StandardCharsets.UTF_8)
+                            e -> e.getKey().getBytes(StandardCharsets.UTF_8),
+                            e -> e.getValue().toString().getBytes(StandardCharsets.UTF_8)
                     ));
             redisConnection.sync().hset(cacheKey.getBytes(StandardCharsets.UTF_8), redisMap);
             log.info("Steam apps saved to Redis hash");
