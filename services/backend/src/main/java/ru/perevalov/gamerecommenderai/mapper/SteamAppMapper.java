@@ -12,27 +12,40 @@ import java.util.stream.Collectors;
 
 @Mapper(componentModel = "spring")
 public interface SteamAppMapper {
-    // ---- App <-> Entity ----
+    /**
+     * Converts a {@link SteamAppResponseDto.AppList.App} to a {@link SteamAppEntity}.
+     */
     SteamAppEntity toEntity(SteamAppResponseDto.AppList.App app);
 
+    /**
+     * Converts a {@link SteamAppEntity} to a {@link SteamAppResponseDto.AppList.App}.
+     */
     SteamAppResponseDto.AppList.App toDto(SteamAppEntity entity);
 
+    /**
+     * Converts a list of {@link SteamAppResponseDto.AppList.App} to a list of {@link SteamAppEntity}.
+     */
     List<SteamAppEntity> toEntities(List<SteamAppResponseDto.AppList.App> apps);
 
+    /**
+     * Converts a list of {@link SteamAppEntity} to a list of {@link SteamAppResponseDto.AppList.App}.
+     */
     List<SteamAppResponseDto.AppList.App> toDtos(List<SteamAppEntity> entities);
 
-    // ---- Response DTO <-> Entity ----
-
+    /**
+     * Builds a {@link SteamAppResponseDto} from a list of {@link SteamAppEntity}. Returns empty response if list is null or empty.
+     */
     default SteamAppResponseDto toResponseDto(List<SteamAppEntity> entities) {
         if (entities == null || entities.isEmpty()) {
             return new SteamAppResponseDto(new SteamAppResponseDto.AppList(Collections.emptyList()));
         }
-        List<SteamAppResponseDto.AppList.App> apps = toDtos(entities); // MapStruct сгенерирует этот метод
+        List<SteamAppResponseDto.AppList.App> apps = toDtos(entities);
         return new SteamAppResponseDto(new SteamAppResponseDto.AppList(apps));
     }
 
-    // ---- DTO -> Map ----
-
+    /**
+     * Converts {@link SteamAppResponseDto} to a map of appid to app name. Returns empty map if input is null or invalid.
+     */
     @IterableMapping(qualifiedByName = "toMapEntry")
     default Map<Long, String> toAppMap(SteamAppResponseDto dto) {
         if (dto == null || dto.appList() == null || dto.appList().apps() == null) {

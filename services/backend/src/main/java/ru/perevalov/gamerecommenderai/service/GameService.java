@@ -1,10 +1,9 @@
 package ru.perevalov.gamerecommenderai.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.lettuce.core.api.StatefulRedisConnection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.scheduling.annotation.Async;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import ru.perevalov.gamerecommenderai.client.SteamApiClient;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamAppResponseDto;
@@ -15,10 +14,12 @@ import ru.perevalov.gamerecommenderai.mapper.SteamAppMapper;
 import ru.perevalov.gamerecommenderai.repository.SteamAppRepository;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -27,17 +28,16 @@ public class GameService {
     private final SteamApiClient steamApiClient;
     private final SteamAppMapper steamAppMapper;
     private final StatefulRedisConnection<byte[], byte[]> redisConnection;
-    private final ObjectMapper objectMapper;
     private final SteamAppRepository steamAppRepository;
+    private final AsyncSaveService asyncSaveService;
     private Map<Long, String> appidToNameMap = new ConcurrentHashMap<>();
 
-    private static final int BATCH_SIZE = 5000;
-    private static final String CACHE_KEY = "steam_apps";
+    @Value("${redis.cache.key}")
+    private String cacheKey;
 
     public Map<Long, String> getGames() {
-        Optional<SteamAppResponseDto> cached = getFromCache();
-        if (cached.isPresent()) {
-            appidToNameMap = steamAppMapper.toAppMap(cached.get());
+        appidToNameMap = getFromCache();
+        if (!appidToNameMap.isEmpty()) {
             return appidToNameMap;
         }
 
@@ -45,72 +45,50 @@ public class GameService {
         if (!gamesFromDb.isEmpty()) {
             SteamAppResponseDto dto = steamAppMapper.toResponseDto(gamesFromDb);
             appidToNameMap = steamAppMapper.toAppMap(dto);
-            saveToCache(appidToNameMap);
+            asyncSaveService.saveToCache(appidToNameMap);
             return appidToNameMap;
         }
         return fetchAndStoreGames();
     }
 
-    @Async
-    public void updateSteamApps() {
-        log.info("Scheduled async update started");
+    public void updateGames() {
         fetchAndStoreGames();
-        log.info("Scheduled async update finished");
     }
 
     private Map<Long, String> fetchAndStoreGames() {
         SteamAppResponseDto steamAppResponseDto = steamApiClient.fetchSteamApps();
-
         appidToNameMap = steamAppMapper.toAppMap(steamAppResponseDto);
-        saveToCache(appidToNameMap);
-
         List<SteamAppEntity> gameEntities = steamAppMapper.toEntities(steamAppResponseDto.appList().apps());
-        saveToDatabase(gameEntities);
+
+        CompletableFuture<Void> cacheFuture = asyncSaveService.saveToCache(appidToNameMap);
+        CompletableFuture<Void> dbFuture = asyncSaveService.saveToDatabase(gameEntities);
+
+        try {
+            CompletableFuture.allOf(cacheFuture, dbFuture).join();
+            log.info("Both cache and database save operations completed");
+        } catch (Exception e) {
+            log.error("Error during async save operations", e);
+            throw new GameRecommenderException(ErrorType.FETCH_STORE_GAMES_ERROR, e);
+        }
 
         return appidToNameMap;
     }
 
-    private void saveToDatabase(List<SteamAppEntity> games) {
-        if (games.isEmpty()) return;
-
-        int total = games.size();
-        int batchNumber = 0;
-
-        for (int i = 0; i < total; i += BATCH_SIZE) {
-            int end = Math.min(i + BATCH_SIZE, total);
-            List<SteamAppEntity> batchGames = games.subList(i, end);
-            batchNumber++;
-            log.info("Inserting batch {}: records {} - {}", batchNumber, i + 1, end);
-
-            steamAppRepository.batchInsert(batchGames);
-        }
-        log.info("Saved {} apps to database", total);
-    }
-
-    private void saveToCache(Map<Long, String> appMap) {
-        if (appMap == null || appMap.isEmpty()) {
-            return;
-        }
+    private Map<Long, String> getFromCache() {
         try {
-            redisConnection.sync().set(CACHE_KEY.getBytes(StandardCharsets.UTF_8), objectMapper.writeValueAsBytes(appMap));
-            log.info("Steam apps saved to Redis cache");
-        } catch (Exception e) {
-            log.warn("Failed to save Steam apps to Redis cache", e);
-            throw new GameRecommenderException(ErrorType.REDIS_CACHE_SAVE_ERROR, e);
-        }
-    }
-
-    private Optional<SteamAppResponseDto> getFromCache() {
-        try {
-            byte[] data = redisConnection.sync().get(CACHE_KEY.getBytes(StandardCharsets.UTF_8));
-            if (data != null) {
-                return Optional.of(objectMapper.readValue(data, SteamAppResponseDto.class));
+            Map<byte[], byte[]> redisMap = redisConnection.sync().hgetall(cacheKey.getBytes(StandardCharsets.UTF_8));
+            if (!redisMap.isEmpty()) {
+                return redisMap.entrySet().stream()
+                        .collect(Collectors.toMap(
+                                e -> Long.parseLong(new String(e.getKey(), StandardCharsets.UTF_8)),
+                                e -> new String(e.getValue(), StandardCharsets.UTF_8)
+                        ));
             }
         } catch (Exception e) {
             log.warn("Failed to read from Redis cache", e);
             throw new GameRecommenderException(ErrorType.REDIS_CACHE_READ_ERROR, e);
         }
-        return Optional.empty();
+        return Collections.emptyMap();
     }
 
 }
