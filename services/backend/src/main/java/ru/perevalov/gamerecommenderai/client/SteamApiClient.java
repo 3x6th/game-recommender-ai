@@ -29,9 +29,9 @@ import java.time.Duration;
 @RequiredArgsConstructor
 public class SteamApiClient {
     private final SteamApiProps props;
-
+    private final WebClient webClient;
+    private WebClient customSteamApiWebClient;
     private URI uri;
-    private WebClient customWebClient;
     private RetryBackoffSpec retryBackoffSpec;
 
     /**
@@ -51,7 +51,7 @@ public class SteamApiClient {
                 null
         );
 
-        customWebClient = WebClient.builder()
+        customSteamApiWebClient = webClient.mutate()
                 .exchangeStrategies(ExchangeStrategies.builder()
                         .codecs(configurer -> configurer.defaultCodecs()
                                 .maxInMemorySize(props.maxInMemorySize()))
@@ -88,7 +88,7 @@ public class SteamApiClient {
     public SteamAppResponseDto fetchSteamApps() {
         log.debug("Start fetchSteamApps method... ");
         try {
-            SteamAppResponseDto response = customWebClient.get()
+            SteamAppResponseDto response = customSteamApiWebClient.get()
                     .uri(uri)
                     .retrieve()
                     .bodyToMono(SteamAppResponseDto.class)
