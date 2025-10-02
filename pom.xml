@@ -28,6 +28,14 @@
     <modules>
         <module>services/backend</module>
     </modules>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.7.3</version>
+        </dependency>
+    </dependencies>
     
     <build>
         <pluginManagement>
