@@ -15,6 +15,7 @@ import ru.perevalov.gamerecommenderai.repository.SteamAppRepository;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -35,7 +36,7 @@ public class GameService {
     @Value("${redis.cache.key}")
     private String cacheKey;
 
-    public Map<String, Long> getGames() {
+    public Map<String, Long> getAllGames() {
         appidToNameMap = getFromCache();
         if (!appidToNameMap.isEmpty()) {
             return appidToNameMap;
@@ -49,6 +50,20 @@ public class GameService {
             return appidToNameMap;
         }
         return fetchAndStoreGames();
+    }
+
+    public Map<String, Long> getGames(List<String> gameNames) {
+        appidToNameMap = getFromCache();
+        Map<String, Long> games = new LinkedHashMap<>();
+        if (!appidToNameMap.isEmpty()) {
+            for (String gameName : gameNames) {
+                Long appid = appidToNameMap.get(gameName);
+                if (appid != null) {
+                    games.put(gameName, appid);
+                }
+            }
+        }
+        return games;
     }
 
     public void updateGames() {
