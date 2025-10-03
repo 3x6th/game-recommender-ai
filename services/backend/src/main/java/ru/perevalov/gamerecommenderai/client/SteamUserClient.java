@@ -5,14 +5,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.util.retry.Retry;
-import ru.perevalov.gamerecommenderai.config.SteamUserProps;
+import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.util.UrlHelper;
 
+import java.net.URI;
 import java.time.Duration;
+import java.util.Map;
 
 /**
  * Клиент для взаимодействия с Steam Web API.
@@ -49,15 +52,18 @@ public class SteamUserClient {
         try {
             log.debug("Fetching player summary for steamId={}", steamId);
 
-            SteamPlayerResponse response = steamWebClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .scheme(props.scheme())
-                            .host(props.host())
-                            .path(props.getPlayerSummariesPath())
-                            .queryParam(SteamApiConstant.KEY, props.apiKey())
-                            .queryParam(SteamApiConstant.STEAMIDS, steamId)
-                            .build()
+            URI uri = UrlHelper.buildUri(
+                    props.scheme(),
+                    props.host(),
+                    props.getPlayerSummariesPath(),
+                    Map.of(
+                            SteamApiConstant.KEY, props.apiKey(),
+                            SteamApiConstant.STEAMIDS, steamId
                     )
+            );
+
+            SteamPlayerResponse response = steamWebClient.get()
+                    .uri(uri)
                     .retrieve()
                     .bodyToMono(SteamPlayerResponse.class)
                     .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))
@@ -84,21 +90,23 @@ public class SteamUserClient {
     public SteamOwnedGamesResponse fetchOwnedGames(String steamId,
                                                    boolean includeAppInfo,
                                                    boolean includePlayedFreeGames) {
-
         try {
             log.debug("Fetching owned games for steamId={}", steamId);
 
-            SteamOwnedGamesResponse response = steamWebClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .scheme(props.scheme())
-                            .host(props.host())
-                            .path(props.getOwnedGamesPath())
-                            .queryParam(SteamApiConstant.KEY, props.apiKey())
-                            .queryParam(SteamApiConstant.STEAMID, steamId)
-                            .queryParam(SteamApiConstant.INCLUDE_APPINFO, includeAppInfo)
-                            .queryParam(SteamApiConstant.INCLUDE_PLAYED_FREE_GAMES, includePlayedFreeGames)
-                            .build()
+            URI uri = UrlHelper.buildUri(
+                    props.scheme(),
+                    props.host(),
+                    props.getOwnedGamesPath(),
+                    Map.of(
+                            SteamApiConstant.KEY, props.apiKey(),
+                            SteamApiConstant.STEAMID, steamId,
+                            SteamApiConstant.INCLUDE_APPINFO, includeAppInfo,
+                            SteamApiConstant.INCLUDE_PLAYED_FREE_GAMES, includePlayedFreeGames
                     )
+            );
+
+            SteamOwnedGamesResponse response = steamWebClient.get()
+                    .uri(uri)
                     .retrieve()
                     .bodyToMono(SteamOwnedGamesResponse.class)
                     .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))

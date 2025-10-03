@@ -1,0 +1,50 @@
+{
+  "applist": {
+    "apps": [
+      {
+        "appid": 5,
+        "name": "Dedicated Server"
+      },
+      {
+        "appid": 7,
+        "name": "Steam Client"
+      },
+      {
+        "appid": 8,
+        "name": "winui2"
+      },
+      {
+        "appid": 10,
+        "name": "Counter-Strike"
+      },
+      {
+        "appid": 20,
+        "name": "Team Fortress Classic"
+      },
+      {
+        "appid": 30,
+        "name": "Day of Defeat"
+      },
+      {
+        "appid": 40,
+        "name": "Deathmatch Classic"
+      },
+      {
+        "appid": 50,
+        "name": "Half-Life: Opposing Force"
+      },
+      {
+        "appid": 60,
+        "name": "Ricochet"
+      },
+      {
+        "appid": 4077540,
+        "name": "Obelus Manor Demo"
+      },
+      {
+        "appid": 4078580,
+        "name": "OVERCAT Demo"
+      }
+    ]
+  }
+}

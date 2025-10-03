@@ -8,15 +8,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriComponentsBuilder;
 import reactor.util.retry.Retry;
-import ru.perevalov.gamerecommenderai.config.SteamStoreProps;
+import ru.perevalov.gamerecommenderai.client.props.SteamStoreProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.util.UrlHelper;
 
+import java.net.URI;
 import java.time.Duration;
+import java.util.Map;
 
 /**
  * Client for interacting with the Steam Store Web API.
@@ -55,18 +57,23 @@ public class SteamStoreClient {
      * @param appId single Steam app ID (e.g., "730")
      * @return {@link SteamGameDetailsResponseDto} with appId, success flag, and parsed game data if API call succeeds
      * @throws GameRecommenderException with specific ErrorType:
-     *  <ul>
-     *    <li>{@link ErrorType#STEAM_APP_DETAILS_NOT_FOUND}: App ID not found in API response or response is null</li>
-     *    <li>{@link ErrorType#STEAM_DATA_IN_APP_DETAILS_NOT_FOUND}: "data" node missing in API response structure</li>
-     *    <li>{@link ErrorType#STEAM_JSON_PROCESSING_ERROR}: Invalid JSON structure during deserialization (e.g., malformed data node)</li>
-     *    <li>{@link ErrorType#STEAM_STORE_API_FETCH_APP_DETAILS_ERROR}: Network/HTTP failure, timeout, or other runtime
-     *    errors (after retries)</li>
-     *  </ul>
+     *                                  <ul>
+     *                                    <li>{@link ErrorType#STEAM_APP_DETAILS_NOT_FOUND}: App ID not found in API response or response is null</li>
+     *                                    <li>{@link ErrorType#STEAM_DATA_IN_APP_DETAILS_NOT_FOUND}: "data" node missing in API response structure</li>
+     *                                    <li>{@link ErrorType#STEAM_JSON_PROCESSING_ERROR}: Invalid JSON structure during deserialization (e.g., malformed data node)</li>
+     *                                    <li>{@link ErrorType#STEAM_STORE_API_FETCH_APP_DETAILS_ERROR}: Network/HTTP failure, timeout, or other runtime
+     *                                    errors (after retries)</li>
+     *                                  </ul>
      */
     public SteamGameDetailsResponseDto fetchGameDetails(String appId) {
         try {
             log.debug("Fetching app details for appId={}", appId);
-            String uri = buildUri(appId);
+            URI uri = UrlHelper.buildUri(
+                    props.scheme(),
+                    props.host(),
+                    props.getAppDetailsPath(),
+                    Map.of(SteamApiConstant.APP_IDS, appId)
+            );
 
             JsonNode steamApiFullResponse = steamWebClient.get()
                     .uri(uri)
@@ -89,24 +96,6 @@ public class SteamStoreClient {
             log.error("Error fetching app details for appId={}", appId, e);
             throw new GameRecommenderException(ErrorType.STEAM_STORE_API_FETCH_APP_DETAILS_ERROR, appId);
         }
-    }
-
-    /**
-     * Builds the full URI for the Steam Store API request.
-     *
-     * @param appId Steam app ID
-     * @return full URI string (e.g., "<a href="https://store.steampowered.com/api/appdetails?appids=730">...</a>")
-     */
-    private @NotNull String buildUri(String appId) {
-        String uri = UriComponentsBuilder.newInstance()
-                .scheme(props.scheme())
-                .host(props.host())
-                .path(props.getAppDetailsPath())
-                .queryParam(SteamApiConstant.APP_IDS, appId)
-                .build()
-                .toUriString();
-        log.debug("Constructed URI: {}", uri);
-        return uri;
     }
 
     /**

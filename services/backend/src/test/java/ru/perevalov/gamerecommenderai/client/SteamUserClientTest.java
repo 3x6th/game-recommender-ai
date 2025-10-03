@@ -8,14 +8,14 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
-import ru.perevalov.gamerecommenderai.config.SteamUserProps;
+import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
 
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Collections;
-import java.util.function.Function;
 
 class SteamUserClientTest {
     private WebClient webClientMock;
@@ -49,7 +49,7 @@ class SteamUserClientTest {
                 .readValue(json, SteamPlayerResponse.class);
 
         Mockito.when(webClientMock.get()
-                        .uri(ArgumentMatchers.any(Function.class))
+                        .uri(ArgumentMatchers.any(URI.class))
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
@@ -75,7 +75,7 @@ class SteamUserClientTest {
                 .readValue(json, SteamOwnedGamesResponse.class);
 
         Mockito.when(webClientMock.get()
-                        .uri(ArgumentMatchers.any(Function.class))
+                        .uri(ArgumentMatchers.any(URI.class))
                         .retrieve()
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
@@ -105,7 +105,7 @@ class SteamUserClientTest {
         SteamPlayerResponse emptyProfile = new SteamPlayerResponse();
 
         Mockito.when(webClientMock.get()
-                        .uri(ArgumentMatchers.any(Function.class))
+                        .uri(ArgumentMatchers.any(URI.class))
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(emptyProfile));
@@ -128,7 +128,7 @@ class SteamUserClientTest {
         emptyGames.setResponse(inner);
 
         Mockito.when(webClientMock.get()
-                        .uri(ArgumentMatchers.any(Function.class))
+                        .uri(ArgumentMatchers.any(URI.class))
                         .retrieve()
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(emptyGames));
