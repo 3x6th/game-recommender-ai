@@ -18,16 +18,17 @@ import java.util.List;
 public class SteamAppRepositoryCustomImpl implements SteamAppRepositoryCustom {
     private final JdbcTemplate jdbcTemplate;
 
+    @Transactional
     @Override
     public void batchInsert(List<SteamAppEntity> entities) {
         if (entities.isEmpty()) return;
 
-        String sql = "INSERT INTO game_recommender.steam_apps (appid, name) VALUES (?, ?) " +
-                "ON CONFLICT (appid) DO NOTHING";
-
+        String insertOnConflictUpdateSql = "INSERT INTO game_recommender.steam_apps (appid, name) " +
+                "VALUES (?, ?) " +
+                "ON CONFLICT (appid) DO UPDATE SET name = EXCLUDED.name";
         try {
             jdbcTemplate.batchUpdate(
-                    sql,
+                    insertOnConflictUpdateSql,
                     entities,
                     entities.size(),
                     (ps, entity) -> {

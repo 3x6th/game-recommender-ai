@@ -31,7 +31,7 @@ public enum ErrorType {
     REDIS_CACHE_READ_ERROR("Failed to read Steam apps from Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
     REDIS_CACHE_SAVE_ERROR("Failed to save Steam apps to Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
     SCHEDULER_UPDATE_EXECUTION_ERROR("Error occurred during scheduled update execution", HttpStatus.INTERNAL_SERVER_ERROR),
-    STEAM_API_FETCH_GAMES_LIST_ERROR("Failed to fetch games list from Steam API", HttpStatus.SERVICE_UNAVAILABLE),
+    STEAM_API_FETCH_GAMES_LIST_ERROR("Failed to fetch games list from Steam API by uri=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_API_FETCH_OWNED_GAMES_ERROR("Failed to fetch owned games from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_API_PLAYER_SUMMARY_ERROR("Failed to fetch player summary from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_APP_DETAILS_MAPPING_ERROR("Failed to map app details for appid %s.", HttpStatus.INTERNAL_SERVER_ERROR),

@@ -87,6 +87,7 @@ public class SteamApiClient {
     @Transactional
     public SteamAppResponseDto fetchSteamApps() {
         log.debug("Start fetchSteamApps method... ");
+        long startTime = System.currentTimeMillis();
         try {
             SteamAppResponseDto response = customSteamApiWebClient.get()
                     .uri(uri)
@@ -97,11 +98,12 @@ public class SteamApiClient {
                     .retryWhen(retryBackoffSpec)
                     .block();
 
-            log.debug("fetchSteamApps completed successfully.");
+            long endTime = System.currentTimeMillis();
+            log.debug("Fetching Steam Apps completed successfully. Time taken: {} ms", endTime - startTime);
             return response;
         } catch (Exception e) {
             log.error("Error fetching Steam apps: {}", e.getMessage());
-            throw new GameRecommenderException(ErrorType.STEAM_API_FETCH_GAMES_LIST_ERROR);
+            throw new GameRecommenderException(ErrorType.STEAM_API_FETCH_GAMES_LIST_ERROR, uri);
         }
     }
 
