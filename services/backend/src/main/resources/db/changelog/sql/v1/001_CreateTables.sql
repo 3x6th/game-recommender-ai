@@ -24,7 +24,6 @@ CREATE TABLE game_recommender.refresh_tokens
 (
     id            UUID PRIMARY KEY,
     token         VARCHAR(2048) NOT NULL UNIQUE,
-    refresh_token VARCHAR(2048) NOT NULL UNIQUE,
     session_id    VARCHAR(255)  NOT NULL,
     created_at    TIMESTAMP(6)  NOT NULL,
     updated_at    TIMESTAMP(6)  NOT NULL
