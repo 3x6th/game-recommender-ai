@@ -4,11 +4,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
-import ru.perevalov.gamerecommenderai.client.SteamClient;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
-import ru.perevalov.gamerecommenderai.dto.SteamOwnedGamesResponse;
+import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
@@ -23,11 +22,11 @@ import java.util.List;
 public class GameRecommenderService {
 
     private final GameRecommenderGrpcClient grpcClient;
-    private final SteamClient steamClient;
+    private final SteamService steamClient;
 
     public GameRecommendationResponse getGameRecommendationsWithContext(GameRecommendationRequest request) {
         try {
-            SteamOwnedGamesResponse steamLib = steamClient.fetchOwnedGames(
+            SteamOwnedGamesResponse steamLib = steamClient.getOwnedGames(
                     request.getSteamId(),
                     true,
                     true

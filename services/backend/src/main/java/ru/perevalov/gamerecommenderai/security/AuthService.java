@@ -46,6 +46,7 @@ public class AuthService {
     public PreAuthResponse preAuthorize(HttpServletResponse response) {
         String sessionId = UUID.randomUUID().toString();
         String accessToken = jwtUtil.createToken(sessionId, getAccessTtl(), UserRole.GUEST, null);
+        System.out.println("Access token: " + accessToken);
 
         String refreshToken = jwtUtil.createToken(sessionId, getRefreshTtl(), UserRole.GUEST, null);
         RefreshToken entity = new RefreshToken(refreshToken, sessionId);

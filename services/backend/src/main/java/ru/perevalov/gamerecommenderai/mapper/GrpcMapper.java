@@ -2,7 +2,7 @@ package ru.perevalov.gamerecommenderai.mapper;
 
 import org.springframework.stereotype.Component;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
-import ru.perevalov.gamerecommenderai.dto.SteamOwnedGamesResponse;
+import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.grpc.FullAiContextRequestProto;
 import ru.perevalov.gamerecommenderai.grpc.GameProto;
 import ru.perevalov.gamerecommenderai.grpc.ResponseProto;
