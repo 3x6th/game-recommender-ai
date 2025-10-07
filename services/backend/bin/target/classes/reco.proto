@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+package gamerecommender;
+
+option go_package = "github.com/playcure/gamerecommender";
+option java_package = "ru.perevalov.gamerecommenderai.grpc";
+option java_multiple_files = true;
+
+// Service for game recommendations
+service GameRecommenderService {
+  // Get game recommendations based on user preferences and steam library
+  rpc RecommendGames(FullAiContextRequestProto) returns (RecommendationResponse);
+
+  // Get game recommendations based on user preferences
+  rpc Recommend(RecommendationRequest) returns (RecommendationResponse);
+  
+  // Chat with AI about games
+  rpc Chat(ChatRequest) returns (ChatResponse);
+}
+// Полный контекст запроса к AI сервису
+message FullAiContextRequestProto {
+  string userMessage = 1;
+  repeated string selectedTags = 2;
+  SteamOwnedGamesResponseProto userSteamLibrary = 3;
+}
+
+// Модель ответа Steam API при получении списка игр пользователя.
+message SteamOwnedGamesResponseProto {
+  ResponseProto response = 1;
+}
+
+// Внутренний класс, представляющий обёртку ответа Steam API.
+message ResponseProto {
+  int32 gameCount = 1;
+  repeated GameProto games = 2;
+}
+
+// Модель отдельной игры пользователя.
+message GameProto {
+  int64 appId = 1;
+  string name = 2;
+  int32 playtime2weeks = 3;
+  int32 playtimeForever = 4;
+}
+
+// Request for game recommendations
+message RecommendationRequest {
+  string user_id = 1;           // Optional user identifier
+  string preferences = 2;        // User preferences text
+  repeated string genres = 3;    // Preferred game genres
+  repeated string platforms = 4; // Preferred platforms
+  int32 max_recommendations = 5; // Maximum number of recommendations (default: 5)
+}
+
+// Response with game recommendations
+message RecommendationResponse {
+  bool success = 1;
+  string message = 2;
+  repeated GameRecommendation recommendations = 3;
+  string provider = 4;          // AI provider used (e.g., "deepseek", "gigachat")
+}
+
+// Individual game recommendation
+message GameRecommendation {
+  string title = 1;
+  string genre = 2;
+  string description = 3;
+  string why_recommended = 4;
+  repeated string platforms = 5;
+  double rating = 6;            // Optional rating (0.0 - 10.0)
+  string release_year = 7;      // Optional release year
+}
+
+// Request for AI chat
+message ChatRequest {
+  string user_id = 1;           // Optional user identifier
+  string message = 2;           // User message
+  string context = 3;           // Optional conversation context
+}
+
+// Response from AI chat
+message ChatResponse {
+  bool success = 1;
+  string message = 2;
+  string ai_response = 3;
+  string provider = 4;          // AI provider used
+}

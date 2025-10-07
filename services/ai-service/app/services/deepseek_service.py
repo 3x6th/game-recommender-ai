@@ -167,7 +167,132 @@ class DeepSeekService(BaseAIService):
             self._record_failure()
             logger.error(f"Error getting recommendations from DeepSeek: {e}")
             return self._get_mock_recommendations(max_recommendations)
-    
+
+    async def get_recommendations_with_steam_library(
+            self,
+            user_message: str,
+            selected_tags: List[str],
+            steam_library: Dict[str, Any],
+            max_recommendations: int = 5
+    ) -> List[Dict[str, Any]]:
+        """Get recommendations based on user preferences and Steam library"""
+        try:
+            if not self.api_key or not self.client:
+                logger.warning("No DeepSeek API key or client available")
+                return self._get_mock_recommendations(max_recommendations)
+
+            if self._is_circuit_open():
+                logger.warning("Circuit breaker is open, returning mock data")
+                return self._get_mock_recommendations(max_recommendations)
+
+            # Process Steam library data
+            played_games = []
+            if steam_library and hasattr(steam_library, 'response') and steam_library.response.games:
+                for game in steam_library.response.games:
+                    played_games.append({
+                        'name': game.name,
+                        'playtime': game.playtimeForever,
+                        'recent_playtime': game.playtime2weeks
+                    })
+
+            # Sort games by playtime to identify favorites
+            played_games.sort(key=lambda x: x['playtime'], reverse=True)
+            favorite_games = played_games[:5] if played_games else []
+
+            # Prepare prompt with Steam library context
+            prompt = f"""
+            You are a game recommendation AI. Based on the following user information and Steam library data, recommend {max_recommendations} video games.
+
+            User Message: {user_message}
+            Selected Tags/Genres: {', '.join(selected_tags) if selected_tags else 'Any'}
+
+            Steam Library Analysis:
+            - Top played games: {', '.join(f"{game['name']} ({game['playtime']} hours)" for game in favorite_games)}
+            - Total games owned: {len(played_games)}
+
+            IMPORTANT: Recommend games that:
+            1. Match user's preferences from their message
+            2. Are similar to their most played games
+            3. Align with their selected tags
+            4. Are NOT already in their Steam library
+
+            RESPOND WITH ONLY valid JSON in this exact format:
+            {{
+                "recommendations": [
+                    {{
+                        "title": "Game Title",
+                        "genre": "Game Genre", 
+                        "description": "Brief description",
+                        "why_recommended": "Explain why this game matches their preferences and play history",
+                        "platforms": ["PC", "PS5", "Xbox"],
+                        "rating": 8.5,
+                        "release_year": "2023"
+                    }}
+                ]
+            }}
+            """
+
+            # Call DeepSeek API with retry logic
+            response = await self._call_deepseek_api_with_retry(prompt)
+
+            # Process response (using existing response handling logic)
+            if response and 'recommendations' in response:
+                self._record_success()
+                return response['recommendations'][:max_recommendations]
+            elif response and 'choices' in response and len(response['choices']) > 0:
+                # Try to parse content from chat response
+                content = response['choices'][0]['message']['content']
+                logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
+
+                try:
+                    # Try to extract JSON from the response
+                    import re
+                    # Handle both markdown code blocks and plain JSON
+                    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+                    if not json_match:
+                        # Try to find JSON without markdown
+                        json_match = re.search(r'(\{.*\})', content, re.DOTALL)
+
+                    if json_match:
+                        json_str = json_match.group(1)
+                        logger.info(f"Extracted JSON string: {json_str[:200]}...")
+                        parsed_response = json.loads(json_str)
+                        if 'recommendations' in parsed_response:
+                            self._record_success()
+                            logger.info("Successfully parsed JSON recommendations from chat response")
+                            return parsed_response['recommendations'][:max_recommendations]
+                        else:
+                            logger.warning(
+                                f"JSON parsed but no 'recommendations' key found. Keys: {list(parsed_response.keys())}")
+                    else:
+                        logger.warning("No JSON pattern found in response")
+
+                except (json.JSONDecodeError, KeyError) as e:
+                    logger.warning(f"Failed to parse JSON from chat response: {e}")
+                    logger.warning(f"Raw content: {content[:500]}...")
+
+                # Try to extract recommendations manually from text
+                extracted_recommendations = self._extract_recommendations_from_text(content, max_recommendations)
+                if extracted_recommendations:
+                    self._record_success()
+                    logger.info("Successfully extracted recommendations from text response")
+                    return extracted_recommendations
+
+                # For now, return mock data but log the actual response for analysis
+                logger.info(f"Full DeepSeek response content: {content}")
+
+                # Log the full response for debugging
+            logger.warning(
+                f"Invalid response structure from DeepSeek. Response keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
+            logger.warning("Using mock data")
+
+            return self._get_mock_recommendations(max_recommendations)
+
+        except Exception as e:
+            self._record_failure()
+            logger.error(f"Error getting recommendations with Steam library: {e}")
+            return self._get_mock_recommendations(max_recommendations)
+
     async def chat(self, message: str, context: str = "") -> str:
         """Chat with DeepSeek AI"""
         try:

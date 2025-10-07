@@ -81,7 +81,30 @@ class ServiceRegistry:
         except Exception as e:
             logger.error(f"Error getting recommendations: {e}")
             return []
-    
+
+    async def get_recommendations_with_steam_library(
+            self,
+            user_message: str,
+            selected_tags: List[str],
+            steam_library: Dict[str, Any],
+            max_recommendations: int = 5
+    ) -> List[Dict[str, Any]]:
+        """Get recommendations based on user preferences and Steam library"""
+        if not self.active_service:
+            logger.error("No active AI service")
+            return []
+
+        try:
+            logger.info(f"Getting recommendations from {self.active_service.get_name()} with Steam library data")
+            recommendations = await self.active_service.get_recommendations_with_steam_library(
+                user_message, selected_tags, steam_library, max_recommendations
+            )
+            logger.info(f"Service {self.active_service.get_name()} returned {len(recommendations)} recommendations")
+            return recommendations
+        except Exception as e:
+            logger.error(f"Error getting recommendations with Steam library: {e}")
+            return []
+
     async def chat(self, message: str, context: str = "") -> str:
         """Chat with active service"""
         if not self.active_service:
