@@ -7,13 +7,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
-import ru.perevalov.gamerecommenderai.dto.RefreshAccessTokenResponse;
 import ru.perevalov.gamerecommenderai.entity.User;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
-import ru.perevalov.gamerecommenderai.security.AuthService;
 import ru.perevalov.gamerecommenderai.security.CookieService;
+import ru.perevalov.gamerecommenderai.security.TokenService;
 import ru.perevalov.gamerecommenderai.service.UserService;
 
 /**
@@ -25,7 +25,7 @@ import ru.perevalov.gamerecommenderai.service.UserService;
 public class SteamOpenIdResponseHandler {
     private final SteamOpenIdService steamOpenIdService;
     private final UserService userService;
-    private final AuthService authService;
+    private final TokenService tokenService;
     private final CookieService cookieService;
 
     /**
@@ -39,9 +39,9 @@ public class SteamOpenIdResponseHandler {
      * @param request        - содержат Refresh токен, в которые вшивается Steam id
      * @return
      */
-    public RefreshAccessTokenResponse handle(OpenIdResponse openIdResponse,
-                                             HttpServletRequest request,
-                                             HttpServletResponse response) {
+    public AccessTokenResponse handle(OpenIdResponse openIdResponse,
+                                      HttpServletRequest request,
+                                      HttpServletResponse response) {
         steamOpenIdService.verifyResponse(openIdResponse);
         Long steamId = steamOpenIdService.extractSteamIdFromClaimedId(openIdResponse.getClaimedId());
         log.info("Received OpenID callback, steamId={}", steamId);
@@ -53,7 +53,7 @@ public class SteamOpenIdResponseHandler {
 
         if (refreshTokenFromCookies != null && !refreshTokenFromCookies.isBlank()) {
             log.info("Found refresh token from cookie. Link steamId {} with refresh token", user.getSteamId());
-            return authService.linkSteamIdToToken(refreshTokenFromCookies, user.getSteamId(), response);
+            return tokenService.linkSteamIdToToken(refreshTokenFromCookies, user.getSteamId(), response);
         } else {
             String refreshTokenFromHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
@@ -62,7 +62,7 @@ public class SteamOpenIdResponseHandler {
                         "for user with id {}", user.getId());
                 throw new GameRecommenderException(ErrorType.MISSING_AUTHORIZATION_HEADER);
             }
-            return authService.linkSteamIdToToken(refreshTokenFromHeader, user.getSteamId(), response);
+            return tokenService.linkSteamIdToToken(refreshTokenFromHeader, user.getSteamId(), response);
         }
     }
 }

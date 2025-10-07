@@ -9,7 +9,7 @@ import lombok.RequiredArgsConstructor;
 @Builder
 @AllArgsConstructor
 @RequiredArgsConstructor
-public class RefreshAccessTokenRequest {
-    private String refreshToken;
+public class AccessTokenResponse {
+    private String  accessToken;
+    private long    accessExpiresIn;
 }
-
