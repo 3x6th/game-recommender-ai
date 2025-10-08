@@ -1,9 +1,0 @@
-{
-  "response": {
-    "game_count": 2,
-    "games": [
-      {"appid": 440, "name": "Team Fortress 2", "playtime_forever": 1234, "playtime_2weeks": 50},
-      {"appid": 570, "name": "Dota 2", "playtime_forever": 5678, "playtime_2weeks": 100}
-    ]
-  }
-}

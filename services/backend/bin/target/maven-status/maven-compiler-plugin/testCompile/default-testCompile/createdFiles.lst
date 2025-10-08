@@ -1,8 +1,0 @@
-ru\perevalov\gamerecommenderai\utils\DataUtils.class
-ru\perevalov\gamerecommenderai\GameRecommenderAiApplicationTests.class
-ru\perevalov\gamerecommenderai\client\SteamUserClientTest.class
-ru\perevalov\gamerecommenderai\security\JwtRequestFilterTest.class
-ru\perevalov\gamerecommenderai\controller\JwtRequestFilterTest.class
-ru\perevalov\gamerecommenderai\service\UserServiceTest.class
-ru\perevalov\gamerecommenderai\client\SteamStoreClientTest.class
-ru\perevalov\gamerecommenderai\service\SteamOpenIdServiceTest.class
