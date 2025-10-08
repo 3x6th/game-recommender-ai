@@ -17,4 +17,12 @@
         <sqlFile path="../sql/v1/002_CreateIndexes.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="3-create-steam-app-table" author="Alexandr Petrovich">
+        <sqlFile path="../sql/v1/003_CreateSteamAppTable.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="4-create-indexes-for-steam-app-table" author="Alexandr Petrovich">
+        <sqlFile path="../sql/v1/004_CreateIndexForSteamAppTable.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>
