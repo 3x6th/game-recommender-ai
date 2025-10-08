@@ -12,8 +12,6 @@ import lombok.RequiredArgsConstructor;
 public class PreAuthResponse {
     private String  accessToken;
     private long    accessExpiresIn; // seconds
-    private String  refreshToken;
-    private long    refreshExpiresIn; // seconds
     private String  role;
     private String  sessionId;
     private Long steamId;
