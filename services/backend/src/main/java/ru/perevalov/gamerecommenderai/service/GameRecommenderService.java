@@ -2,6 +2,8 @@ package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
@@ -26,15 +28,7 @@ public class GameRecommenderService {
 
     public GameRecommendationResponse getGameRecommendationsWithContext(GameRecommendationRequest request) {
         try {
-            SteamOwnedGamesResponse steamLib = new SteamOwnedGamesResponse();
-
-            if (request.getSteamId() != null && !request.getSteamId().isBlank()) {
-                steamLib = steamClient.getOwnedGames(
-                        request.getSteamId(),
-                        true,
-                        true
-                );
-            }
+            SteamOwnedGamesResponse steamLib = loadSteamLibrary(request.getSteamId());
 
             AiContextRequest context = AiContextRequest.builder()
                     .userMessage(request.getContent())
@@ -48,6 +42,33 @@ public class GameRecommenderService {
         } catch (Exception e) {
             throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED);
         }
+    }
+
+    /** Загружаем библиотеку стима пользователя из введеннго стим id. Если стим id не введено, пробуем загрузить из
+     * секьюрити контекста. Если пользователь не зарегистрирован и не ввел стим id - возвращаем пустой SteamOwnedGamesResponse
+     */
+    public SteamOwnedGamesResponse loadSteamLibrary(String steamId) {
+        SteamOwnedGamesResponse steamLibrary = new SteamOwnedGamesResponse();
+
+        if (steamId == null || steamId.isBlank()) {
+            steamId = getSteamIdFromSecurityContext();
+        }
+
+        if (!steamId.equals("GUEST")) {
+            steamLibrary = steamClient.getOwnedGames(
+                    steamId,
+                    true,
+                    true
+            );
+        }
+        return steamLibrary;
+    }
+
+    /** Метод возвращает String стим id, если пользователь зарегистрирован или "GUEST", если нет
+     */
+    public String getSteamIdFromSecurityContext() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return authentication.getName();
     }
 
     public GameRecommendationResponse getGameRecommendation(String preferences) {
