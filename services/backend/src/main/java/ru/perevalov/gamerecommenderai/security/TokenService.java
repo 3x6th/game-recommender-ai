@@ -7,7 +7,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
 import ru.perevalov.gamerecommenderai.entity.RefreshToken;
@@ -43,7 +42,6 @@ public class TokenService {
         return Duration.ofDays(refreshTtl);
     }
 
-    @Transactional
     public PreAuthResponse preAuthorize(HttpServletResponse response) {
         String sessionId = UUID.randomUUID().toString();
 
@@ -51,7 +49,11 @@ public class TokenService {
         String refreshToken = jwtUtil.createToken(sessionId, getRefreshTtl(), UserRole.GUEST, null);
 
         RefreshToken token = new RefreshToken(refreshToken, sessionId);
-        RefreshToken savedToken = refreshTokenRepository.save(token);
+        log.info("Creating new token with ID: {}", token.getId());
+
+        RefreshToken savedToken = refreshTokenRepository.save(token)
+                // TODO: блокирующая заглушка. Переписать в PCAI-79
+                        .block();
 
         cookieService.insertRefreshTokenInCookie(savedToken.getToken(), response);
 
@@ -65,7 +67,9 @@ public class TokenService {
 
     public AccessTokenResponse refreshAccessToken(HttpServletRequest request, HttpServletResponse response) {
         String refreshTokenFromCookies = cookieService.extractRefreshTokenFromCookies(request.getCookies());
-        RefreshToken storedRefreshToken = refreshTokenRepository.findByTokenOrThrow(refreshTokenFromCookies);
+        RefreshToken storedRefreshToken = refreshTokenRepository.findByTokenOrThrow(refreshTokenFromCookies)
+                // TODO: блокирующая заглушка. Переписать в PCAI-79
+                .block();
 
         DecodedJWT decoded = decodeAndValidate(storedRefreshToken);
 
@@ -89,11 +93,13 @@ public class TokenService {
     /**
      * Обновляем токен, привязывая к нему steamId юзера.
      */
-    @Transactional
     public AccessTokenResponse linkSteamIdToToken(String inputRefreshToken,
                                                   Long steamId,
                                                   HttpServletResponse response) {
-        RefreshToken stored = refreshTokenRepository.findByTokenOrThrow(inputRefreshToken);
+        RefreshToken stored = refreshTokenRepository.findByTokenOrThrow(inputRefreshToken)
+                // TODO: блокирующая заглушка. Переписать в PCAI-79
+                .block();
+        stored.markAsExisting();
         log.info("Привязываем steamId={} к сессии {}", steamId, stored.getSessionId());
 
         String newAccessToken = jwtUtil.createToken(
@@ -110,7 +116,9 @@ public class TokenService {
         );
 
         stored.setToken(newRefreshToken);
-        refreshTokenRepository.save(stored);
+        refreshTokenRepository.save(stored)
+                // TODO: блокирующая заглушка. Переписать в PCAI-79
+                .block();
 
         cookieService.insertRefreshTokenInCookie(newRefreshToken, response);
 
@@ -133,7 +141,9 @@ public class TokenService {
 
     public boolean isRefreshToken(String token) {
         try {
-            refreshTokenRepository.findByTokenOrThrow(token);
+            refreshTokenRepository.findByTokenOrThrow(token)
+                    // TODO: блокирующая заглушка. Переписать в PCAI-79
+                    .block();;
             return true;
         } catch (GameRecommenderException e) {
             return false;

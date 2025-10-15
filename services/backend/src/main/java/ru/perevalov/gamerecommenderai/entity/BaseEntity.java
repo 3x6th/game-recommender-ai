@@ -1,30 +1,51 @@
 package ru.perevalov.gamerecommenderai.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.MappedSuperclass;
 import lombok.Data;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.annotation.Transient;
+import org.springframework.data.domain.Persistable;
+import org.springframework.data.relational.core.mapping.Column;
 
+import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@MappedSuperclass
 @Data
-public abstract class BaseEntity {
+public abstract class BaseEntity implements Persistable<UUID>, Serializable {
+
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(columnDefinition = "uuid")
     private UUID id;
 
-    @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @CreatedDate
+    @Column("created_at")
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
-    @Column(nullable = false)
+    @LastModifiedDate
+    @Column("updated_at")
     private LocalDateTime updatedAt;
+
+    // Флаг для отслеживания, является ли сущность новой
+    @Transient
+    private boolean isNewEntity = true;
+
+    @Override
+    public boolean isNew() {
+        return isNewEntity;
+    }
+
+    @Override
+    public UUID getId() {
+        if (id == null) {
+            this.id = UUID.randomUUID();
+        }
+        return id;
+    }
+
+    // Метод для пометки сущности как существующей (после сохранения)
+    public void markAsExisting() {
+        this.isNewEntity = false;
+    }
+
 }

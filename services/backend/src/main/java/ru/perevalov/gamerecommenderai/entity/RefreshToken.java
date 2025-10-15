@@ -1,26 +1,25 @@
 package ru.perevalov.gamerecommenderai.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.Setter;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
-@Entity
-@Table(name = "refresh_tokens")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Table("refresh_tokens")
 public class RefreshToken extends BaseEntity {
-    @Column(name = "token", nullable = false, unique = true, length = 2048)
+
+    @Column("token")
     private String token;
 
     @NonNull
-    @Column(name = "session_id", nullable = false)
+    @Column("session_id")
     private String sessionId;
 
 }

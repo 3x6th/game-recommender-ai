@@ -1,63 +1,44 @@
 package ru.perevalov.gamerecommenderai.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.FetchType;
-import jakarta.persistence.ForeignKey;
-import jakarta.persistence.Index;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.Lob;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcType;
-import org.hibernate.dialect.PostgreSQLEnumJdbcType;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-
-@Entity
-@Table(name = "api_logs", indexes = {
-        @Index(name = "idx_api_logs_user_id", columnList = "user_id"),
-        @Index(name = "idx_api_logs_ai_agent_id", columnList = "ai_agent_id")
-})
+@Table("api_logs")
 public class ApiLog extends BaseEntity {
 
-    @Column(length = 100, nullable = false)
+    @Column("endpoint")
     private String endpoint;
 
-    @Column(nullable = false)
+    @Column("timestamp")
     private LocalDateTime timestamp;
 
-    @Enumerated
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(length = 10, nullable = false)
+    @Column("log_type")
     private LogType logType;
 
-    @Lob
-    @Column(name = "message", columnDefinition = "TEXT", nullable = false)
+    @Column("message")
     private String message;
 
-    @Column(name = "status_code")
+    @Column("status_code")
     private Short statusCode;
 
-    @Column(name = "response_time_ms")
+    @Column("response_time_ms")
     private Integer responseTimeMs;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_api_logs_users_id"))
-    private User user;
+    @Column("user_id")
+    private UUID userId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "ai_agent_id", nullable = false, foreignKey = @ForeignKey(name = "fk_api_logs_ai_agents_id"))
-    private AiAgent aiAgent;
+    @Column("ai_agent_id")
+    private UUID aiAgentId;
 
 }
