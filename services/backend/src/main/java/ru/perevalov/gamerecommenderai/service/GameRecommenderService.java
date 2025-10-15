@@ -15,6 +15,7 @@ import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
 import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
+import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 
 import java.util.List;
 
@@ -25,6 +26,7 @@ public class GameRecommenderService {
 
     private final GameRecommenderGrpcClient grpcClient;
     private final SteamService steamClient;
+    private final UserPrincipalUtil userPrincipalUtil;
 
     public GameRecommendationResponse getGameRecommendationsWithContext(GameRecommendationRequest request) {
         try {
@@ -51,7 +53,7 @@ public class GameRecommenderService {
         SteamOwnedGamesResponse steamLibrary = new SteamOwnedGamesResponse();
 
         if (steamId == null || steamId.isBlank()) {
-            steamId = getSteamIdFromSecurityContext();
+            steamId = userPrincipalUtil.getSteamIdFromSecurityContext();
         }
 
         if (!steamId.equals("GUEST")) {
@@ -62,13 +64,6 @@ public class GameRecommenderService {
             );
         }
         return steamLibrary;
-    }
-
-    /** Метод возвращает String стим id, если пользователь зарегистрирован или "GUEST", если нет
-     */
-    public String getSteamIdFromSecurityContext() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        return authentication.getName();
     }
 
     public GameRecommendationResponse getGameRecommendation(String preferences) {
