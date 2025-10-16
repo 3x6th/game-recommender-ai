@@ -12,6 +12,7 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
+// TODO: Удалить exclude после завершения задачи PCAI-78
 @SpringBootApplication(exclude = {
         R2dbcAutoConfiguration.class,
         R2dbcDataAutoConfiguration.class,
