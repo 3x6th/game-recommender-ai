@@ -84,7 +84,7 @@
             <artifactId>spring-boot-starter-data-r2dbc</artifactId>
         </dependency>
 
-        <!-- TODO: Удалить JDBC драйвер PostgreSQL -->
+        <!-- TODO: Удалить JDBC драйвер PostgreSQL и добавить его в блок <plugin> для Liquibase-->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>r2dbc-postgresql</artifactId>
