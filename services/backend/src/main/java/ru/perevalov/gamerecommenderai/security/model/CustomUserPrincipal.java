@@ -27,4 +27,8 @@ public class CustomUserPrincipal implements UserDetails {
     public String getUsername() {
         return user.getSteamId() != null ? user.getSteamId().toString() : UserRole.GUEST.toString();
     }
+
+    public UserRole getUserRole() {
+        return user.getRole();
+    }
 }

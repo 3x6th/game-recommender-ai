@@ -16,6 +16,7 @@ import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
 import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
+import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
 import java.util.List;
 
@@ -54,15 +55,13 @@ public class GameRecommenderService {
 
         if (steamId == null || steamId.isBlank()) {
             steamId = userPrincipalUtil.getSteamIdFromSecurityContext();
+
+            if (userPrincipalUtil.getCurrentUserRole().equals(UserRole.GUEST)) {
+                return steamLibrary;
+            }
         }
 
-        if (!steamId.equals("GUEST")) {
-            steamLibrary = steamClient.getOwnedGames(
-                    steamId,
-                    true,
-                    true
-            );
-        }
+        steamLibrary = steamClient.getOwnedGames(steamId, true,true);
         return steamLibrary;
     }
 
