@@ -1,7 +1,9 @@
 version: '3.8'
 
+name: game-recommender
 services:
   redis:
+    container_name: redis
     image: redis:7-alpine
     ports:
       - "6379:6379"
@@ -13,16 +15,30 @@ services:
       retries: 3
 
   backend:
+    container_name: backend
     build:
       context: ..
       dockerfile: services/backend/Dockerfile
       platforms:
         - linux/amd64
-    depends_on: [ ai-service ]
+    depends_on:
+      game_recommender_ai_db:
+        condition: service_healthy
+      ai-service:
+        condition: service_started
+      redis:
+        condition: service_started
     environment:
-      - JAVA_OPTS=-Xms256m -Xmx512m
-      - GRPC_AI_SERVICE_HOST=ai-service
-      - GRPC_AI_SERVICE_PORT=9090
+      - JAVA_OPTS=${JAVA_OPTS}
+      - GRPC_AI_SERVICE_HOST=${GRPC_AI_SERVICE_HOST}
+      - GRPC_AI_SERVICE_PORT=${GRPC_AI_SERVICE_PORT}
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
+      - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=${SPRING_JPA_HIBERNATE_DDL_AUTO}
+      - REDIS_REDIS_URI=${REDIS_REDIS_URI}
+      - SPRING_REDIS_HOST=${SPRING_REDIS_HOST}
+      - SPRING_REDIS_PORT=${SPRING_REDIS_PORT}
     ports:
       - "8080:8080"
     networks: [ playcure ]
@@ -34,14 +50,15 @@ services:
       start_period: 60s
 
   ai-service:
+    container_name: ai-service
     build:
       context: ..
       dockerfile: services/ai-service/Dockerfile
     environment:
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
-      - GIGACHAT_API_KEY=${GIGACHAT_API_KEY:-}
-      - GRPC_PORT=9090
-      - HTTP_PORT=8000
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - GIGACHAT_API_KEY=${GIGACHAT_API_KEY}
+      - GRPC_PORT=${GRPC_PORT}
+      - HTTP_PORT=${HTTP_PORT}
     ports:
       - "8000:8000"  # FastAPI health/metrics
       - "9090:9090"  # gRPC
@@ -54,14 +71,15 @@ services:
       start_period: 30s
 
   game_recommender_ai_db:
-    container_name: game_recommender_postgres
+    container_name: game-recommender-postgres-db
     image: postgres:17.4
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
-      POSTGRES_DB: game_recommender_ai_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5433:5432"
+    networks: [ playcure ]
     volumes:
       - game_recommender_ai_data:/var/lib/postgresql/data
     healthcheck:
