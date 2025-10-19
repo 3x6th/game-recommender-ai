@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
 import ru.perevalov.gamerecommenderai.grpc.*;
 import ru.perevalov.gamerecommenderai.mapper.GrpcMapper;
@@ -20,8 +21,9 @@ public class GameRecommenderGrpcClient {
     @GrpcClient("ai-service")
     private GameRecommenderServiceGrpc.GameRecommenderServiceBlockingStub gameRecommenderStub;
 
-    public RecommendationResponse getGameRecommendations(AiContextRequest req) {
+    public Mono<RecommendationResponse> getGameRecommendations(Mono<AiContextRequest> request) {
         try {
+            AiContextRequest req = request.block();
             log.debug("Sending recommendation request: message={}", req.getUserMessage());
 
             FullAiContextRequestProto aiContext = mapper.toProto(req);
@@ -30,7 +32,8 @@ public class GameRecommenderGrpcClient {
 
             log.debug("Received recommendation response: response={}", response.getSuccess());
 
-            return response;
+            // TODO: Переделать в задаче PCAI-82
+            return Mono.just(response);
         } catch (Exception e) {
             log.error("Error getting recommendations from gRPC service", e);
             throw new RuntimeException("Failed to get recommendations from AI service", e);

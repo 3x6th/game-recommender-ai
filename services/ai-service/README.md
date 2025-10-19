@@ -73,6 +73,30 @@ python -m grpc_tools.protoc \
     ./../../contracts/proto/reco.proto
 ```
 
+### 3.1 Генерация с использованием Poetry
+
+```bash
+poetry run python -m grpc_tools.protoc \
+    -I./../../contracts/proto \
+    --python_out=./proto \
+    --grpc_python_out=./proto \
+    ./../../contracts/proto/reco.proto
+```
+
+### 3.2 Генерация на macOS с использованием pipx
+
+```bash
+brew install pipx
+
+pipx install grpcio-tools
+
+pipx run grpcio-tools \
+    -I./../../contracts/proto \
+    --python_out=./proto \
+    --grpc_python_out=./proto \
+    ./../../contracts/proto/reco.proto
+```
+
 ### 4. Запуск сервиса
 
 ```bash

@@ -20,7 +20,7 @@ public class GameScheduler {
     public void updateGames() {
         log.info("Scheduled update triggered at {}", LocalDateTime.now());
         try {
-            gameService.updateGames();
+            gameService.updateGames().block();
             log.info("Scheduled update completed successfully");
         } catch (Exception e) {
             log.error("Scheduled update failed due to an error", e);
