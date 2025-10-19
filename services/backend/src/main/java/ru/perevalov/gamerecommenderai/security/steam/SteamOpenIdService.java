@@ -9,6 +9,7 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
@@ -30,25 +31,60 @@ public class SteamOpenIdService {
      * Отправляем запрос в Steam для проверки аутентификации пользователя.
      * Проверяем действительно ли запрос пришел от Steam, а не подделан.
      */
-    public void verifyResponse(OpenIdResponse openIdResponse) {
-        MultiValueMap<String, String> form = responseToMultiValueMap(openIdResponse);
-        String endpoint = openIdResponse.getOpEndpoint();
-        boolean opEndpointCheckOutSuccessfully = isValidOpEndpoint(endpoint);
-        if (!opEndpointCheckOutSuccessfully) {
-            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_ENDPOINT, openIdResponse.getOpEndpoint());
-        }
+//    public void verifyResponse(OpenIdResponse openIdResponse) {
+//        MultiValueMap<String, String> form = responseToMultiValueMap(openIdResponse);
+//        String endpoint = openIdResponse.getOpEndpoint();
+//        boolean opEndpointCheckOutSuccessfully = isValidOpEndpoint(endpoint);
+//        if (!opEndpointCheckOutSuccessfully) {
+//            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_ENDPOINT, openIdResponse.getOpEndpoint());
+//        }
+//
+//        String body = webClient.post()
+//                .uri(endpoint)
+//                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+//                .body(BodyInserters.fromFormData(form))
+//                .retrieve()
+//                .bodyToMono(String.class)
+//                .block();
+//
+//        if (body == null || !body.contains("is_valid:true")) {
+//            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_RESPONSE, openIdResponse.getOpEndpoint(), body);
+//        }
+//    }
+    public Mono<Void> verifyResponse(OpenIdResponse openIdResponse) {
+        return Mono.fromCallable(() -> {
+                    String endpoint = openIdResponse.getOpEndpoint();
+                    boolean opEndpointCheckOutSuccessfully = isValidOpEndpoint(endpoint);
+                    if (!opEndpointCheckOutSuccessfully) {
+                        throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_ENDPOINT, openIdResponse.getOpEndpoint());
+                    }
+                    return endpoint;
+                })
+                .flatMap(validEndpoint -> {
+                    MultiValueMap<String, String> form = responseToMultiValueMap(openIdResponse);
 
-        String body = webClient.post()
-                .uri(endpoint)
-                .contentType(MediaType.APPLICATION_FORM_URLENCODED)
-                .body(BodyInserters.fromFormData(form))
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-
-        if (body == null || !body.contains("is_valid:true")) {
-            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_RESPONSE, openIdResponse.getOpEndpoint(), body);
-        }
+                    return webClient.post()
+                            .uri(validEndpoint)
+                            .contentType(MediaType.APPLICATION_FORM_URLENCODED)
+                            .body(BodyInserters.fromFormData(form))
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .flatMap(body -> {
+                                if (body == null || !body.contains("is_valid:true")) {
+                                    return Mono.error(
+                                            new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_ENDPOINT, openIdResponse.getOpEndpoint(), body)
+                                    );
+                                }
+                                return Mono.empty();
+                            });
+                })
+                .doOnSuccess(unused ->
+                        log.debug("OpenID response verified successfully")
+                )
+                .doOnError(error ->
+                        log.error("OpenID verification failed: {}", error.getMessage())
+                )
+                .then();
     }
 
     private boolean isValidOpEndpoint(String opEndpoint) {
@@ -63,16 +99,35 @@ public class SteamOpenIdService {
      * @throws GameRecommenderException if the claimedId format is invalid and Steam ID cannot be extracted
      * @see ErrorType#STEAM_ID_EXTRACTION_FAILED
      */
-    public Long extractSteamIdFromClaimedId(String claimedId) {
-        Matcher m = Pattern.compile(".*/id/(\\d+)$").matcher(claimedId);
+//    public Long extractSteamIdFromClaimedId(String claimedId) {
+//        Matcher m = Pattern.compile(".*/id/(\\d+)$").matcher(claimedId);
+//
+//        if (!m.find()) {
+//            log.error("Steam id extraction failed from claimedId={}", claimedId);
+//            throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED, claimedId);
+//        }
+//
+//        String steamId64 = m.group(1);
+//        return Long.parseLong(steamId64);
+//    }
+    public Mono<Long> extractSteamIdFromClaimedId(String claimedId) {
+        return Mono.fromCallable(() -> {
+                    Matcher m = Pattern.compile(".*/id/(\\d+)$").matcher(claimedId);
 
-        if (!m.find()) {
-            log.error("Steam id extraction failed from claimedId={}", claimedId);
-            throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED, claimedId);
-        }
+                    if (!m.find()) {
+                        log.error("Steam id extraction failed from claimedId={}", claimedId);
+                        throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED, claimedId);
+                    }
 
-        String steamId64 = m.group(1);
-        return Long.parseLong(steamId64);
+                    String steamId64 = m.group(1);
+                    return Long.parseLong(steamId64);
+                })
+                .doOnSuccess(steamId ->
+                        log.debug("Steam ID extracted: {}", steamId)
+                )
+                .doOnError(error ->
+                        log.error("Steam ID extraction failed from claimedId={}", claimedId)
+                );
     }
 
     private MultiValueMap<String, String> responseToMultiValueMap(OpenIdResponse openIdResponse) {

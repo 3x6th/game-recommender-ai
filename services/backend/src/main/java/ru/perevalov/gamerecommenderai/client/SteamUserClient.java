@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
@@ -40,44 +41,93 @@ public class SteamUserClient {
      */
     private final SteamUserProps props;
 
+//    /**
+//     * Получает информацию о пользователе по одному Steam ID.
+//     *
+//     * @param steamId Steam ID пользователя, информацию о котором нужно получить
+//     * @return {@link SteamPlayerResponse}, содержащий данные о пользователе
+//     * @throws RuntimeException если запрос к Steam API завершился неудачно
+//     */
+//    public SteamPlayerResponse fetchPlayerSummaries(String steamId) {
+//
+//        try {
+//            log.debug("Fetching player summary for steamId={}", steamId);
+//
+//            URI uri = UrlHelper.buildUri(
+//                    props.scheme(),
+//                    props.host(),
+//                    props.getPlayerSummariesPath(),
+//                    Map.of(
+//                            SteamApiConstant.KEY, props.apiKey(),
+//                            SteamApiConstant.STEAMIDS, steamId
+//                    )
+//            );
+//
+//            SteamPlayerResponse response = steamWebClient.get()
+//                    .uri(uri)
+//                    .retrieve()
+//                    .bodyToMono(SteamPlayerResponse.class)
+//                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))
+//                    .block();
+//
+//            log.debug("Player summary response: {}", response);
+//
+//            return response;
+//        } catch (Exception e) {
+//            log.error("Error fetching player summaries for steamId={}", steamId, e);
+//            throw new GameRecommenderException(ErrorType.STEAM_API_PLAYER_SUMMARY_ERROR, steamId);
+//        }
+//    }
     /**
-     * Получает информацию о пользователе по одному Steam ID.
+     * Асинхронно получает информацию о пользователе по Steam ID.
+     * Возвращает Mono, который начинает выполнение при подписке и эмитит результат когда он готов.
      *
-     * @param steamId Steam ID пользователя, информацию о котором нужно получить
-     * @return {@link SteamPlayerResponse}, содержащий данные о пользователе
-     * @throws RuntimeException если запрос к Steam API завершился неудачно
+     * @param steamId – Steam ID пользователя, информацию о котором нужно получить
+     * @return Mono<SteamPlayerResponse>, который эмитит данные о пользователе при успешном запросе,
+     *         или ошибку GameRecommenderException если запрос не удался
+     *
+     * @apiNote Для активации запроса необходимо выполнить подписку (subscribe).
+     *          Метод не блокирует текущий поток.
+     *
+     * @example
+     * // Использование:
+     * fetchPlayerSummariesReactive("76561197960287930")
+     *     .subscribe(
+     *         response -> log.info("Данные получены: {}", response),
+     *         error -> log.error("Ошибка: {}", error),
+     *         () -> log.info("Запрос завершен")
+     *     );
      */
-    public SteamPlayerResponse fetchPlayerSummaries(String steamId) {
+    public Mono<SteamPlayerResponse> fetchPlayerSummaries(String steamId) {
+        log.debug("Fetching player summary for steamId={}", steamId);
 
-        try {
-            log.debug("Fetching player summary for steamId={}", steamId);
+        URI uri = UrlHelper.buildUri(
+                props.scheme(),
+                props.host(),
+                props.getPlayerSummariesPath(),
+                Map.of(
+                        SteamApiConstant.KEY, props.apiKey(),
+                        SteamApiConstant.STEAMIDS, steamId
+                )
+        );
 
-            URI uri = UrlHelper.buildUri(
-                    props.scheme(),
-                    props.host(),
-                    props.getPlayerSummariesPath(),
-                    Map.of(
-                            SteamApiConstant.KEY, props.apiKey(),
-                            SteamApiConstant.STEAMIDS, steamId
-                    )
-            );
-
-            SteamPlayerResponse response = steamWebClient.get()
-                    .uri(uri)
-                    .retrieve()
-                    .bodyToMono(SteamPlayerResponse.class)
-                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))
-                    .block();
-
-            log.debug("Player summary response: {}", response);
-
-            return response;
-        } catch (Exception e) {
-            log.error("Error fetching player summaries for steamId={}", steamId, e);
-            throw new GameRecommenderException(ErrorType.STEAM_API_PLAYER_SUMMARY_ERROR, steamId);
-        }
+        return steamWebClient.get()
+                .uri(uri)
+                .retrieve()
+                .bodyToMono(SteamPlayerResponse.class)
+                .retryWhen(Retry.fixedDelay(
+                                props.retryAttempts(),
+                                Duration.ofSeconds(props.retryDelaySeconds())
+                        )
+                )
+                .doOnNext(response ->
+                        log.debug("Player summary response: {}", response)
+                )
+                .doOnError(error -> {
+                    log.error("Error fetching player summary for steamId={}", steamId, error);
+                    throw new GameRecommenderException(ErrorType.STEAM_API_PLAYER_SUMMARY_ERROR, steamId);
+                });
     }
-
     /**
      * Получает список игр, принадлежащих пользователю.
      *

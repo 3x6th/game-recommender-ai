@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.util.UriComponentsBuilder;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
@@ -77,12 +78,19 @@ public class AuthController {
      * Ловим callback от провайдера аутентификации, верифицируем ответ от Steam.
      * Возвращает новые Refresh и Access токены в случае привязки пользователя по Steam Id
      */
+//    @GetMapping("/steam/return")
+//    public ResponseEntity<AccessTokenResponse> handleSteamCallback(OpenIdResponse openIdResponse,
+//                                                                   HttpServletRequest request,
+//                                                                   HttpServletResponse response) {
+//        AccessTokenResponse handledResponse = steamOpenIdResponseHandler.handle(openIdResponse, request, response);
+//        return ResponseEntity.ok(handledResponse);
+//    }
     @GetMapping("/steam/return")
-    public ResponseEntity<AccessTokenResponse> handleSteamCallback(OpenIdResponse openIdResponse,
-                                                                   HttpServletRequest request,
-                                                                   HttpServletResponse response) {
-        AccessTokenResponse handledResponse = steamOpenIdResponseHandler.handle(openIdResponse, request, response);
-        return ResponseEntity.ok(handledResponse);
+    public Mono<ResponseEntity<AccessTokenResponse>> handleSteamCallback(OpenIdResponse openIdResponse,
+                                                                         HttpServletRequest request,
+                                                                         HttpServletResponse response) {
+        return steamOpenIdResponseHandler.handle(openIdResponse, request, response)
+                .map(ResponseEntity::ok);
     }
 
 
