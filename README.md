@@ -114,8 +114,7 @@ make test      # Протестировать сервисы
 - **Health**: `GET /actuator/health`
 - **Metrics**: `GET /actuator/metrics`
 - **Prometheus**: `GET /actuator/prometheus`
-- **Game Recommendations**: `POST /api/games/recommend`
-- **Chat**: `POST /api/games/chat`
+- **Game Recommendations**: `POST /api/games/proceed`
 - **Test gRPC**: `GET /api/games/test`
 
 ### AI Service (Python)

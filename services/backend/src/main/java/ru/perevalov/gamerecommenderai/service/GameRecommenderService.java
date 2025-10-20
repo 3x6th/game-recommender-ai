@@ -2,6 +2,8 @@ package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
@@ -13,6 +15,8 @@ import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
 import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
+import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
+import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
 import java.util.List;
 
@@ -23,18 +27,11 @@ public class GameRecommenderService {
 
     private final GameRecommenderGrpcClient grpcClient;
     private final SteamService steamClient;
+    private final UserPrincipalUtil userPrincipalUtil;
 
     public GameRecommendationResponse getGameRecommendationsWithContext(GameRecommendationRequest request) {
         try {
-            SteamOwnedGamesResponse steamLib = new SteamOwnedGamesResponse();
-
-            if (request.getSteamId() != null && !request.getSteamId().isBlank()) {
-                steamLib = steamClient.getOwnedGames(
-                        request.getSteamId(),
-                        true,
-                        true
-                );
-            }
+            SteamOwnedGamesResponse steamLib = loadSteamLibrary(request.getSteamId());
 
             AiContextRequest context = AiContextRequest.builder()
                     .userMessage(request.getContent())
@@ -48,6 +45,24 @@ public class GameRecommenderService {
         } catch (Exception e) {
             throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED);
         }
+    }
+
+    /** Загружаем библиотеку стима пользователя из введеннго стим id. Если стим id не введено, пробуем загрузить из
+     * секьюрити контекста. Если пользователь не зарегистрирован и не ввел стим id - возвращаем пустой SteamOwnedGamesResponse
+     */
+    public SteamOwnedGamesResponse loadSteamLibrary(String steamId) {
+        SteamOwnedGamesResponse steamLibrary = new SteamOwnedGamesResponse();
+
+        if (steamId == null || steamId.isBlank()) {
+            steamId = userPrincipalUtil.getSteamIdFromSecurityContext();
+
+            if (userPrincipalUtil.getCurrentUserRole().equals(UserRole.GUEST)) {
+                return steamLibrary;
+            }
+        }
+
+        steamLibrary = steamClient.getOwnedGames(steamId, true,true);
+        return steamLibrary;
     }
 
     public GameRecommendationResponse getGameRecommendation(String preferences) {
