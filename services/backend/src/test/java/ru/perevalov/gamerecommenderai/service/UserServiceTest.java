@@ -1,5 +1,6 @@
 package ru.perevalov.gamerecommenderai.service;
 
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -8,13 +9,11 @@ import org.mockito.BDDMockito;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.entity.User;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.repository.UserRepository;
 import ru.perevalov.gamerecommenderai.utils.DataUtils;
-import org.assertj.core.api.Assertions;
-
-import java.util.Optional;
 
 
 @ExtendWith(MockitoExtension.class)
@@ -31,7 +30,7 @@ class UserServiceTest {
         // given
         User userPersisted = DataUtils.getUserPersisted(DataUtils.getMockSteamId());
         BDDMockito.given(userRepository.findBySteamId(ArgumentMatchers.anyLong()))
-                .willReturn(Optional.of(userPersisted));
+                .willReturn(Mono.just(userPersisted));
         // when
         User user = userService.findBySteamId(DataUtils.getMockSteamId());
         // then
@@ -55,8 +54,12 @@ class UserServiceTest {
     void givenNonExistsUser_whenCreateIfNotExists_thenReturnNewUser() {
         // given
         User userPersisted = DataUtils.getUserPersisted(DataUtils.getMockSteamId());
+        BDDMockito.given(userRepository.findBySteamId(ArgumentMatchers.anyLong()))
+                        .willReturn(Mono.empty());
         BDDMockito.given(userRepository.save(ArgumentMatchers.any(User.class)))
-                .willReturn(userPersisted);
+                .willReturn(Mono.just(userPersisted));
+
+
         // when
         User userTransient = DataUtils.getUserTransient(DataUtils.getMockSteamId());
         User createdUser = userService.createIfNotExists(userTransient.getSteamId());
@@ -72,7 +75,7 @@ class UserServiceTest {
         // given
         User userPersisted = DataUtils.getUserPersisted(DataUtils.getMockSteamId());
         BDDMockito.given(userRepository.findBySteamId(ArgumentMatchers.anyLong()))
-                .willReturn(Optional.of(userPersisted));
+                .willReturn(Mono.just(userPersisted));
         // when
         User foundUser = userService.createIfNotExists(userPersisted.getSteamId());
 

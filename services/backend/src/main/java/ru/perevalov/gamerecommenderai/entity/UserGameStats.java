@@ -1,63 +1,63 @@
 package ru.perevalov.gamerecommenderai.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.ForeignKey;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.NonNull;
 import lombok.Setter;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
+
+import java.util.UUID;
 
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Table(name = "user_game_stats")
-@Entity
+@Table("user_game_stats")
 public class UserGameStats extends BaseEntity {
-    @Column(nullable = false)
+
+    @NonNull
+    @Column("steam_id")
     private Long steamId;
 
-    @Column(name = "total_games_owned")
+    @Column("total_games_owned")
     private Integer totalGamesOwned;
 
-    @Column(name = "total_playtime_forever")
+    @Column("total_playtime_forever")
     private Integer totalPlaytimeForever;
 
-    @Column(name = "total_playtime_last_two_weeks")
+    @Column("total_playtime_last_two_weeks")
     private Integer totalPlaytimeLastTwoWeeks;
 
-    @Column(name = "most_played_game_id")
+    @Column("most_played_game_id")
     private Long mostPlayedGameId;
 
-    @Column(name = "most_played_game_hours")
+    @Column("most_played_game_hours")
     private Integer mostPlayedGameHours;
 
-    @Column(name = "last_played_game_id")
+    @Column("last_played_game_id")
     private Long lastPlayedGameId;
 
-    @Column(name = "last_playtime")
+    @Column("last_playtime")
     private Integer lastPlaytime;
 
-    @Column(name = "favorite_genre_count")
+    @Column("favorite_genre_count")
     private Integer favoriteGenreCount;
 
-    @Column(name = "favorite_genre_hours")
+    @Column("favorite_genre_hours")
     private Integer favoriteGenreHours;
 
-    @Column(name = "most_played_game_name")
+    @Column("most_played_game_name")
     private String mostPlayedGameName;
 
-    @Column(name = "last_played_game_name")
+    @Column("last_played_game_name")
     private String lastPlayedGameName;
 
-    @Column(name = "favorite_genre", length = 100)
+    @Column("favorite_genre")
     private String favoriteGenre;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", nullable = false, foreignKey = @ForeignKey(name = "fk_user_game_stats_users_id"))
-    private User user;
+    @Column("user_id")
+    private UUID userId;
+
 }

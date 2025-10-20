@@ -46,7 +46,9 @@ public class GameService {
             return this.appidToNameMap;
         }
 
-        List<SteamAppEntity> gamesFromDb = steamAppRepository.findAll();
+        List<SteamAppEntity> gamesFromDb = steamAppRepository.findAll()
+                // TODO: блокирующая заглушка. Переписать в PCAI-79
+                .collectList().block();
         if (!gamesFromDb.isEmpty()) {
             SteamAppResponseDto dto = steamAppMapper.toResponseDto(gamesFromDb);
             appidToNameMap = steamAppMapper.toAppMap(dto);
@@ -133,7 +135,9 @@ public class GameService {
             return Collections.emptyMap();
         }
 
-        List<SteamAppEntity> gamesFromDb = steamAppRepository.findByLowerNameIn(missingNamesLower);
+        List<SteamAppEntity> gamesFromDb = steamAppRepository.findByLowerNameIn(missingNamesLower)
+                // TODO: блокирующая заглушка. Переписать в PCAI-79
+                .collectList().block();
 
         Map<String, Long> dbGames = new LinkedHashMap<>();
         gamesFromDb.forEach(entity -> originalNames.stream()
