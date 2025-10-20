@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
 import ru.perevalov.gamerecommenderai.entity.RefreshToken;
@@ -89,35 +90,69 @@ public class TokenService {
     /**
      * Обновляем токен, привязывая к нему steamId юзера.
      */
-    @Transactional
-    public AccessTokenResponse linkSteamIdToToken(String inputRefreshToken,
-                                                  Long steamId,
-                                                  HttpServletResponse response) {
-        RefreshToken stored = refreshTokenRepository.findByTokenOrThrow(inputRefreshToken);
-        log.info("Привязываем steamId={} к сессии {}", steamId, stored.getSessionId());
+//    @Transactional
+//    public AccessTokenResponse linkSteamIdToToken(String inputRefreshToken,
+//                                                  Long steamId,
+//                                                  HttpServletResponse response) {
+//        RefreshToken stored = refreshTokenRepository.findByTokenOrThrow(inputRefreshToken);
+//        log.info("Привязываем steamId={} к сессии {}", steamId, stored.getSessionId());
+//
+//        String newAccessToken = jwtUtil.createToken(
+//                stored.getSessionId(),
+//                getAccessTtl(),
+//                UserRole.USER,
+//                steamId);
+//
+//        String newRefreshToken = jwtUtil.createToken(
+//                stored.getSessionId(),
+//                getRefreshTtl(),
+//                UserRole.USER,
+//                steamId
+//        );
+//
+//        stored.setToken(newRefreshToken);
+//        refreshTokenRepository.save(stored);
+//
+//        cookieService.insertRefreshTokenInCookie(newRefreshToken, response);
+//
+//        return AccessTokenResponse.builder()
+//                .accessToken(newAccessToken)
+//                .accessExpiresIn(getAccessTtl().toSeconds())
+//                .build();
+//    }
+    public Mono<AccessTokenResponse> linkSteamIdToToken(String inputRefreshToken,
+                                                                Long steamId,
+                                                                HttpServletResponse response){
+        return Mono.fromCallable(()->{
+            log.info("Привязываем steamId={} к сессии (заглушка, без обращения к БД)", steamId);
 
-        String newAccessToken = jwtUtil.createToken(
-                stored.getSessionId(),
-                getAccessTtl(),
-                UserRole.USER,
-                steamId);
+            // Заглушка вместо поиска refresh-токена в БД
+            RefreshToken stored = new RefreshToken();
+            stored.setSessionId(UUID.randomUUID().toString());
+            stored.setToken(inputRefreshToken);
 
-        String newRefreshToken = jwtUtil.createToken(
-                stored.getSessionId(),
-                getRefreshTtl(),
-                UserRole.USER,
-                steamId
-        );
+            String newAccessToken = jwtUtil.createToken(
+                    stored.getSessionId(),
+                    getAccessTtl(),
+                    UserRole.USER,
+                    steamId);
 
-        stored.setToken(newRefreshToken);
-        refreshTokenRepository.save(stored);
+            String newRefreshToken = jwtUtil.createToken(
+                    stored.getSessionId(),
+                    getRefreshTtl(),
+                    UserRole.USER,
+                    steamId
+            );
+            // Заглушка вместо сохранения refresh-токена
+            stored.setToken(newRefreshToken);
+            // todo: реактивное сохранение в репозиторий+добавление трназакции
+            cookieService.insertRefreshTokenInCookie(newRefreshToken, response);
 
-        cookieService.insertRefreshTokenInCookie(newRefreshToken, response);
-
-        return AccessTokenResponse.builder()
-                .accessToken(newAccessToken)
-                .accessExpiresIn(getAccessTtl().toSeconds())
-                .build();
+            return AccessTokenResponse.builder()
+                    .accessToken(newAccessToken)
+                    .accessExpiresIn(getAccessTtl().toSeconds())
+                    .build();
+        });
     }
 
     private DecodedJWT decodeAndValidate(RefreshToken refreshToken) {

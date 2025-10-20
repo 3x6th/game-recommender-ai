@@ -3,11 +3,11 @@ package ru.perevalov.gamerecommenderai.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.entity.User;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.repository.UserRepository;
-import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
 @Slf4j
 @Service
@@ -25,13 +25,18 @@ public class UserService {
         return user;
     }
 
-    public User createIfNotExists(Long steamId) {
-        return userRepository.findBySteamId(steamId)
-                .orElseGet(() -> {
-                            User saved = userRepository.save(new User(steamId, UserRole.USER));
-                            log.info("Created new user with steamId={} (userId={}).", saved.getSteamId(), saved.getId());
-                            return saved;
-                        }
-                );
+//        public User createIfNotExists(Long steamId) {
+//        return userRepository.findBySteamId(steamId)
+//                .orElseGet(() -> {
+//                            User saved = userRepository.save(new User(steamId, UserRole.USER));
+//                            log.info("Created new user with steamId={} (userId={}).", saved.getSteamId(), saved.getId());
+//                            return saved;
+//                        }
+//                );
+//    }
+    public Mono<User> createIfNotExists(Long steamId) {
+        //todo: реализовать логику поиска и создания пользователя
+        User dummy = new User();
+        return Mono.just(dummy);
     }
 }

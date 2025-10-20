@@ -1,7 +1,9 @@
 package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.SteamUserClient;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
@@ -12,7 +14,7 @@ import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
  * Использует {@link SteamUserClient} для обращения к Steam Web API.
  * Предоставляет методы:
  * <ul>
- *     <li>getPlayerSummaries — получить информацию о пользователях по Steam ID</li>
+ *     <li>getPlayerSummariesReactive — получить информацию о пользователе по Steam ID</li>
  *     <li>getOwnedGames — получить список игр пользователя с деталями</li>
  * </ul>
  * <p>
@@ -20,12 +22,25 @@ import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class SteamService {
 
     private final SteamUserClient steamUserClient;
 
-    public SteamPlayerResponse getPlayerSummaries(String steamId) {
-        return steamUserClient.fetchPlayerSummaries(steamId);
+//    public SteamPlayerResponse getPlayerSummaries(String steamId) {
+//        return steamUserClient.fetchPlayerSummaries(steamId);
+//    }
+
+    public Mono<SteamPlayerResponse> getPlayerSummaries(Long steamId) {
+        log.debug("Reactive service: request data for {}", steamId);
+
+        return steamUserClient.fetchPlayerSummaries(String.valueOf(steamId))
+                .doOnNext(response ->
+                        log.debug("The service received data for {}", steamId)
+                )
+                .doOnError(error ->
+                        log.error("Error in the service for {}: {}", steamId, error.getMessage())
+                );
     }
 
     public SteamOwnedGamesResponse getOwnedGames(String steamId,
