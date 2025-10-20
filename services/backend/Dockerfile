@@ -12,7 +12,7 @@ COPY contracts/proto ./contracts/proto/
 RUN cd services/backend && mvn dependency:go-offline -B
 
 # Copy source code
-COPY services/backend/src ./src
+COPY services/backend/src ./services/backend/src
 
 # Build the application
 RUN cd services/backend && mvn clean package -DskipTests
