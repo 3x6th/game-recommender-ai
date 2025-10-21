@@ -10,9 +10,6 @@ option java_multiple_files = true;
 service GameRecommenderService {
   // Get game recommendations based on user preferences and steam library
   rpc RecommendGames(FullAiContextRequestProto) returns (RecommendationResponse);
-
-  // Get game recommendations based on user preferences
-  rpc Recommend(RecommendationRequest) returns (RecommendationResponse);
   
   // Chat with AI about games
   rpc Chat(ChatRequest) returns (ChatResponse);
@@ -41,15 +38,6 @@ message GameProto {
   string name = 2;
   int32 playtime2weeks = 3;
   int32 playtimeForever = 4;
-}
-
-// Request for game recommendations
-message RecommendationRequest {
-  string user_id = 1;           // Optional user identifier
-  string preferences = 2;        // User preferences text
-  repeated string genres = 3;    // Preferred game genres
-  repeated string platforms = 4; // Preferred platforms
-  int32 max_recommendations = 5; // Maximum number of recommendations (default: 5)
 }
 
 // Response with game recommendations

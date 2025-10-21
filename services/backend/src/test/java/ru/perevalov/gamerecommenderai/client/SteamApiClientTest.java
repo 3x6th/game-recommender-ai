@@ -10,6 +10,7 @@ import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.props.SteamApiProps;
+import ru.perevalov.gamerecommenderai.client.retry.ReactiveRetryStrategy;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamAppResponseDto;
 
 import java.net.URI;
@@ -50,13 +51,15 @@ class SteamApiClientTest {
         SteamApiProps steamApiProps = new SteamApiProps(
                 "https", "store.steampowered.com", "/ISteamApps/GetAppList/v2", 3, 2, 3, 0.5, 5, 20971520
         );
-        steamApiClient = new SteamApiClient(steamApiProps, mockBaseClient);
+        //TODO: PCAI-84
+        ReactiveRetryStrategy retryStrategy = new ReactiveRetryStrategy();
+        steamApiClient = new SteamApiClient(steamApiProps, mockBaseClient, retryStrategy);
         steamApiClient.init();
     }
 
     @Test
     void fetchSteamApps_returnsExpectedResponse() {
-        // TODO: Переделать в PCAI-84
+        // TODO: Mono<SteamAppResponseDto>. Переписать в PCAI-84
         SteamAppResponseDto response = steamApiClient.fetchSteamApps().block();
 
         Assertions.assertNotNull(response);
