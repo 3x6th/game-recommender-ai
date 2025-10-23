@@ -1,11 +1,10 @@
 package ru.perevalov.gamerecommenderai.config;
 
+import java.util.List;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import ru.perevalov.gamerecommenderai.controller.resolver.OpenIdResponseMethodArgumentResolver;
-
-import java.util.List;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
