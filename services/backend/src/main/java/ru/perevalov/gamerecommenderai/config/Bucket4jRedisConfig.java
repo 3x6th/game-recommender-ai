@@ -9,12 +9,9 @@ import io.lettuce.core.RedisClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-
 import java.time.Duration;
-
-import static java.nio.charset.StandardCharsets.UTF_8;
-
 import ru.perevalov.gamerecommenderai.config.redis.RedisProps;
+import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * Конфигурация Bucket4j rate limiting с Redis.
