@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
 import ru.perevalov.gamerecommenderai.entity.RefreshToken;
@@ -42,6 +44,8 @@ public class TokenService {
         return Duration.ofDays(refreshTtl);
     }
 
+    //TODO: Старый нереактивный метод, ранее вызываемый контроллером /preAuthorize. Удалить или отрефакторить
+    @Deprecated(forRemoval = true)
     public PreAuthResponse preAuthorize(HttpServletResponse response) {
         String sessionId = UUID.randomUUID().toString();
 
@@ -65,6 +69,18 @@ public class TokenService {
                 .build();
     }
 
+    //TODO: Заменить обращение контроллера с этого метода-заглушки к нормльаному реактивному методу
+    public Mono<PreAuthResponse> preAuthorizeReactively(ServerWebExchange exchange) {
+        return Mono.just(PreAuthResponse.builder()
+                .accessToken("Access-token-dummy-stub")
+                .accessExpiresIn(getAccessTtl().toSeconds())
+                .role(UserRole.GUEST.getAuthority())
+                .sessionId("Stub-session-id")
+                .steamId(null)
+                .build());
+    }
+
+    @Deprecated(forRemoval = true)
     public AccessTokenResponse refreshAccessToken(HttpServletRequest request, HttpServletResponse response) {
         String refreshTokenFromCookies = cookieService.extractRefreshTokenFromCookies(request.getCookies());
         RefreshToken storedRefreshToken = refreshTokenRepository.findByTokenOrThrow(refreshTokenFromCookies)
@@ -88,6 +104,13 @@ public class TokenService {
                 .accessToken(newAccessToken)
                 .accessExpiresIn(getAccessTtl().toSeconds())
                 .build();
+    }
+
+    public Mono<AccessTokenResponse> refreshAccessTokenReactively(ServerWebExchange exchange) {
+        return Mono.just(AccessTokenResponse.builder()
+                .accessToken("Access-token-dummy-stub")
+                .accessExpiresIn(getAccessTtl().toSeconds())
+                .build());
     }
 
     /**
