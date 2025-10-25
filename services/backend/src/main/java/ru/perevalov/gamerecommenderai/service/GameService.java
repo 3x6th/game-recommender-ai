@@ -1,5 +1,6 @@
 package ru.perevalov.gamerecommenderai.service;
 
+import io.lettuce.core.KeyValue;
 import io.lettuce.core.api.StatefulRedisConnection;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -7,6 +8,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import ru.perevalov.gamerecommenderai.client.SteamApiClient;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamAppResponseDto;
 import ru.perevalov.gamerecommenderai.entity.SteamAppEntity;
@@ -30,13 +32,15 @@ public class GameService {
     private final SteamAppMapper steamAppMapper;
     private final StatefulRedisConnection<byte[], byte[]> redisConnection;
     private final SteamAppRepository steamAppRepository;
-    private final SaveService asyncSaveService;
+    private final SaveService saveService;
 
     @Value("${redis.cache.key}")
     private String cacheKey;
 
     /**
-     * Retrieves all games: first checks Redis cache, then database, falls back to API fetch if both empty.
+     * Извлекает все игры: сначала проверяет кэш Redis, затем базу данных, возвращается к выборке из API, если они оба пусты.
+     * Использует оператор publishOn для передачи сложного маппинга в отдельный пул потоков
+     * и предотвращения блокировки Event Loop потоков
      */
     public Mono<Map<String, Long>> getAllGames() {
         return getAllGamesFromCache()
@@ -46,16 +50,17 @@ public class GameService {
                     }
                     return steamAppRepository.findAll()
                             .collectList()
+                            .publishOn(Schedulers.boundedElastic())
                             .flatMap(dbList -> {
                                 if (dbList.isEmpty()) {
                                     return Mono.empty();
                                 }
+
                                 SteamAppResponseDto dto = steamAppMapper.toResponseDto(dbList);
                                 Map<String, Long> appMap = steamAppMapper.toAppMap(dto);
 
-                                asyncSaveService.saveToCache(appMap);
-
-                                return Mono.just(appMap);
+                                return saveService.saveToCache(appMap)
+                                        .thenReturn(appMap);
                             })
                             .switchIfEmpty(fetchAndStoreGames());
                 });
@@ -165,18 +170,20 @@ public class GameService {
     }
 
     /**
-     * Fetches games from Steam API client {@link SteamApiClient} and stores to cache/DB asynchronously .
+     * Извлекает игры из Steam API client {@link SteamApiClient} и сохраняет в кэше/базе данных асинхронно.
+     * Использует оператор publishOn для передачи интенсивного маппинга в отдельный пул потоков
+     * и предотвращения блокировки Event Loop потоков
      */
     private Mono<Map<String, Long>> fetchAndStoreGames() {
         return steamApiClient.fetchSteamApps()
+                .publishOn(Schedulers.boundedElastic())
                 .flatMap(steamAppResponseDto -> {
+
                     List<SteamAppEntity> gameEntities = steamAppMapper.toEntities(steamAppResponseDto.appList().apps());
                     Map<String, Long> appMap = steamAppMapper.toAppMap(steamAppResponseDto);
 
-                    Mono<Void> cache = Mono.just(appMap)
-                            .flatMap(asyncSaveService::saveToCache);
-                    Mono<Void> db = Mono.just(gameEntities)
-                            .flatMap(asyncSaveService::saveToDatabase);
+                    Mono<Void> cache = saveService.saveToCache(appMap);
+                    Mono<Void> db = saveService.saveToDatabase(gameEntities);
 
                     return Mono.when(cache, db)
                             .doOnSuccess(v -> log.info("Both cache and database save operations completed"))
@@ -190,12 +197,28 @@ public class GameService {
                 });
     }
 
+    /**
+     * Извлекает игры из кэша.
+     * Использует оператор publishOn для передачи интенсивного парсинга в отдельный пул потоков
+     * и предотвращения блокировки Event Loop потоков
+     */
     private Mono<Map<String, Long>> getAllGamesFromCache() {
         return redisConnection.reactive().hgetall(cacheKey.getBytes(StandardCharsets.UTF_8))
-                .collectMap(
-                        kv -> new String(kv.getKey(), StandardCharsets.UTF_8),
-                        kv -> Long.parseLong(new String(kv.getValue(), StandardCharsets.UTF_8))
-                )
+                .collectList()
+                .publishOn(Schedulers.boundedElastic())
+                .flatMap(redisResults -> {
+                    Map<String, Long> result = new LinkedHashMap<>();
+                    for (KeyValue<byte[], byte[]> kv : redisResults) {
+                        try {
+                            String key = new String(kv.getKey(), StandardCharsets.UTF_8);
+                            Long value = Long.parseLong(new String(kv.getValue(), StandardCharsets.UTF_8));
+                            result.put(key, value);
+                        } catch (Exception e) {
+                            log.warn("Failed to parse cache entry: {}", e.getMessage());
+                        }
+                    }
+                    return Mono.just(result);
+                })
                 .onErrorResume(e ->
                         Mono.error(new GameRecommenderException(ErrorType.REDIS_CACHE_READ_ERROR, e))
                 );
