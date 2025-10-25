@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
@@ -18,6 +19,7 @@ import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
+import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -29,6 +31,12 @@ public class GameRecommenderService {
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
 
+    /** Старый метод, принимающий запрос от контроллера /proceed. Контроллер был заменен на реактивный. На данный момент
+     * обращается к методу - заглушке getRecommendationsReactively.
+     * TODO: Написать реактивные сервисные методы, заменить подключение к getRecommendationsReactively на новый реактивный метод
+     */
+
+    @Deprecated(forRemoval = true)
     public GameRecommendationResponse getGameRecommendationsWithContext(GameRecommendationRequest request) {
         try {
             SteamOwnedGamesResponse steamLib = loadSteamLibrary(request.getSteamId());
@@ -45,6 +53,14 @@ public class GameRecommenderService {
         } catch (Exception e) {
             throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED);
         }
+    }
+    //TODO: Удалить метод, когда будет готов реактивный сервисный слой
+    public Mono<GameRecommendationResponse> getRecommendationsReactively(Mono<GameRecommendationRequest> request) {
+        return request.map(req -> GameRecommendationResponse.builder()
+                .recommendation("Default recommendations for request: " + req.getContent())
+                .success(true)
+                .recommendations(Collections.emptyList())
+                .build());
     }
 
     /** Загружаем библиотеку стима пользователя из введеннго стим id. Если стим id не введено, пробуем загрузить из

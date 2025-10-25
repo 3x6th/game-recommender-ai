@@ -7,6 +7,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
 import ru.perevalov.gamerecommenderai.entity.User;
@@ -39,6 +41,7 @@ public class SteamOpenIdResponseHandler {
      * @param request        - содержат Refresh токен, в которые вшивается Steam id
      * @return
      */
+    @Deprecated(forRemoval = true)
     public AccessTokenResponse handle(OpenIdResponse openIdResponse,
                                       HttpServletRequest request,
                                       HttpServletResponse response) {
@@ -64,5 +67,12 @@ public class SteamOpenIdResponseHandler {
             }
             return tokenService.linkSteamIdToToken(refreshTokenFromHeader, user.getSteamId(), response);
         }
+    }
+
+    public Mono<AccessTokenResponse> handleReactively(OpenIdResponse openIdResponse, ServerWebExchange exchange) {
+        return Mono.just(AccessTokenResponse.builder()
+                .accessToken("Access-token-dummy-stub")
+                .accessExpiresIn(900)
+                .build());
     }
 }
