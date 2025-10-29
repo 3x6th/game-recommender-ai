@@ -49,20 +49,20 @@ public class GameService {
                         return Mono.just(cacheMap);
                     }
                     return steamAppRepository.findAll()
-                            .collectList()
-                            .publishOn(Schedulers.boundedElastic())
-                            .flatMap(dbList -> {
-                                if (dbList.isEmpty()) {
-                                    return Mono.empty();
-                                }
+                                             .collectList()
+                                             .publishOn(Schedulers.boundedElastic())
+                                             .flatMap(dbList -> {
+                                                 if (dbList.isEmpty()) {
+                                                     return Mono.empty();
+                                                 }
 
-                                SteamAppResponseDto dto = steamAppMapper.toResponseDto(dbList);
-                                Map<String, Long> appMap = steamAppMapper.toAppMap(dto);
+                                                 SteamAppResponseDto dto = steamAppMapper.toResponseDto(dbList);
+                                                 Map<String, Long> appMap = steamAppMapper.toAppMap(dto);
 
-                                return saveService.saveToCache(appMap)
-                                        .thenReturn(appMap);
-                            })
-                            .switchIfEmpty(fetchAndStoreGames());
+                                                 return saveService.saveToCache(appMap)
+                                                                   .thenReturn(appMap);
+                                             })
+                                             .switchIfEmpty(fetchAndStoreGames());
                 });
     }
 
@@ -111,26 +111,26 @@ public class GameService {
      */
     private Mono<Map<String, Long>> searchGamesInCache(List<String> gameNames) {
         byte[][] fields = gameNames.stream()
-                .map(name -> name.getBytes(StandardCharsets.UTF_8))
-                .toArray(byte[][]::new);
+                                   .map(name -> name.getBytes(StandardCharsets.UTF_8))
+                                   .toArray(byte[][]::new);
         return redisConnection.reactive().hmget(cacheKey.getBytes(StandardCharsets.UTF_8), fields)
-                .collectList()
-                .map(redisResults -> {
-                    Map<String, Long> cachedGames = new LinkedHashMap<>();
-                    for (int i = 0; i < gameNames.size(); i++) {
-                        String name = gameNames.get(i);
-                        if (redisResults.get(i) != null && redisResults.get(i).hasValue()) {
-                            try {
-                                Long appid = Long.parseLong(new String(redisResults.get(i).getValue(), StandardCharsets.UTF_8));
-                                cachedGames.put(name, appid);
-                            } catch (NumberFormatException e) {
-                                log.warn("Invalid appid value in cache for game '{}': {}", name, e.getMessage());
-                            }
-                        }
-                    }
+                              .collectList()
+                              .map(redisResults -> {
+                                  Map<String, Long> cachedGames = new LinkedHashMap<>();
+                                  for (int i = 0; i < gameNames.size(); i++) {
+                                      String name = gameNames.get(i);
+                                      if (redisResults.get(i) != null && redisResults.get(i).hasValue()) {
+                                          try {
+                                              Long appid = Long.parseLong(new String(redisResults.get(i).getValue(), StandardCharsets.UTF_8));
+                                              cachedGames.put(name, appid);
+                                          } catch (NumberFormatException e) {
+                                              log.warn("Invalid appid value in cache for game '{}': {}", name, e.getMessage());
+                                          }
+                                      }
+                                  }
 
-                    return cachedGames;
-                });
+                                  return cachedGames;
+                              });
     }
 
     /**
@@ -139,10 +139,10 @@ public class GameService {
      */
     private List<String> getMissingNamesLower(List<String> originalNames, Map<String, Long> foundInCache) {
         return originalNames.stream()
-                .filter(name -> !foundInCache.containsKey(name))
-                .map(String::toLowerCase)
-                .distinct()
-                .collect(Collectors.toList());
+                            .filter(name -> !foundInCache.containsKey(name))
+                            .map(String::toLowerCase)
+                            .distinct()
+                            .collect(Collectors.toList());
     }
 
     /**
@@ -156,17 +156,17 @@ public class GameService {
         }
 
         return steamAppRepository.findByLowerNameIn(missingNamesLower)
-                .collectList()
-                .map(gamesFromDb -> {
-                    Map<String, Long> dbGames = new LinkedHashMap<>();
+                                 .collectList()
+                                 .map(gamesFromDb -> {
+                                     Map<String, Long> dbGames = new LinkedHashMap<>();
 
-                    gamesFromDb.forEach(entity -> originalNames.stream()
-                            .filter(name -> name.equalsIgnoreCase(entity.getName()))
-                            .findFirst()
-                            .ifPresent(name -> dbGames.put(name, entity.getAppid())));
+                                     gamesFromDb.forEach(entity -> originalNames.stream()
+                                                                                .filter(name -> name.equalsIgnoreCase(entity.getName()))
+                                                                                .findFirst()
+                                                                                .ifPresent(name -> dbGames.put(name, entity.getAppid())));
 
-                    return dbGames;
-                });
+                                     return dbGames;
+                                 });
     }
 
     /**
@@ -176,25 +176,23 @@ public class GameService {
      */
     private Mono<Map<String, Long>> fetchAndStoreGames() {
         return steamApiClient.fetchSteamApps()
-                .publishOn(Schedulers.boundedElastic())
-                .flatMap(steamAppResponseDto -> {
+                             .publishOn(Schedulers.boundedElastic())
+                             .flatMap(steamAppResponseDto -> {
 
-                    List<SteamAppEntity> gameEntities = steamAppMapper.toEntities(steamAppResponseDto.appList().apps());
-                    Map<String, Long> appMap = steamAppMapper.toAppMap(steamAppResponseDto);
+                                 List<SteamAppEntity> gameEntities = steamAppMapper.toEntities(steamAppResponseDto.appList().apps());
+                                 Map<String, Long> appMap = steamAppMapper.toAppMap(steamAppResponseDto);
 
-                    Mono<Void> cache = saveService.saveToCache(appMap);
-                    Mono<Void> db = saveService.saveToDatabase(gameEntities);
+                                 Mono<Void> cache = saveService.saveToCache(appMap);
+                                 Mono<Void> db = saveService.saveToDatabase(gameEntities);
 
-                    return Mono.when(cache, db)
-                            .doOnSuccess(v -> log.info("Both cache and database save operations completed"))
-                            .doOnError(e ->
-                                    log.error("Error during async save operations", e)
-                            )
-                            .onErrorResume(e ->
-                                    Mono.error(new GameRecommenderException(ErrorType.FETCH_STORE_GAMES_ERROR, e))
-                            )
-                            .thenReturn(appMap);
-                });
+                                 return Mono.when(cache, db)
+                                            .doOnSuccess(v -> log.info("Both cache and database save operations completed"))
+                                            .doOnError(e -> log.error("Error during async save operations", e)
+                                            )
+                                            .onErrorResume(e -> Mono.error(new GameRecommenderException(ErrorType.FETCH_STORE_GAMES_ERROR, e))
+                                            )
+                                            .thenReturn(appMap);
+                             });
     }
 
     /**
@@ -204,24 +202,23 @@ public class GameService {
      */
     private Mono<Map<String, Long>> getAllGamesFromCache() {
         return redisConnection.reactive().hgetall(cacheKey.getBytes(StandardCharsets.UTF_8))
-                .collectList()
-                .publishOn(Schedulers.boundedElastic())
-                .flatMap(redisResults -> {
-                    Map<String, Long> result = new LinkedHashMap<>();
-                    for (KeyValue<byte[], byte[]> kv : redisResults) {
-                        try {
-                            String key = new String(kv.getKey(), StandardCharsets.UTF_8);
-                            Long value = Long.parseLong(new String(kv.getValue(), StandardCharsets.UTF_8));
-                            result.put(key, value);
-                        } catch (Exception e) {
-                            log.warn("Failed to parse cache entry: {}", e.getMessage());
-                        }
-                    }
-                    return Mono.just(result);
-                })
-                .onErrorResume(e ->
-                        Mono.error(new GameRecommenderException(ErrorType.REDIS_CACHE_READ_ERROR, e))
-                );
+                              .collectList()
+                              .publishOn(Schedulers.boundedElastic())
+                              .flatMap(redisResults -> {
+                                  Map<String, Long> result = new LinkedHashMap<>();
+                                  for (KeyValue<byte[], byte[]> kv : redisResults) {
+                                      try {
+                                          String key = new String(kv.getKey(), StandardCharsets.UTF_8);
+                                          Long value = Long.parseLong(new String(kv.getValue(), StandardCharsets.UTF_8));
+                                          result.put(key, value);
+                                      } catch (Exception e) {
+                                          log.warn("Failed to parse cache entry: {}", e.getMessage());
+                                      }
+                                  }
+                                  return Mono.just(result);
+                              })
+                              .onErrorResume(e -> Mono.error(new GameRecommenderException(ErrorType.REDIS_CACHE_READ_ERROR, e))
+                              );
     }
 
 }

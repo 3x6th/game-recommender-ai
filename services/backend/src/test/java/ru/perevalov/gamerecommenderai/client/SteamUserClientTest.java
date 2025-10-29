@@ -8,7 +8,9 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.RetryBackoffSpec;
 import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
+import ru.perevalov.gamerecommenderai.client.retry.ReactiveRetryStrategy;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
 
@@ -20,7 +22,6 @@ import java.util.Collections;
 class SteamUserClientTest {
     private WebClient webClientMock;
     private SteamUserClient steamUserClient;
-
     @BeforeEach
     void setUp() {
         webClientMock = Mockito.mock(WebClient.class, Mockito.RETURNS_DEEP_STUBS);
@@ -34,8 +35,10 @@ class SteamUserClientTest {
                 3,
                 5L
         );
-
-        steamUserClient = new SteamUserClient(webClientMock, steamProps);
+        //TODO: PCAI-84
+        ReactiveRetryStrategy retryStrategy = new ReactiveRetryStrategy();
+        steamUserClient = new SteamUserClient(webClientMock, steamProps, retryStrategy);
+        steamUserClient.init();
     }
 
     @Test
@@ -53,9 +56,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
-        // TODO: Переделать в PCAI-84
-        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("76561198000000000")
-                .block();
+        // TODO: Mono<SteamPlayerResponse>. Переписать в PCAI-84
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("76561198000000000").block();
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(1, response.getResponse().getPlayers().size(), "Response should have one player");
@@ -80,10 +82,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
-
-        // TODO: Переделать в PCAI-84
-        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("76561198000000000", true, true)
-                .block();
+        // TODO: Mono<SteamOwnedGamesResponse>. Переписать в PCAI-84
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("76561198000000000", true, true).block();
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(2, response.getResponse().getGameCount(), "Response should have two games");
@@ -112,9 +112,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(emptyProfile));
-        // TODO: Переделать в PCAI-84
-        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("123456")
-                .block();
+        // TODO: Mono<SteamPlayerResponse>. Переписать в PCAI-84
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("123456").block();
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertTrue(response.getResponse() == null
@@ -136,10 +135,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(emptyGames));
-
-        // TODO: Переделать в PCAI-84
-        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("123456", true, true)
-                .block();
+        // TODO: Mono<SteamOwnedGamesResponse>. Переписать в PCAI-84
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("123456", true, true).block();
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
