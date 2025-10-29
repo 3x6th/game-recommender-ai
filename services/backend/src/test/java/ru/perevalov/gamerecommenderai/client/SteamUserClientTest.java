@@ -53,8 +53,9 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
-
-        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("76561198000000000");
+        // TODO: Переделать в PCAI-84
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("76561198000000000")
+                .block();
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(1, response.getResponse().getPlayers().size(), "Response should have one player");
@@ -80,7 +81,9 @@ class SteamUserClientTest {
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
 
-        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("76561198000000000", true, true);
+        // TODO: Переделать в PCAI-84
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("76561198000000000", true, true)
+                .block();
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(2, response.getResponse().getGameCount(), "Response should have two games");
@@ -109,8 +112,9 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(emptyProfile));
-
-        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("123456");
+        // TODO: Переделать в PCAI-84
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("123456")
+                .block();
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertTrue(response.getResponse() == null
@@ -133,7 +137,9 @@ class SteamUserClientTest {
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(emptyGames));
 
-        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("123456", true, true);
+        // TODO: Переделать в PCAI-84
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("123456", true, true)
+                .block();
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");

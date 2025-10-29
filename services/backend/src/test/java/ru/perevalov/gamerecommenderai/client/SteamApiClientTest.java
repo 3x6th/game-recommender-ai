@@ -56,7 +56,8 @@ class SteamApiClientTest {
 
     @Test
     void fetchSteamApps_returnsExpectedResponse() {
-        SteamAppResponseDto response = steamApiClient.fetchSteamApps();
+        // TODO: Переделать в PCAI-84
+        SteamAppResponseDto response = steamApiClient.fetchSteamApps().block();
 
         Assertions.assertNotNull(response);
         Assertions.assertNotNull(response.appList(), "applist should not be null");

@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
 import ru.perevalov.gamerecommenderai.constant.SteamApiConstant;
@@ -47,7 +48,7 @@ public class SteamUserClient {
      * @return {@link SteamPlayerResponse}, содержащий данные о пользователе
      * @throws RuntimeException если запрос к Steam API завершился неудачно
      */
-    public SteamPlayerResponse fetchPlayerSummaries(String steamId) {
+    public Mono<SteamPlayerResponse> fetchPlayerSummaries(String steamId) {
 
         try {
             log.debug("Fetching player summary for steamId={}", steamId);
@@ -62,12 +63,11 @@ public class SteamUserClient {
                     )
             );
 
-            SteamPlayerResponse response = steamWebClient.get()
+            Mono<SteamPlayerResponse> response = steamWebClient.get()
                     .uri(uri)
                     .retrieve()
                     .bodyToMono(SteamPlayerResponse.class)
-                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))
-                    .block();
+                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())));
 
             log.debug("Player summary response: {}", response);
 
@@ -87,7 +87,7 @@ public class SteamUserClient {
      * @return {@link SteamOwnedGamesResponse}, содержащий список игр пользователя
      * @throws RuntimeException если запрос к Steam API завершился неудачно
      */
-    public SteamOwnedGamesResponse fetchOwnedGames(String steamId,
+    public Mono<SteamOwnedGamesResponse> fetchOwnedGames(String steamId,
                                                    boolean includeAppInfo,
                                                    boolean includePlayedFreeGames) {
         try {
@@ -105,12 +105,11 @@ public class SteamUserClient {
                     )
             );
 
-            SteamOwnedGamesResponse response = steamWebClient.get()
+            Mono<SteamOwnedGamesResponse> response = steamWebClient.get()
                     .uri(uri)
                     .retrieve()
                     .bodyToMono(SteamOwnedGamesResponse.class)
-                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())))
-                    .block();
+                    .retryWhen(Retry.fixedDelay(props.retryAttempts(), Duration.ofSeconds(props.retryDelaySeconds())));
 
             log.debug("Owned games response: {}", response);
 

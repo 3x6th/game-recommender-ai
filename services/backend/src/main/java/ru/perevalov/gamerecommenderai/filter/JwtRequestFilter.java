@@ -83,7 +83,8 @@ public class JwtRequestFilter extends OncePerRequestFilter {
         CustomUserPrincipal userPrincipal;
 
         if (extractedSteamId != null) {
-            user = userService.findBySteamId(extractedSteamId);
+            // TODO: Удалить оператор block в задаче PCAI-81
+            user = userService.findBySteamId(extractedSteamId).block();
             log.info("Authenticated user from jwt: steamId={}", extractedSteamId);
         } else {
             user = new User();

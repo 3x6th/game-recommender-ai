@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
@@ -85,18 +86,17 @@ public class SteamApiClient {
      * @throws GameRecommenderException if fetching fails
      */
     @Transactional
-    public SteamAppResponseDto fetchSteamApps() {
+    public Mono<SteamAppResponseDto> fetchSteamApps() {
         log.debug("Start fetchSteamApps method... ");
         long startTime = System.currentTimeMillis();
         try {
-            SteamAppResponseDto response = customSteamApiWebClient.get()
+            Mono<SteamAppResponseDto> response = customSteamApiWebClient.get()
                     .uri(uri)
                     .retrieve()
                     .bodyToMono(SteamAppResponseDto.class)
                     .doOnNext(resp -> log.info("Response received successfully. Fetched {} apps.", resp.appList().apps().size()))
                     .doOnError(error -> log.error("Request failed: {}", error.getMessage()))
-                    .retryWhen(retryBackoffSpec)
-                    .block();
+                    .retryWhen(retryBackoffSpec);
 
             long endTime = System.currentTimeMillis();
             log.debug("Fetching Steam Apps completed successfully. Time taken: {} ms", endTime - startTime);

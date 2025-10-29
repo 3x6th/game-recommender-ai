@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.context.SecurityContextHolder;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.entity.User;
 import ru.perevalov.gamerecommenderai.filter.JwtRequestFilter;
 import ru.perevalov.gamerecommenderai.security.jwt.JwtClaimKey;
@@ -71,7 +72,7 @@ class JwtRequestFilterTest {
 
         // мок UserService
         User userPersisted = DataUtils.getUserPersisted(mockSteamId);
-        BDDMockito.given(userService.findBySteamId(mockSteamId)).willReturn(userPersisted);
+        BDDMockito.given(userService.findBySteamId(mockSteamId)).willReturn(Mono.just(userPersisted));
 
         // when
         filter.doFilterInternal(request, response, filterChain);
