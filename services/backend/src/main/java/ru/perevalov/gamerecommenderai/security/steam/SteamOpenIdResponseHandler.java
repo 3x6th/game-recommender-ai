@@ -49,7 +49,9 @@ public class SteamOpenIdResponseHandler {
         Long steamId = steamOpenIdService.extractSteamIdFromClaimedId(openIdResponse.getClaimedId());
         log.info("Received OpenID callback, steamId={}", steamId);
 
-        User user = userService.createIfNotExists(steamId);
+        // TODO: Переделать в задаче PCAI-81
+        User user = userService.createIfNotExists(steamId)
+                .block();
 
         Cookie[] cookies = request.getCookies();
         String refreshTokenFromCookies = cookieService.extractRefreshTokenFromCookies(cookies);

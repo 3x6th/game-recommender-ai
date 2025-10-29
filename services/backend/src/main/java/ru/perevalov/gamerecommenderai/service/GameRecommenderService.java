@@ -2,9 +2,8 @@ package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
@@ -13,13 +12,11 @@ import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
-import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
 import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
-import java.util.Collections;
 import java.util.List;
 
 @Slf4j
@@ -31,94 +28,73 @@ public class GameRecommenderService {
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
 
-    /** Старый метод, принимающий запрос от контроллера /proceed. Контроллер был заменен на реактивный. На данный момент
-     * обращается к методу - заглушке getRecommendationsReactively.
-     * TODO: Написать реактивные сервисные методы, заменить подключение к getRecommendationsReactively на новый реактивный метод
-     */
+    public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
+        return request.flatMap(req -> {
+                    Mono<SteamOwnedGamesResponse> steamLib = loadSteamLibrary(req.getSteamId());
 
-    @Deprecated(forRemoval = true)
-    public GameRecommendationResponse getGameRecommendationsWithContext(GameRecommendationRequest request) {
-        try {
-            SteamOwnedGamesResponse steamLib = loadSteamLibrary(request.getSteamId());
-
-            AiContextRequest context = AiContextRequest.builder()
-                    .userMessage(request.getContent())
-                    .selectedTags(request.getTags())
-                    .gameLibrary(steamLib)
-                    .build();
-
-            RecommendationResponse grpcResponse = grpcClient.getGameRecommendations(context);
-            return processGrpcResponse(grpcResponse);
-
-        } catch (Exception e) {
-            throw new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED);
-        }
-    }
-    //TODO: Удалить метод, когда будет готов реактивный сервисный слой
-    public Mono<GameRecommendationResponse> getRecommendationsReactively(Mono<GameRecommendationRequest> request) {
-        return request.map(req -> GameRecommendationResponse.builder()
-                .recommendation("Default recommendations for request: " + req.getContent())
-                .success(true)
-                .recommendations(Collections.emptyList())
-                .build());
+                    return Mono.just(req)
+                            .zipWith(steamLib, (r, lib) ->
+                                    AiContextRequest.builder()
+                                            .userMessage(r.getContent())
+                                            .selectedTags(r.getTags())
+                                            .gameLibrary(lib)
+                                            .build()
+                            );
+                })
+                .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
+                .flatMap(this::processGrpcResponse)
+                .onErrorResume(e -> Mono.error(new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED)));
     }
 
-    /** Загружаем библиотеку стима пользователя из введеннго стим id. Если стим id не введено, пробуем загрузить из
+    /**
+     * Загружаем библиотеку стима пользователя из введеннго стим id. Если стим id не введено, пробуем загрузить из
      * секьюрити контекста. Если пользователь не зарегистрирован и не ввел стим id - возвращаем пустой SteamOwnedGamesResponse
      */
-    public SteamOwnedGamesResponse loadSteamLibrary(String steamId) {
-        SteamOwnedGamesResponse steamLibrary = new SteamOwnedGamesResponse();
-
-        if (steamId == null || steamId.isBlank()) {
-            steamId = userPrincipalUtil.getSteamIdFromSecurityContext();
-
-            if (userPrincipalUtil.getCurrentUserRole().equals(UserRole.GUEST)) {
-                return steamLibrary;
-            }
+    private Mono<SteamOwnedGamesResponse> loadSteamLibrary(String steamId) {
+        if (steamId != null && steamId.isBlank()) {
+            return steamClient.getOwnedGames(steamId, true, true);
         }
 
-        steamLibrary = steamClient.getOwnedGames(steamId, true,true);
-        return steamLibrary;
+        Mono<String> steamIdMono = userPrincipalUtil.getSteamIdFromSecurityContext();
+        Mono<UserRole> userRoleMono = userPrincipalUtil.getCurrentUserRole();
+
+        return Mono.zip(steamIdMono, userRoleMono)
+                .flatMap(tuple -> {
+                    String contextSteamId = tuple.getT1();
+                    UserRole userRole = tuple.getT2();
+
+                    if (userRole.equals(UserRole.GUEST)) {
+                        return Mono.just(new SteamOwnedGamesResponse());
+                    }
+
+                    return steamClient.getOwnedGames(contextSteamId, true, true);
+                });
     }
 
-    public GameRecommendationResponse getGameRecommendation(String preferences) {
-        try {
-            log.info("Requesting game recommendations via gRPC for preferences: {}", preferences);
+    private Mono<GameRecommendationResponse> processGrpcResponse(RecommendationResponse grpcResponse) {
+        return Mono.just(grpcResponse)
+                .flatMapMany(response -> {
+                    if (!response.getSuccess()) {
+                        throw new GameRecommenderException(ErrorType.GRPC_AI_ERROR, response.getMessage());
+                    }
 
-            RecommendationResponse grpcResponse = grpcClient.getRecommendations(preferences, 5);
-            return processGrpcResponse(grpcResponse);
+                    return extractRecommendations(response);
+                })
+                .collectList()
+                .doOnSuccess(gameRecommendations -> {
+                    log.info("Received {} recommendations from gRPC service", gameRecommendations.size());
 
-        } catch (Exception e) {
-            log.error("Error calling gRPC service for preferences '{}'. Exception message: '{}'", preferences, e.getMessage(), e);
-            throw new GameRecommenderException(ErrorType.GRPC_COMMUNICATION_ERROR);
-        }
+                    if (!gameRecommendations.isEmpty()) {
+                        log.info("First recommendation: {}", gameRecommendations.getFirst().getTitle());
+                    }
+                })
+                .map(this::buildResponse);
     }
 
-    private GameRecommendationResponse processGrpcResponse(RecommendationResponse grpcResponse) {
-        if (!grpcResponse.getSuccess()) {
-            throw new GameRecommenderException(ErrorType.GRPC_AI_ERROR, grpcResponse.getMessage());
-        }
-
-        List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations =
-                extractRecommendations(grpcResponse);
-
-        logRecommendations(recommendations);
-
-        return buildResponse(recommendations);
-    }
-
-    private List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> extractRecommendations(
-            RecommendationResponse grpcResponse) {
-        return grpcResponse.getRecommendationsList().stream()
-                .map(this::mapGrpcToDto)
-                .toList();
-    }
-
-    private void logRecommendations(List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations) {
-        log.info("Received {} recommendations from gRPC service", recommendations.size());
-        if (!recommendations.isEmpty()) {
-            log.info("First recommendation: {}", recommendations.getFirst().getTitle());
-        }
+    private Flux<ru.perevalov.gamerecommenderai.dto.GameRecommendation> extractRecommendations
+            (RecommendationResponse grpcResponse) {
+        return Flux.fromIterable(grpcResponse.getRecommendationsList())
+                .map(this::mapGrpcToDto);
     }
 
     private GameRecommendationResponse buildResponse(
@@ -127,30 +103,6 @@ public class GameRecommenderService {
                 .recommendation("Получено " + recommendations.size() + " рекомендаций")
                 .success(true)
                 .recommendations(recommendations)
-                .build();
-    }
-
-    public GameRecommendationResponse chatWithAI(String message) {
-        try {
-            log.info("Sending chat message via gRPC: {}", message);
-
-            ChatResponse grpcResponse = grpcClient.chatWithAI(message, null);
-            return processChatResponse(grpcResponse);
-
-        } catch (Exception e) {
-            log.error("Error calling gRPC service. Exception message: '{}'", e.getMessage(), e);
-            throw new GameRecommenderException(ErrorType.GRPC_COMMUNICATION_ERROR);
-        }
-    }
-
-    private GameRecommendationResponse processChatResponse(ChatResponse grpcResponse) {
-        if (!grpcResponse.getSuccess()) {
-            throw new GameRecommenderException(ErrorType.GRPC_AI_ERROR, grpcResponse.getMessage());
-        }
-
-        return GameRecommendationResponse.builder()
-                .recommendation(grpcResponse.getAiResponse())
-                .success(true)
                 .build();
     }
 
@@ -165,4 +117,5 @@ public class GameRecommenderService {
                 .releaseYear(grpcRec.getReleaseYear())
                 .build();
     }
+
 }

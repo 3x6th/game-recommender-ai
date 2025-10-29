@@ -32,7 +32,9 @@ class UserServiceTest {
         BDDMockito.given(userRepository.findBySteamId(ArgumentMatchers.anyLong()))
                 .willReturn(Mono.just(userPersisted));
         // when
-        User user = userService.findBySteamId(DataUtils.getMockSteamId());
+        // TODO: Переделать в PCAI-84
+        User user = userService.findBySteamId(DataUtils.getMockSteamId())
+                .block();
         // then
         Assertions.assertThat(user.getSteamId()).isEqualTo(userPersisted.getSteamId());
         Assertions.assertThat(user.getId()).isEqualTo(userPersisted.getId());
@@ -62,7 +64,9 @@ class UserServiceTest {
 
         // when
         User userTransient = DataUtils.getUserTransient(DataUtils.getMockSteamId());
-        User createdUser = userService.createIfNotExists(userTransient.getSteamId());
+        // TODO: Переделать в PCAI-84
+        User createdUser = userService.createIfNotExists(userTransient.getSteamId())
+                .block();
 
         // then
         Assertions.assertThat(createdUser.getSteamId()).isEqualTo(userPersisted.getSteamId());
@@ -77,7 +81,9 @@ class UserServiceTest {
         BDDMockito.given(userRepository.findBySteamId(ArgumentMatchers.anyLong()))
                 .willReturn(Mono.just(userPersisted));
         // when
-        User foundUser = userService.createIfNotExists(userPersisted.getSteamId());
+        // TODO: Переделать в PCAI-84
+        User foundUser = userService.createIfNotExists(userPersisted.getSteamId())
+                .block();
 
         // then
         Assertions.assertThat(foundUser.getSteamId()).isEqualTo(userPersisted.getSteamId());

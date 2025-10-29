@@ -16,27 +16,30 @@ import ru.perevalov.gamerecommenderai.security.model.UserRole;
 public class UserService {
     private final UserRepository userRepository;
 
-    public User findBySteamId(Long steamId) {
-        User user = userRepository.findBySteamId(steamId)
-                // TODO: блокирующая заглушка, должен возвращаться Mono<User>. Переписать в PCAI-79
-                .switchIfEmpty(Mono.error(() -> {
-                    log.error("User with steam id {} was not found in system.", steamId);
-                    return new GameRecommenderException(ErrorType.USER_NOT_FOUND, steamId);
-                })).block();
-
-        return user;
+    public Mono<User> findBySteamId(Long steamId) {
+        return userRepository.findBySteamId(steamId)
+                .switchIfEmpty(
+                        Mono.error(new GameRecommenderException(ErrorType.USER_NOT_FOUND, steamId))
+                )
+                .doOnSuccess(user ->
+                        log.info("User with steamId={} found in DB (userId={}).", user.getSteamId(), user.getId()))
+                .doOnError(GameRecommenderException.class,
+                        ex -> log.error("User with steam id {} was not found in system", steamId));
     }
 
-    public User createIfNotExists(Long steamId) {
+    public Mono<User> createIfNotExists(Long steamId) {
         return userRepository.findBySteamId(steamId)
-                // TODO: блокирующая заглушка, должен возвращаться Mono<User>. Переписать в PCAI-79
-                .switchIfEmpty(Mono.defer(() -> {
-                    return userRepository.save(new User(steamId, UserRole.USER))
-                            .doOnNext(user -> {
-                                log.info("Created new user with steamId={} (userId={}).",
-                                        user.getSteamId(), user.getId());
-                                user.markAsExisting();
-                            });
-                })).block();
+                .switchIfEmpty(Mono.defer(() ->
+                        userRepository.save(new User(steamId, UserRole.USER))
+                                .doOnSuccess(user ->
+                                        log.info("Created new user with steamId={} (userId={}).",
+                                                user.getSteamId(), user.getId())
+                                )
+                                .map(user -> {
+                                    user.markAsExisting();
+                                    return user;
+                                })
+                        )
+                );
     }
 }
