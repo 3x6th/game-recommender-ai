@@ -42,8 +42,7 @@ public class GameRecommenderService {
                             );
                 })
                 .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
-                .flatMap(this::processGrpcResponse)
-                .onErrorResume(e -> Mono.error(new GameRecommenderException(ErrorType.STEAM_ID_EXTRACTION_FAILED)));
+                .flatMap(this::processGrpcResponse);
     }
 
     /**
@@ -51,24 +50,25 @@ public class GameRecommenderService {
      * секьюрити контекста. Если пользователь не зарегистрирован и не ввел стим id - возвращаем пустой SteamOwnedGamesResponse
      */
     private Mono<SteamOwnedGamesResponse> loadSteamLibrary(String steamId) {
-        if (steamId != null && steamId.isBlank()) {
+        if (steamId != null && !steamId.isBlank()) {
             return steamClient.getOwnedGames(steamId, true, true);
         }
 
-        Mono<String> steamIdMono = userPrincipalUtil.getSteamIdFromSecurityContext();
-        Mono<UserRole> userRoleMono = userPrincipalUtil.getCurrentUserRole();
+        Mono<String> steamIdMono = userPrincipalUtil.getSteamIdFromSecurityContext().defaultIfEmpty("");
+        Mono<UserRole> userRoleMono = userPrincipalUtil.getCurrentUserRole().defaultIfEmpty(UserRole.GUEST);
 
         return Mono.zip(steamIdMono, userRoleMono)
                 .flatMap(tuple -> {
                     String contextSteamId = tuple.getT1();
                     UserRole userRole = tuple.getT2();
 
-                    if (userRole.equals(UserRole.GUEST)) {
+                    if (userRole.equals(UserRole.GUEST) || contextSteamId.isBlank()) {
                         return Mono.just(new SteamOwnedGamesResponse());
                     }
 
                     return steamClient.getOwnedGames(contextSteamId, true, true);
-                });
+                })
+                .switchIfEmpty(Mono.just(new SteamOwnedGamesResponse()));
     }
 
     private Mono<GameRecommendationResponse> processGrpcResponse(RecommendationResponse grpcResponse) {

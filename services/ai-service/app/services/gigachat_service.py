@@ -57,19 +57,6 @@ class GigaChatService(BaseAIService):
             logger.error(f"Error getting recommendations from GigaChat: {e}")
             return []
     
-    async def chat(self, message: str, context: str = "") -> str:
-        """Chat with GigaChat AI"""
-        try:
-            # TODO: Implement actual GigaChat chat API call
-            logger.info(f"Chatting with GigaChat: {message}")
-            
-            # Mock response
-            return f"GigaChat AI: I understand you're asking about '{message}'. This is a mock response - implement actual API integration here."
-            
-        except Exception as e:
-            logger.error(f"Error chatting with GigaChat: {e}")
-            return f"Sorry, I encountered an error: {str(e)}"
-    
     async def is_available(self) -> bool:
         """Check if GigaChat service is available"""
         return bool(self.api_key)

@@ -6,8 +6,6 @@ import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
-import ru.perevalov.gamerecommenderai.grpc.ChatRequest;
-import ru.perevalov.gamerecommenderai.grpc.ChatResponse;
 import ru.perevalov.gamerecommenderai.grpc.ReactorGameRecommenderServiceGrpc;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.mapper.GrpcMapper;
@@ -48,31 +46,6 @@ public class GameRecommenderGrpcClient {
                                        "Failed to get recommendations from AI service",
                                        error
                                ));
-    }
-
-    /**
-     * Chat with AI реактивная версия
-     */
-    public Mono<ChatResponse> chatWithAI(String message, String context) {
-        log.info(
-                "Sending chat request: message={}, context={}",
-                message,
-                context
-        );
-        return Mono.fromCallable(() -> ChatRequest.newBuilder()
-                                                  .setMessage(message)
-                                                  .setContext(context != null ? context : "")
-                                                  .build())
-                   .flatMap(gameRecommenderServiceStub::chat)
-                   .doOnSuccess(response -> log.info(
-                           "Received chat response: success={}",
-                           response.getSuccess()
-                   ))
-                   .doOnError(error -> log.error("Error chatting with AI via gRPC service", error))
-                   .onErrorMap(error -> new RuntimeException(
-                           "Failed to chat with AI service",
-                           error
-                   ));
     }
 
 }

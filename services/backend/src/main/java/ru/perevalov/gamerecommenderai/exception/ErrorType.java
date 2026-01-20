@@ -16,6 +16,7 @@ public enum ErrorType {
     AI_SERVICE_RECOMMENDATION_ERROR("Failed to get recommendations from AI service for preferences: %s", HttpStatus.SERVICE_UNAVAILABLE),
     AI_SERVICE_UNAUTHORIZED("Authorization error in AI service. Please check your API key.", HttpStatus.UNAUTHORIZED),
     AI_SERVICE_UNAVAILABLE("AI service is temporarily unavailable. Please try later.", HttpStatus.INTERNAL_SERVER_ERROR),
+    API_RATE_LIMIT_EXCEEDED("Rate limit exceeded. Please try later.", HttpStatus.TOO_MANY_REQUESTS),
     AUTH_REFRESH_TOKEN_INVALID("Refresh token invalid", HttpStatus.UNAUTHORIZED),
     CHATTING_WITH_AI_ERROR("Error chatting with AI via gRPC service: Failed to chat with AI service. ", HttpStatus.SERVICE_UNAVAILABLE),
     DATABASE_BATCH_INSERT_ERROR("Failed to insert Steam apps batch into database", HttpStatus.INTERNAL_SERVER_ERROR),

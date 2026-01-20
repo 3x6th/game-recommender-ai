@@ -10,9 +10,6 @@ option java_multiple_files = true;
 service GameRecommenderService {
   // Get game recommendations based on user preferences and steam library
   rpc RecommendGames(FullAiContextRequestProto) returns (RecommendationResponse);
-  
-  // Chat with AI about games
-  rpc Chat(ChatRequest) returns (ChatResponse);
 }
 // Полный контекст запроса к AI сервису
 message FullAiContextRequestProto {
@@ -57,19 +54,4 @@ message GameRecommendation {
   repeated string platforms = 5;
   double rating = 6;            // Optional rating (0.0 - 10.0)
   string release_year = 7;      // Optional release year
-}
-
-// Request for AI chat
-message ChatRequest {
-  string user_id = 1;           // Optional user identifier
-  string message = 2;           // User message
-  string context = 3;           // Optional conversation context
-}
-
-// Response from AI chat
-message ChatResponse {
-  bool success = 1;
-  string message = 2;
-  string ai_response = 3;
-  string provider = 4;          // AI provider used
 }

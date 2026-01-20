@@ -208,18 +208,12 @@ make test      # Протестировать сервисы
   - Response: `{ accessToken, refreshToken (в cookie), sessionId, role }`
 - **POST /api/v1/auth/refresh** - Обновление access token через refresh token
 - **GET /api/v1/auth/steam** - Редирект на Steam OAuth
-- **GET /api/v1/auth/steam/callback** - Callback от Steam после авторизации
-- **POST /api/v1/auth/logout** - Выход из системы
+- **GET /api/v1/auth/steam/return** - Callback от Steam после авторизации
 
-#### Игры и рекомендации (`/api/v1/games`)
-- **POST /api/v1/games/recommend** - Получить рекомендации игр на основе предпочтений
-  - Body: `{ preferences: string, maxRecommendations: number }`
-  - Требует авторизацию (Bearer token)
-- **POST /api/v1/games/chat** - Чат с AI для обсуждения игр
-  - Body: `{ message: string }`
-  - Требует авторизацию (Bearer token)
-- **GET /api/v1/games/steam/library** - Получить библиотеку игр пользователя из Steam
-  - Требует авторизацию через Steam
+#### Игры и рекомендации (`/api/games`)
+- **POST /api/games/proceed** - Получить рекомендации игр с учетом Steam библиотеки
+  - Body: `{ content: string, tags: string[], steamId?: string }`
+  - Доступно гостям и авторизованным пользователям
 
 #### Мониторинг и метрики
 - **GET /actuator/health** - Статус здоровья приложения
@@ -250,12 +244,11 @@ service GameRecommenderService {
 @Autowired
 private GameRecommenderServiceGrpc.GameRecommenderServiceBlockingStub stub;
 
-RecommendationRequest request = RecommendationRequest.newBuilder()
-    .setPreferences("action games with good story")
-    .setMaxRecommendations(5)
+FullAiContextRequestProto request = FullAiContextRequestProto.newBuilder()
+    .setUserMessage("action games with good story")
     .build();
 
-RecommendationResponse response = stub.recommend(request);
+RecommendationResponse response = stub.recommendGames(request);
 ```
 
 #### Python Client
@@ -266,12 +259,11 @@ from app.proto import reco_pb2, reco_pb2_grpc
 channel = grpc.insecure_channel('localhost:9090')
 stub = reco_pb2_grpc.GameRecommenderServiceStub(channel)
 
-request = reco_pb2.RecommendationRequest(
-    preferences="action games with good story",
-    max_recommendations=5
+request = reco_pb2.FullAiContextRequestProto(
+    userMessage="action games with good story"
 )
 
-response = stub.Recommend(request)
+response = stub.RecommendGames(request)
 ```
 
 ## 🤖 AI Providers

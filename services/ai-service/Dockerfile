@@ -25,8 +25,8 @@ COPY contracts/proto/reco.proto ./proto/
 # Generate gRPC code до копирования app кода
 RUN python -m grpc_tools.protoc \
     -I./proto \
-    --python_out=. \
-    --grpc_python_out=. \
+    --python_out=./proto \
+    --grpc_python_out=./proto \
     ./proto/reco.proto
 
 # Copy application code

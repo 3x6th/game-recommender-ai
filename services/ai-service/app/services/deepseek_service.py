@@ -293,44 +293,6 @@ class DeepSeekService(BaseAIService):
             logger.error(f"Error getting recommendations with Steam library: {e}")
             return self._get_mock_recommendations(max_recommendations)
 
-    async def chat(self, message: str, context: str = "") -> str:
-        """Chat with DeepSeek AI"""
-        try:
-            if not self.api_key or not self.client:
-                logger.warning("No DeepSeek API key or client available")
-                return "Sorry, DeepSeek API key is not configured. Please set DEEPSEEK_API_KEY environment variable."
-            
-            # Check circuit breaker
-            if self._is_circuit_open():
-                logger.warning("Circuit breaker is open, returning fallback response")
-                return "Sorry, the AI service is temporarily unavailable. Please try again later."
-            
-            logger.info(f"Chatting with DeepSeek: {message}")
-            
-            # Prepare chat prompt
-            prompt = f"""
-            Context: {context}
-            User Message: {message}
-            
-            Please provide a helpful and informative response about video games, gaming, or any related topic the user is asking about.
-            """
-            
-            # Call DeepSeek API with retry logic
-            response = await self._call_deepseek_api_with_retry(prompt, is_chat=True)
-            
-            if response and 'choices' in response and len(response['choices']) > 0:
-                self._record_success()
-                return response['choices'][0]['message']['content']
-            else:
-                self._record_failure()
-                logger.warning("Invalid chat response from DeepSeek")
-                return "Sorry, I couldn't generate a proper response. Please try again."
-            
-        except Exception as e:
-            self._record_failure()
-            logger.error(f"Error chatting with DeepSeek: {e}")
-            return f"Sorry, I encountered an error: {str(e)}"
-    
     async def _call_deepseek_api_with_retry(self, prompt: str, is_chat: bool = False) -> Dict[str, Any]:
         """Make API call to DeepSeek with retry logic using SDK"""
         start_time = time.time()

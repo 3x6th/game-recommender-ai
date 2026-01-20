@@ -105,18 +105,6 @@ class ServiceRegistry:
             logger.error(f"Error getting recommendations with Steam library: {e}")
             return []
 
-    async def chat(self, message: str, context: str = "") -> str:
-        """Chat with active service"""
-        if not self.active_service:
-            logger.error("No active AI service")
-            return "No AI service available"
-        
-        try:
-            return await self.active_service.chat(message, context)
-        except Exception as e:
-            logger.error(f"Error in chat: {e}")
-            return f"Error: {str(e)}"
-    
     def get_available_services(self) -> List[str]:
         """Get list of available service names"""
         return [service.get_name() for service in self.services]

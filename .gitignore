@@ -22,10 +22,10 @@ services/backend/*.ear
 services/backend/*dev.properties
 
 # Python
-services/ai-service/__pycache__/
-services/ai-service/*.pyc
-services/ai-service/*.pyo
-services/ai-service/*.pyd
+services/ai-service/**/__pycache__/
+services/ai-service/**/*.pyc
+services/ai-service/**/*.pyo
+services/ai-service/**/*.pyd
 services/ai-service/.Python
 services/ai-service/env/
 services/ai-service/venv/
