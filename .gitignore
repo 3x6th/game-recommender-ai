@@ -58,3 +58,5 @@ temp/
 
 /services/ai-service/ai-service.iml
 /services/ai-service/pytest-report.xml
+
+.cursorrules

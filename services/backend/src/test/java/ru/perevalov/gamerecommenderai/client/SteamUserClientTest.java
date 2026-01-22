@@ -65,6 +65,8 @@ class SteamUserClientTest {
         Assertions.assertEquals("76561198000000000", player.getSteamId(), "Steam id should match");
         Assertions.assertEquals("TestUser", player.getPersonaName(), "Persona name should match");
         Assertions.assertEquals("http://example.com/avatar.jpg", player.getAvatarFull(), "Avatar full should match");
+        Assertions.assertEquals("https://steamcommunity.com/id/TestUser/", player.getProfileUrl(), "Profile url should match");
+        Assertions.assertEquals(1234567890, player.getTimeCreated(), "Time created should match");
     }
 
     @Test
@@ -94,12 +96,14 @@ class SteamUserClientTest {
         Assertions.assertEquals("Team Fortress 2", game1.getName(), "Name should match");
         Assertions.assertEquals(1234, game1.getPlaytimeForever(), "Playtime forever should match");
         Assertions.assertEquals(50, game1.getPlaytime2weeks(), "Playtime 2weeks should match");
+        Assertions.assertEquals(1700000000, game1.getRtimeLastPlayed(), "Last played time should match");
 
         var game2 = response.getResponse().getGames().get(1);
         Assertions.assertEquals(570, game2.getAppId(), "App id should match");
         Assertions.assertEquals("Dota 2", game2.getName(), "Name should match");
         Assertions.assertEquals(5678, game2.getPlaytimeForever(), "Playtime forever should match");
         Assertions.assertEquals(100, game2.getPlaytime2weeks(), "Playtime 2weeks should match");
+        Assertions.assertEquals(1700001000, game2.getRtimeLastPlayed(), "Last played time should match");
     }
 
     @Test

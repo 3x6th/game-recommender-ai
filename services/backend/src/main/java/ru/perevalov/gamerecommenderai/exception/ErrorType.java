@@ -32,6 +32,8 @@ public enum ErrorType {
             " body: %s", HttpStatus.UNAUTHORIZED),
     REDIS_CACHE_READ_ERROR("Failed to read Steam apps from Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
     REDIS_CACHE_SAVE_ERROR("Failed to save Steam apps to Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
+    REDIS_USER_DATA_CACHE_READ_ERROR("Failed to read user data from Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
+    REDIS_USER_DATA_CACHE_SAVE_ERROR("Failed to save user data to Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
     SCHEDULER_UPDATE_EXECUTION_ERROR("Error occurred during scheduled update execution", HttpStatus.INTERNAL_SERVER_ERROR),
     STEAM_API_FETCH_GAMES_LIST_ERROR("Failed to fetch games list from Steam API by uri=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_API_FETCH_OWNED_GAMES_ERROR("Failed to fetch owned games from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
@@ -43,6 +45,8 @@ public enum ErrorType {
             " https://steamcommunity.com/id/76561197973845818", HttpStatus.BAD_REQUEST),
     STEAM_JSON_PROCESSING_ERROR("Failed to parse JSON response.", HttpStatus.INTERNAL_SERVER_ERROR),
     STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE),
+    USER_GAME_STATS_SAVE_ERROR("Failed to save user game stats. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
+    USER_STEAM_PROFILE_SAVE_ERROR("Failed to save Steam profile. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
     USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
 
     private final String description;

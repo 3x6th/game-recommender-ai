@@ -4,7 +4,9 @@
       {
         "steamid": "76561198000000000",
         "personaname": "TestUser",
-        "avatarfull": "http://example.com/avatar.jpg"
+        "avatarfull": "http://example.com/avatar.jpg",
+        "profileurl": "https://steamcommunity.com/id/TestUser/",
+        "timecreated": 1234567890
       }
     ]
   }

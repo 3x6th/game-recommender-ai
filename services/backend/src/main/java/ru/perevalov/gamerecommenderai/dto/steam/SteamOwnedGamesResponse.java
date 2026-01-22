@@ -62,5 +62,12 @@ public class SteamOwnedGamesResponse {
          */
         @JsonProperty("playtime_forever")
         private int playtimeForever;
+
+        /**
+         * Unix timestamp (seconds) последнего запуска игры пользователем.
+         * Поле присутствует, если Steam API возвращает rtime_last_played.
+         */
+        @JsonProperty("rtime_last_played")
+        private Integer rtimeLastPlayed;
     }
 }
