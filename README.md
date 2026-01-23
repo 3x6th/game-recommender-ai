@@ -324,7 +324,8 @@ GIGACHAT_API_KEY=your-gigachat-api-key
 
 ### Docker Compose команды
 
-> При первом запуске docker compose backend не запуститься, так как база данных будет пустой и миграции не будут применены. Нужно выполнить миграцию и перезапустить контейнер.
+> При первом запуске `docker compose` сервис `db-migrate` автоматически применит Liquibase-миграции к PostgreSQL, и только потом поднимется `backend`.
+> Если `backend` не стартует — сначала проверьте логи миграций: `docker compose logs -f db-migrate`.
 
 ```bash
 # Запуск всех сервисов
@@ -466,7 +467,7 @@ curl http://localhost:8080/actuator/health | jq '.components.redis'
 
 ### Проблемы с PostgreSQL
 
-> При первом запуске docker compose backend не запуститься, так как база данных будет пустой и миграции не будут применены. Нужно выполнить миграцию и перезапустить контейнер.
+> В Docker-окружении миграции Liquibase накатываются автоматически сервисом `db-migrate` перед стартом `backend`.
 
 **Симптомы:** Backend не может подключиться к БД
 ```bash
@@ -477,10 +478,10 @@ docker ps | grep postgres
 docker logs game-recommender-postgres-db
 
 # 3. Подключиться к БД напрямую
-docker exec -it game-recommender-postgres-db psql -U postgres -d game_recommender_ai
+docker exec -it game-recommender-postgres-db psql -U postgres -d game_recommender_ai_db
 
 # 4. Проверить миграции Liquibase
-docker logs backend | grep -i liquibase
+cd infra && docker compose logs -f db-migrate
 ```
 
 ### Пересборка
@@ -517,7 +518,8 @@ lsof -i :6379  # Redis
 ### Миграции
 
 Используется **Liquibase** для версионирования схемы БД:
-> При первом запуске docker compose backend не запуститься, так как база данных будет пустой и миграции не будут применены. Нужно выполнить миграцию и перезапустить контейнер.
+> В Docker (`infra/docker-compose.yml`) миграции накатываются автоматически отдельным сервисом `db-migrate`.
+> Команды ниже полезны для ручного запуска миграций локально (например, при разработке без Docker).
 
 ```bash
 cd services/backend
