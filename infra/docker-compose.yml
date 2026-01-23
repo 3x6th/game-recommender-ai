@@ -5,8 +5,8 @@ services:
   redis:
     container_name: redis
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     networks: [ playcure ]
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
@@ -60,9 +60,9 @@ services:
       - GIGACHAT_API_KEY=${GIGACHAT_API_KEY}
       - GRPC_PORT=${GRPC_PORT}
       - HTTP_PORT=${HTTP_PORT}
-    ports:
-      - "8000:8000"  # FastAPI health/metrics
-      - "9090:9090"  # gRPC
+    expose:
+      - "8000"  # FastAPI health/metrics
+      - "9090"  # gRPC
     networks: [ playcure ]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
@@ -78,8 +78,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5433:5432"
+    expose:
+      - "5432"
     networks: [ playcure ]
     volumes:
       - game_recommender_ai_data:/var/lib/postgresql/data
