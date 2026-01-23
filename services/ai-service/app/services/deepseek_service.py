@@ -108,6 +108,7 @@ class DeepSeekService(BaseAIService):
                 ]
             }}
 
+            Reply in the language of the user's message!
             Focus on games that best match the user's preferences. Do not include any text before or after the JSON.
             """
             
@@ -214,7 +215,7 @@ class DeepSeekService(BaseAIService):
             1. Match user's preferences from their message
             2. Are similar to their most played games
             3. Align with their selected tags
-            4. Are NOT already in their Steam library
+            4. Reply in the language of the user's message!
 
             RESPOND WITH ONLY valid JSON in this exact format:
             {{
