@@ -33,6 +33,8 @@ public class AuthController {
 
     @Value("${application.base.url}")
     private String applicationUrl;
+    @Value("${application.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
     @Value("${steam.openid.endpoint}")
     private String steamOpenIdLoginUrl;
     private final SteamOpenIdResponseHandler steamOpenIdResponseHandler;
@@ -74,14 +76,23 @@ public class AuthController {
 
     /**
      * Ловим callback от провайдера аутентификации, верифицируем ответ от Steam.
-     * Возвращает новые Refresh и Access токены в случае привязки пользователя по Steam Id
+     * Привязывает SteamId к текущей сессии и редиректит на фронтенд.
      */
     @GetMapping("/steam/return")
-    public Mono<ResponseEntity<AccessTokenResponse>> handleSteamCallback(ServerWebExchange exchange) {
+    public Mono<ResponseEntity<Void>> handleSteamCallback(ServerWebExchange exchange) {
         ru.perevalov.gamerecommenderai.dto.OpenIdResponse openIdResponse = buildOpenIdResponse(exchange);
         return steamOpenIdResponseHandler
                 .handleReactively(openIdResponse, exchange)
-                .map(ResponseEntity::ok);
+                .thenReturn(ResponseEntity.status(HttpStatus.FOUND)
+                        .header(HttpHeaders.LOCATION, buildFrontendRedirectUrl())
+                        .build());
+    }
+
+    private String buildFrontendRedirectUrl() {
+        if (frontendUrl == null || frontendUrl.isBlank()) {
+            return "/";
+        }
+        return frontendUrl.endsWith("/") ? frontendUrl : frontendUrl + "/";
     }
 
 

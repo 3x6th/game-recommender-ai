@@ -15,6 +15,8 @@ public class CookieService {
     private String refreshTokenCookieName;
     @Value("${application.security.cookie.max-age-in-days}")
     private int cookieMaxAgeInDays;
+    @Value("${application.security.cookie.secure:false}")
+    private boolean secureCookie;
 
     /**
      * RefreshToken сохраняется в HttpOnly cookies, что защищает токен от компрометации через XSS атаку.
@@ -22,7 +24,7 @@ public class CookieService {
     public void insertRefreshTokenInCookie(String refreshToken, ServerWebExchange exchange) {
         ResponseCookie cookie = ResponseCookie.from(refreshTokenCookieName, refreshToken)
                 .httpOnly(true)
-                .secure(false) // TODO: в продакшене в true флаг
+                .secure(secureCookie)
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofDays(cookieMaxAgeInDays))
