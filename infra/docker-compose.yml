@@ -62,7 +62,7 @@ services:
       - COOKIE_MAX_AGE=${COOKIE_MAX_AGE}
       - COOKIE_SECURE=${COOKIE_SECURE}
       - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
-      - SPRING_DATASOURCE_URL=r2dbc:postgresql://game_recommender_ai_db:5432/${POSTGRES_DB}?schema=game_recommender
+      - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
       - REDIS_REDIS_URI=${REDIS_REDIS_URI}
@@ -113,7 +113,7 @@ services:
     volumes:
       - game_recommender_ai_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
       interval: 30s
       timeout: 10s
       retries: 5
