@@ -7,7 +7,8 @@ import lombok.Getter;
 @Getter
 public enum JwtClaimKey {
     ROLE("role"),
-    STEAM_ID("steamId");
+    STEAM_ID("steamId"),
+    TOKEN_TYPE("tokenType");
 
     private final String key;
 }

@@ -1,10 +1,6 @@
 package ru.perevalov.gamerecommenderai.utils;
 
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
-import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import ru.perevalov.gamerecommenderai.entity.User;
-import ru.perevalov.gamerecommenderai.security.model.CustomUserPrincipal;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
 import java.time.LocalDateTime;
@@ -26,10 +22,4 @@ public class DataUtils {
         return 76561197973845818L;
     }
 
-    public static RequestPostProcessor securityMockMvcRequestPostProcessorsWithMockUser() {
-        CustomUserPrincipal customUserPrincipal = new CustomUserPrincipal(DataUtils.getUserPersisted(getMockSteamId()));
-        UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(
-                customUserPrincipal, null, customUserPrincipal.getAuthorities());
-        return SecurityMockMvcRequestPostProcessors.authentication(authenticationToken);
-    }
 }

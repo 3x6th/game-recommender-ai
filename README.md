@@ -22,9 +22,9 @@ game-recommender-ai/
 │       ├── http_api.py     # FastAPI для health/metrics
 │       └── services/       # AI провайдеры (DeepSeek, GigaChat)
 ├── infra/              # Инфраструктура и оркестрация
-│   ├── docker-compose.yml          # Основные сервисы
+│   ├── docker-compose.yml          # Deployment-safe compose (наружу опубликован только backend)
+│   ├── docker-compose.dev.yml      # Local dev override (порты внутренних сервисов только на localhost)
 │   ├── observability-compose.yml   # Prometheus + Grafana
-│   ├── Makefile                    # Утилиты для разработки
 │   └── grafana/                    # Дашборды мониторинга
 └── logs/               # Логи приложения
 ```
@@ -37,9 +37,9 @@ game-recommender-ai/
 - **Java 21** (для локальной разработки backend)
 - **Maven 3.8+** (для локальной разработки backend)
 - **Python 3.11** (для локальной разработки AI service)
+- **Poetry** (для локальной разработки AI service)
 - **PostgreSQL 17** (автоматически через Docker)
 - **Redis 7** (автоматически через Docker)
-- **Make** (опционально, для удобства)
 
 ### 1. Клонирование и настройка
 
@@ -63,36 +63,34 @@ nano .env
 
 ### 2. Запуск с Docker Compose
 
+В проекте используется разделение compose файлов:
+
+- `infra/docker-compose.yml` — **deployment-safe**: Redis/PostgreSQL/AI сервис **не публикуют порты на хост**, доступны только внутри Docker сети.
+- `infra/docker-compose.dev.yml` — **только для локальной разработки**: добавляет порты внутренних сервисов, привязанные к `127.0.0.1`.
+
+#### Локальная разработка
+
 ```bash
 cd infra
-
-# Сгенерировать gRPC код (опционально, происходит автоматически при сборке)
-make proto.gen
-
-# Запустить все сервисы (Backend, AI Service, PostgreSQL, Redis)
-make up
-
-# Проверить статус всех контейнеров
-make status
-
-# Посмотреть логи всех сервисов
-make logs
-
-# Или логи конкретного сервиса
-make logs.backend  # Логи Backend
-make logs.ai       # Логи AI Service
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
 ```
+
+#### Deployment / VPS / Dokploy
+
+```bash
+cd infra
+docker compose -f docker-compose.yml up --build -d
+```
+
+> Важно: **не подключайте** `docker-compose.dev.yml` на сервере — он публикует внутренние порты (пусть и на `127.0.0.1`) и нужен только для удобства разработки.
 
 ### 3. Тестирование
 
 ```bash
-# Проверить health endpoints всех сервисов
-make test
-
-# Или вручную проверить каждый сервис:
+# Локально (с docker-compose.dev.yml)
 curl http://localhost:8000/healthz          # AI Service health
 curl http://localhost:8080/actuator/health  # Backend health
-curl http://localhost:8080/api/v1/auth/preAuthorize  # Создать анонимную сессию
+curl -X POST http://localhost:8080/api/v1/auth/preAuthorize  # Создать анонимную сессию
 
 # Проверить базу данных
 docker exec -it game-recommender-postgres-db psql -U postgres -d game_recommender_ai -c "SELECT version();"
@@ -101,30 +99,33 @@ docker exec -it game-recommender-postgres-db psql -U postgres -d game_recommende
 ### 4. Доступ к сервисам
 
 После запуска будут доступны:
+
+**Локальная разработка** (c `docker-compose.dev.yml`):
 - **Backend API**: http://localhost:8080
 - **Swagger UI**: http://localhost:8080/swagger-ui.html
 - **API Docs**: http://localhost:8080/api-docs
 - **AI Service Health**: http://localhost:8000/healthz
 - **AI Service Metrics**: http://localhost:8000/metrics
-- **PostgreSQL**: localhost:5433 (внешний порт)
+- **AI Service gRPC**: localhost:9090
+- **PostgreSQL**: localhost:5433
 - **Redis**: localhost:6379
 - **Prometheus**: http://localhost:9091 (если запущен observability stack)
 - **Grafana**: http://localhost:3000 (если запущен observability stack)
 
+**Deployment** (только `docker-compose.yml`):
+- **Опубликован только Backend** (порт 8080)
+- **Redis/PostgreSQL/AI Service** доступны **только внутри Docker сети** по именам сервисов: `redis:6379`, `game_recommender_ai_db:5432`, `ai-service:9090`
+
 ## 🔧 Разработка
 
-### Генерация gRPC кода
+### Генерация gRPC кода (опционально)
 
-```bash
-# Python
-make proto.gen.py
+Обычно gRPC код генерируется автоматически при сборке Docker образов.
 
-# Java
-make proto.gen.java
+Если нужно пересобрать локально:
 
-# Все языки
-make proto.gen
-```
+- **Java**: `cd services/backend && mvn clean compile`
+- **Python**: `cd services/ai-service && poetry run python -m grpc_tools.protoc -I../../contracts/proto --python_out=./proto --grpc_python_out=./proto ../../contracts/proto/reco.proto`
 
 ### Локальная разработка
 
@@ -168,35 +169,38 @@ mvn liquibase:update
 ```bash
 cd services/ai-service
 
-# Установить зависимости (рекомендуется использовать venv)
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-pip install -r requirements.txt
+# Установить зависимости
+poetry install
 
 # Сгенерировать gRPC код
-python -m grpc_tools.protoc -I../../contracts/proto \
-  --python_out=./app \
-  --grpc_python_out=./app \
+poetry run python -m grpc_tools.protoc -I../../contracts/proto \
+  --python_out=./proto \
+  --grpc_python_out=./proto \
   ../../contracts/proto/reco.proto
 
 # Запустить сервис
-python -m app.main
+poetry run python -m app.main
 
 # Или через uvicorn (для разработки с hot reload)
-uvicorn app.http_api:app --reload --port 8000
+poetry run uvicorn app.http_api:app --reload --port 8000
 ```
 
 ### Полезные команды
 
 ```bash
-make help      # Показать все доступные команды
-make up        # Запустить сервисы
-make down      # Остановить сервисы
-make restart   # Перезапустить сервисы
-make clean     # Очистить все контейнеры и образы
-make logs      # Показать логи всех сервисов
-make test      # Протестировать сервисы
+# Локальная разработка
+cd infra
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build -d
+docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
+docker compose -f docker-compose.yml -f docker-compose.dev.yml logs -f
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+
+# Deployment / VPS / Dokploy (НЕ добавляйте docker-compose.dev.yml)
+cd infra
+docker compose -f docker-compose.yml up --build -d
+docker compose -f docker-compose.yml ps
+docker compose -f docker-compose.yml logs -f
+docker compose -f docker-compose.yml down
 ```
 
 ## 📡 API Endpoints
@@ -208,18 +212,12 @@ make test      # Протестировать сервисы
   - Response: `{ accessToken, refreshToken (в cookie), sessionId, role }`
 - **POST /api/v1/auth/refresh** - Обновление access token через refresh token
 - **GET /api/v1/auth/steam** - Редирект на Steam OAuth
-- **GET /api/v1/auth/steam/callback** - Callback от Steam после авторизации
-- **POST /api/v1/auth/logout** - Выход из системы
+- **GET /api/v1/auth/steam/return** - Callback от Steam после авторизации
 
-#### Игры и рекомендации (`/api/v1/games`)
-- **POST /api/v1/games/recommend** - Получить рекомендации игр на основе предпочтений
-  - Body: `{ preferences: string, maxRecommendations: number }`
-  - Требует авторизацию (Bearer token)
-- **POST /api/v1/games/chat** - Чат с AI для обсуждения игр
-  - Body: `{ message: string }`
-  - Требует авторизацию (Bearer token)
-- **GET /api/v1/games/steam/library** - Получить библиотеку игр пользователя из Steam
-  - Требует авторизацию через Steam
+#### Игры и рекомендации (`/api/games`)
+- **POST /api/games/proceed** - Получить рекомендации игр с учетом Steam библиотеки
+  - Body: `{ content: string, tags: string[], steamId?: string }`
+  - Доступно гостям и авторизованным пользователям
 
 #### Мониторинг и метрики
 - **GET /actuator/health** - Статус здоровья приложения
@@ -250,12 +248,11 @@ service GameRecommenderService {
 @Autowired
 private GameRecommenderServiceGrpc.GameRecommenderServiceBlockingStub stub;
 
-RecommendationRequest request = RecommendationRequest.newBuilder()
-    .setPreferences("action games with good story")
-    .setMaxRecommendations(5)
+FullAiContextRequestProto request = FullAiContextRequestProto.newBuilder()
+    .setUserMessage("action games with good story")
     .build();
 
-RecommendationResponse response = stub.recommend(request);
+RecommendationResponse response = stub.recommendGames(request);
 ```
 
 #### Python Client
@@ -266,12 +263,11 @@ from app.proto import reco_pb2, reco_pb2_grpc
 channel = grpc.insecure_channel('localhost:9090')
 stub = reco_pb2_grpc.GameRecommenderServiceStub(channel)
 
-request = reco_pb2.RecommendationRequest(
-    preferences="action games with good story",
-    max_recommendations=5
+request = reco_pb2.FullAiContextRequestProto(
+    userMessage="action games with good story"
 )
 
-response = stub.Recommend(request)
+response = stub.RecommendGames(request)
 ```
 
 ## 🤖 AI Providers
@@ -314,17 +310,22 @@ GIGACHAT_API_KEY=your-gigachat-api-key
 
 ### Порты
 
-- **8080**: Backend HTTP REST API
-- **8000**: AI Service HTTP (health/metrics)
-- **9090**: AI Service gRPC
-- **5433**: PostgreSQL (внешний доступ)
-- **6379**: Redis
+- **Локальная разработка** (c `docker-compose.dev.yml`):
+  - **8080**: Backend HTTP REST API
+  - **8000**: AI Service HTTP (health/metrics)
+  - **9090**: AI Service gRPC
+  - **5433**: PostgreSQL (localhost)
+  - **6379**: Redis (localhost)
+- **Deployment** (только `docker-compose.yml`):
+  - **8080**: Backend HTTP REST API
+  - Redis/PostgreSQL/AI Service — **internal-only** (без published ports)
 - **9999**: Prometheus (observability stack)
 - **3000**: Grafana (observability stack)
 
 ### Docker Compose команды
 
-> При первом запуске docker compose backend не запуститься, так как база данных будет пустой и миграции не будут применены. Нужно выполнить миграцию и перезапустить контейнер.
+> При первом запуске `docker compose` сервис `db-migrate` автоматически применит Liquibase-миграции к PostgreSQL, и только потом поднимется `backend`.
+> Если `backend` не стартует — сначала проверьте логи миграций: `docker compose logs -f db-migrate`.
 
 ```bash
 # Запуск всех сервисов
@@ -435,7 +436,7 @@ docker compose -f observability-compose.yml down
 docker ps | grep ai-service
 
 # 2. Проверить логи AI service
-make logs.ai
+cd infra && docker compose logs -f ai-service
 
 # 3. Проверить health endpoint
 curl http://localhost:8000/healthz
@@ -452,7 +453,7 @@ docker exec backend env | grep GRPC
 **Симптомы:** Backend не отвечает или возвращает 500
 ```bash
 # 1. Проверить логи backend
-make logs.backend
+cd infra && docker compose logs -f backend
 
 # 2. Проверить health endpoint
 curl http://localhost:8080/actuator/health
@@ -466,7 +467,7 @@ curl http://localhost:8080/actuator/health | jq '.components.redis'
 
 ### Проблемы с PostgreSQL
 
-> При первом запуске docker compose backend не запуститься, так как база данных будет пустой и миграции не будут применены. Нужно выполнить миграцию и перезапустить контейнер.
+> В Docker-окружении миграции Liquibase накатываются автоматически сервисом `db-migrate` перед стартом `backend`.
 
 **Симптомы:** Backend не может подключиться к БД
 ```bash
@@ -477,10 +478,10 @@ docker ps | grep postgres
 docker logs game-recommender-postgres-db
 
 # 3. Подключиться к БД напрямую
-docker exec -it game-recommender-postgres-db psql -U postgres -d game_recommender_ai
+docker exec -it game-recommender-postgres-db psql -U postgres -d game_recommender_ai_db
 
 # 4. Проверить миграции Liquibase
-docker logs backend | grep -i liquibase
+cd infra && docker compose logs -f db-migrate
 ```
 
 ### Пересборка
@@ -488,7 +489,9 @@ docker logs backend | grep -i liquibase
 ```bash
 # Полная пересборка всех сервисов
 cd infra
-make rebuild
+docker compose down
+docker compose build --no-cache
+docker compose up -d
 
 # Пересборка с очисткой кэша
 docker compose down -v
@@ -515,7 +518,8 @@ lsof -i :6379  # Redis
 ### Миграции
 
 Используется **Liquibase** для версионирования схемы БД:
-> При первом запуске docker compose backend не запуститься, так как база данных будет пустой и миграции не будут применены. Нужно выполнить миграцию и перезапустить контейнер.
+> В Docker (`infra/docker-compose.yml`) миграции накатываются автоматически отдельным сервисом `db-migrate`.
+> Команды ниже полезны для ручного запуска миграций локально (например, при разработке без Docker).
 
 ```bash
 cd services/backend

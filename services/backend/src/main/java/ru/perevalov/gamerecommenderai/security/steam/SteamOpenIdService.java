@@ -1,5 +1,8 @@
 package ru.perevalov.gamerecommenderai.security.steam;
 
+import java.time.Duration;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,14 +12,12 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.security.openid.OpenIdMode;
 import ru.perevalov.gamerecommenderai.security.openid.OpenIdParam;
-
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Slf4j
 @Service
@@ -25,30 +26,41 @@ public class SteamOpenIdService {
     private final WebClient webClient;
     @Value("${steam.openid.endpoint}")
     private String steamOpenIdLoginUrl;
+    @Value("${steam.openid.timeout-seconds:5}")
+    private long timeoutSeconds;
 
     /**
      * Отправляем запрос в Steam для проверки аутентификации пользователя.
      * Проверяем действительно ли запрос пришел от Steam, а не подделан.
      */
-    public void verifyResponse(OpenIdResponse openIdResponse) {
+    public Mono<Void> verifyResponse(OpenIdResponse openIdResponse) {
         MultiValueMap<String, String> form = responseToMultiValueMap(openIdResponse);
         String endpoint = openIdResponse.getOpEndpoint();
         boolean opEndpointCheckOutSuccessfully = isValidOpEndpoint(endpoint);
         if (!opEndpointCheckOutSuccessfully) {
-            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_ENDPOINT, openIdResponse.getOpEndpoint());
+            return Mono.error(new GameRecommenderException(
+                    ErrorType.OPENID_VALIDATION_FAILED_ENDPOINT,
+                    openIdResponse.getOpEndpoint()
+            ));
         }
 
-        String body = webClient.post()
+        return webClient.post()
                 .uri(endpoint)
                 .contentType(MediaType.APPLICATION_FORM_URLENCODED)
                 .body(BodyInserters.fromFormData(form))
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
-
-        if (body == null || !body.contains("is_valid:true")) {
-            throw new GameRecommenderException(ErrorType.OPENID_VALIDATION_FAILED_RESPONSE, openIdResponse.getOpEndpoint(), body);
-        }
+                .timeout(Duration.ofSeconds(timeoutSeconds))
+                .flatMap(body -> {
+                    if (body == null || !body.contains("is_valid:true")) {
+                        return Mono.error(new GameRecommenderException(
+                                ErrorType.OPENID_VALIDATION_FAILED_RESPONSE,
+                                openIdResponse.getOpEndpoint(),
+                                body
+                        ));
+                    }
+                    return Mono.empty();
+                });
     }
 
     private boolean isValidOpEndpoint(String opEndpoint) {

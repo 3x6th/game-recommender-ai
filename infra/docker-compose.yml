@@ -5,14 +5,34 @@ services:
   redis:
     container_name: redis
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
+    expose:
+      - "6379"
     networks: [ playcure ]
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 3s
       retries: 3
+
+  db-migrate:
+    container_name: db-migrate
+    build:
+      context: ..
+      dockerfile: services/backend/Dockerfile
+      target: build
+      platforms:
+        - linux/amd64
+    depends_on:
+      game_recommender_ai_db:
+        condition: service_healthy
+    working_dir: /app/services/backend
+    entrypoint: [ "mvn" ]
+    command: >
+      -B liquibase:update
+      -Dliquibase.url=jdbc:postgresql://game_recommender_ai_db:5432/${POSTGRES_DB}
+      -Dliquibase.username=${POSTGRES_USER}
+      -Dliquibase.password=${POSTGRES_PASSWORD}
+    networks: [ playcure ]
 
   backend:
     container_name: backend
@@ -22,6 +42,8 @@ services:
       platforms:
         - linux/amd64
     depends_on:
+      db-migrate:
+        condition: service_completed_successfully
       game_recommender_ai_db:
         condition: service_healthy
       ai-service:
@@ -30,14 +52,23 @@ services:
         condition: service_started
     environment:
       - JAVA_OPTS=${JAVA_OPTS}
+      - APPLICATION_BASE_URL=${APPLICATION_BASE_URL}
+      - FRONTEND_BASE_URL=${FRONTEND_BASE_URL}
       - GRPC_AI_SERVICE_HOST=${GRPC_AI_SERVICE_HOST}
       - GRPC_AI_SERVICE_PORT=${GRPC_AI_SERVICE_PORT}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - REFRESH_TOKEN_COOKIE_NAME=${REFRESH_TOKEN_COOKIE_NAME}
+      - COOKIE_MAX_AGE=${COOKIE_MAX_AGE}
+      - COOKIE_SECURE=${COOKIE_SECURE}
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS}
       - SPRING_DATASOURCE_URL=${SPRING_DATASOURCE_URL}
       - SPRING_DATASOURCE_USERNAME=${SPRING_DATASOURCE_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${SPRING_DATASOURCE_PASSWORD}
       - REDIS_REDIS_URI=${REDIS_REDIS_URI}
       - SPRING_REDIS_HOST=${SPRING_REDIS_HOST}
       - SPRING_REDIS_PORT=${SPRING_REDIS_PORT}
+      - STEAM_API_KEY=${STEAM_API_KEY}
     ports:
       - "8080:8080"
     networks: [ playcure ]
@@ -58,9 +89,9 @@ services:
       - GIGACHAT_API_KEY=${GIGACHAT_API_KEY}
       - GRPC_PORT=${GRPC_PORT}
       - HTTP_PORT=${HTTP_PORT}
-    ports:
-      - "8000:8000"  # FastAPI health/metrics
-      - "9090:9090"  # gRPC
+    expose:
+      - "8000"  # FastAPI health/metrics
+      - "9090"  # gRPC
     networks: [ playcure ]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
@@ -76,13 +107,13 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    ports:
-      - "5433:5432"
+    expose:
+      - "5432"
     networks: [ playcure ]
     volumes:
       - game_recommender_ai_data:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${POSTGRES_USER}" ]
       interval: 30s
       timeout: 10s
       retries: 5

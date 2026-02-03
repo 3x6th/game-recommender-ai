@@ -24,11 +24,6 @@ class BaseAIService(ABC):
         pass
     
     @abstractmethod
-    async def chat(self, message: str, context: str = "") -> str:
-        """Chat with AI"""
-        pass
-    
-    @abstractmethod
     async def is_available(self) -> bool:
         """Check if service is available"""
         pass

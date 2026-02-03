@@ -42,7 +42,7 @@ class SteamOpenIdServiceTest {
                 .build();
 
         // then
-        Assertions.assertThatThrownBy(() -> steamOpenIdService.verifyResponse(response))
+        Assertions.assertThatThrownBy(() -> steamOpenIdService.verifyResponse(response).block())
                 .isInstanceOf(GameRecommenderException.class);
     }
 
@@ -64,7 +64,7 @@ class SteamOpenIdServiceTest {
         response.setOpEndpoint("https://steam.com/openid");
 
         // when then
-        Assertions.assertThatThrownBy(() -> steamOpenIdService.verifyResponse(response))
+        Assertions.assertThatThrownBy(() -> steamOpenIdService.verifyResponse(response).block())
                 .isInstanceOf(GameRecommenderException.class);
 
     }
@@ -87,7 +87,7 @@ class SteamOpenIdServiceTest {
         response.setOpEndpoint("https://steam.com/openid");
 
         // when then
-        Assertions.assertThatThrownBy(() -> steamOpenIdService.verifyResponse(response))
+        Assertions.assertThatThrownBy(() -> steamOpenIdService.verifyResponse(response).block())
                 .isInstanceOf(GameRecommenderException.class);
 
     }
