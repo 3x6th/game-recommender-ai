@@ -41,7 +41,7 @@ public class OpenApiConfig {
                                 .url("http://localhost:8080")
                                 .description("Local Development Server"),
                         new Server()
-                                .url("https://api.gamerecommender.com")
+                                .url("https://3x6th.xyz")
                                 .description("Production Server")
                 ))
                 .components(new Components()
