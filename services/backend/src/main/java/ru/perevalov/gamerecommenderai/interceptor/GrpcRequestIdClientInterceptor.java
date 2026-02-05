@@ -20,11 +20,15 @@ public class GrpcRequestIdClientInterceptor implements ClientInterceptor {
     @Value("${requestid.header.key}")
     private String requestIdHeaderKey;
 
+    @Value("${requestid.logging.param}")
+    private String requestIdLoggingParam;
+
+
     @Override
     public <ReqT, RespT> ClientCall<ReqT, RespT> interceptCall(MethodDescriptor<ReqT, RespT> method,
                                                                CallOptions callOptions, Channel next) {
         Metadata headers = new Metadata();
-        String rqUid = MDC.get(requestIdHeaderKey);
+        String rqUid = MDC.get(requestIdLoggingParam);
 
         if (rqUid != null && !rqUid.isEmpty()) {
             Metadata.Key<String> rqUidHeader = Metadata.Key.of(requestIdHeaderKey, Metadata.ASCII_STRING_MARSHALLER);

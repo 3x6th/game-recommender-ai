@@ -2,7 +2,6 @@ package ru.perevalov.gamerecommenderai.filter;
 
 import java.util.UUID;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -12,7 +11,7 @@ import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
 
 /**
- * WebFilter for generating request id and attaching it to headers and MDC.
+ * WebFilter for generating request id and attaching it to headers and Reactor context.
  */
 @Slf4j
 @Component
@@ -25,6 +24,8 @@ public class RequestIdWebFilter implements WebFilter {
     @Value("${requestid.logging.param}")
     private String requestIdLoggingParam;
 
+    public static final String REQUEST_ID_CONTEXT_KEY = "requestId";
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
         String requestId = exchange.getRequest().getHeaders().getFirst(requestIdHeaderKey);
@@ -32,10 +33,12 @@ public class RequestIdWebFilter implements WebFilter {
             requestId = UUID.randomUUID().toString();
         }
 
-        MDC.put(requestIdLoggingParam, requestId);
-        exchange.getResponse().getHeaders().set(requestIdHeaderKey, requestId);
+        final String finalRequestId = requestId;
+
+        exchange.getResponse().getHeaders().set(requestIdHeaderKey, finalRequestId);
 
         return chain.filter(exchange)
-                .doFinally(signalType -> MDC.remove(requestIdLoggingParam));
+                .contextWrite(context -> context.put(REQUEST_ID_CONTEXT_KEY, finalRequestId)
+                .put(requestIdLoggingParam, finalRequestId));
     }
 }

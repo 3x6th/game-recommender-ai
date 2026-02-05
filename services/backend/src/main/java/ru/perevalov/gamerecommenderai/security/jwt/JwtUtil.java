@@ -3,6 +3,7 @@ package ru.perevalov.gamerecommenderai.security.jwt;
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.JWTVerifier;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.exceptions.JWTVerificationException;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -17,7 +18,7 @@ import java.util.Date;
 @Component
 public class JwtUtil {
     @Value("${security.jwt.secret}")
-    private String jwtAccessSecret;
+    private String jwtLegacySecret;
 
     @Value("${security.jwt.refresh-secret}")
     private String jwtRefreshSecret;
@@ -26,7 +27,7 @@ public class JwtUtil {
     private String issuer;
 
     public String createAccessToken(String sessionId, Duration ttl, UserRole role, Long steamId) {
-        return createToken(sessionId, ttl, role, steamId, TokenType.ACCESS, jwtAccessSecret);
+        return createToken(sessionId, ttl, role, steamId, TokenType.ACCESS, jwtLegacySecret);
     }
 
     public String createRefreshToken(String sessionId, Duration ttl, UserRole role, Long steamId) {
@@ -60,11 +61,15 @@ public class JwtUtil {
     }
 
     public DecodedJWT decodeAccessToken(String token) {
-        return decodeToken(token, jwtAccessSecret);
+        return decodeToken(token, jwtLegacySecret);
     }
 
     public DecodedJWT decodeRefreshToken(String token) {
-        return decodeToken(token, jwtRefreshSecret);
+        try {
+            return decodeToken(token, jwtRefreshSecret);
+        } catch (JWTVerificationException ex) {
+            return decodeToken(token, jwtLegacySecret);
+        }
     }
 
     private DecodedJWT decodeToken(String token, String secret) {
