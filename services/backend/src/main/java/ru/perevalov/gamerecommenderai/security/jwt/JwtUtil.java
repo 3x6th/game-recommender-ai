@@ -65,7 +65,7 @@ public class JwtUtil {
     }
 
     public DecodedJWT decodeRefreshToken(String token) {
-            return decodeToken(token, jwtRefreshSecret);
+        return decodeToken(token, jwtRefreshSecret);
     }
 
     private DecodedJWT decodeToken(String token, String secret) {
