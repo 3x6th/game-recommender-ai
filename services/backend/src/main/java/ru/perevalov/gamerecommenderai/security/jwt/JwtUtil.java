@@ -18,7 +18,7 @@ import java.util.Date;
 @Component
 public class JwtUtil {
     @Value("${security.jwt.secret}")
-    private String jwtLegacySecret;
+    private String jwtAccessSecret;
 
     @Value("${security.jwt.refresh-secret}")
     private String jwtRefreshSecret;
@@ -27,7 +27,7 @@ public class JwtUtil {
     private String issuer;
 
     public String createAccessToken(String sessionId, Duration ttl, UserRole role, Long steamId) {
-        return createToken(sessionId, ttl, role, steamId, TokenType.ACCESS, jwtLegacySecret);
+        return createToken(sessionId, ttl, role, steamId, TokenType.ACCESS, jwtAccessSecret);
     }
 
     public String createRefreshToken(String sessionId, Duration ttl, UserRole role, Long steamId) {
@@ -61,15 +61,11 @@ public class JwtUtil {
     }
 
     public DecodedJWT decodeAccessToken(String token) {
-        return decodeToken(token, jwtLegacySecret);
+        return decodeToken(token, jwtAccessSecret);
     }
 
     public DecodedJWT decodeRefreshToken(String token) {
-        try {
             return decodeToken(token, jwtRefreshSecret);
-        } catch (JWTVerificationException ex) {
-            return decodeToken(token, jwtLegacySecret);
-        }
     }
 
     private DecodedJWT decodeToken(String token, String secret) {
