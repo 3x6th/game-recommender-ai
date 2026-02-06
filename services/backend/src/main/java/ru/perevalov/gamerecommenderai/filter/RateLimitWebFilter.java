@@ -66,7 +66,12 @@ public class RateLimitWebFilter implements WebFilter {
                     return bucket.tryConsumeAndReturnRemaining(1);
                 })
                 .subscribeOn(Schedulers.boundedElastic())
-                .flatMap(probe -> handleProbe(exchange, chain, probe));
+                .flatMap(probe -> handleProbe(exchange, chain, probe))
+                .onErrorResume(ex -> {
+                    log.warn("Rate limiter failed (Redis issue). Allowing request (fail-open). key={}, path={}",
+                            key, exchange.getRequest().getPath().value(), ex);
+                    return chain.filter(exchange);
+                });
     }
 
     private Mono<Void> handleProbe(ServerWebExchange exchange, WebFilterChain chain, ConsumptionProbe probe) {
