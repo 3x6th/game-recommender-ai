@@ -125,7 +125,7 @@ services:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
     ports:
-      - "5050:80"
+      - "10989:80"
     networks: [ playcure ]
     depends_on:
       game_recommender_ai_db:
