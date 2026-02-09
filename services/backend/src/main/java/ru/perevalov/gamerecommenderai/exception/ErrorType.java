@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorType {
     ACCESS_TOKEN_EXPIRED("Access token expired", HttpStatus.UNAUTHORIZED),
+    ACCESS_TOKEN_INVALID("Access token invalid", HttpStatus.UNAUTHORIZED),
     AI_SERVICE_ERROR("Error accessing AI service", HttpStatus.INTERNAL_SERVER_ERROR),
     AI_SERVICE_RATE_LIMIT("Rate limit exceeded for AI service. Please try later.", HttpStatus.TOO_MANY_REQUESTS),
     AI_SERVICE_RECOMMENDATION_ERROR("Failed to get recommendations from AI service for preferences: %s", HttpStatus.SERVICE_UNAVAILABLE),
