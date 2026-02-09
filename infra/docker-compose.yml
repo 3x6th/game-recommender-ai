@@ -131,7 +131,7 @@ services:
       PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT: "1"
       PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
     ports:
-      - "${PGADMIN_PORT}:80"
+      - "80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
     networks: [ playcure ]
