@@ -11,3 +11,7 @@ services:
   game_recommender_ai_db:
     ports:
       - "127.0.0.1:5433:5432"
+
+  pgadmin:
+    ports:
+      - "127.0.0.1:80:80"
