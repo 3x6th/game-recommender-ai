@@ -124,8 +124,11 @@ services:
     environment:
       PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL}
       PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD}
+      PGADMIN_LISTEN_PORT: 5050
     ports:
-      - "10989:80"
+      - "${PGADMIN_PORT}:5050"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
     networks: [ playcure ]
     depends_on:
       game_recommender_ai_db:
@@ -137,6 +140,7 @@ networks:
 
 volumes:
   game_recommender_ai_data:
+  pgadmin_data:
   # Optional: persist data if needed
   # backend-data:
   # ai-service-data:
