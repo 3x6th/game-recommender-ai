@@ -16,13 +16,14 @@ import java.time.Duration;
  * для обеспечения правильной конфигурации обязательных свойств.
  * </p>
  *
- * <p>Пример использования в {@code application.properties}:
+ * <p>Пример использования в {@code application.yaml}:
  * <pre>{@code
- * redis.redis-uri=redis://localhost:6379
- * redis.capacity=100
- * redis.tokens-per-refill=10
- * redis.refill-duration=PT1S
- * redis.bucket-key=steam-api-global-bucket
+ * redis:
+ *   redis-uri: redis://localhost:6379
+ *   capacity: 100
+ *   tokens-per-refill: 10
+ *   refill-duration: PT1S
+ *   bucket-key: steam-api-global-bucket
  * }</pre>
  * </p>
  *

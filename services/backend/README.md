@@ -32,12 +32,14 @@ REST контроллер:
 
 ## Конфигурация
 
-### application.properties
-```properties
-# gRPC Client Configuration
-grpc.client.ai-service.address=localhost:9090
-grpc.client.ai-service.negotiationType=plaintext
-grpc.client.ai-service.deadline=30s
+### application.yaml
+```yaml
+grpc:
+  client:
+    ai-service:
+      address: localhost:9090
+      negotiationType: plaintext
+      deadline: 30s
 ```
 
 ### Инструкция по конфигурированию лимитов по ролям
@@ -47,7 +49,7 @@ grpc.client.ai-service.deadline=30s
 - **Входящий rate limiting для API**: `ru.perevalov.gamerecommenderai.filter.RateLimitWebFilter`
   - Сохраняет состояние лимитов в Redis (разделяется между инстансами).
   - Ключи строятся по роли/сессии/steamId (или IP fallback).
-  - Лимиты настраиваются в `application.properties`:
+  - Лимиты настраиваются в `application.yaml`:
     - `performance.rate-limiter.role.limit.of-hour.GUEST_USER`
     - `performance.rate-limiter.role.limit.of-hour.USER`
 - **Глобальный rate limiting для Steam API** (исходящие запросы): `ru.perevalov.gamerecommenderai.config.WebClientConfig`
