@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
 
 import java.util.concurrent.TimeUnit;
@@ -49,21 +50,21 @@ public class WebClientConfig {
      */
     private ExchangeFilterFunction rateLimiterFilter(Bucket bucket) {
         return (request, next) -> {
-            ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
+            return Mono.fromCallable(() -> bucket.tryConsumeAndReturnRemaining(1))
+                    // Distributed buckets use blocking Redis calls under the hood; offload from event loop.
+                    .subscribeOn(Schedulers.boundedElastic())
+                    .flatMap(probe -> {
+                        if (probe.isConsumed()) {
+                            log.debug("Request allowed. Remaining tokens: {}", probe.getRemainingTokens());
+                            return next.exchange(request);
+                        }
 
-            if (probe.isConsumed()) {
-                log.debug("Request allowed. Remaining tokens: {}", probe.getRemainingTokens());
-
-                return next.exchange(request);
-            } else {
-                long waitSeconds = TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill());
-
-                log.warn("Rate limit exceeded. Wait {} seconds", waitSeconds);
-
-                return Mono.error(new RuntimeException(
-                        "Rate limit exceeded. Try again in " + waitSeconds + " seconds"
-                ));
-            }
+                        long waitSeconds = TimeUnit.NANOSECONDS.toSeconds(probe.getNanosToWaitForRefill());
+                        log.warn("Steam API rate limit exceeded. Wait {} seconds", waitSeconds);
+                        return Mono.error(new RuntimeException(
+                                "Steam API rate limit exceeded. Try again in " + waitSeconds + " seconds"
+                        ));
+                    });
         };
     }
 

@@ -1,24 +1,14 @@
 package ru.perevalov.gamerecommenderai.entity;
 
-import jakarta.persistence.CascadeType;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Index;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.OneToOne;
-import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
-import org.hibernate.annotations.JdbcType;
-import org.hibernate.dialect.PostgreSQLEnumJdbcType;
+import org.springframework.data.relational.core.mapping.Column;
+import org.springframework.data.relational.core.mapping.Table;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
-
-import java.util.List;
 
 
 @Getter
@@ -26,30 +16,18 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @RequiredArgsConstructor
-@Entity
-@Table(name = "users", indexes = {
-        @Index(name = "idx_users_steam_id", columnList = "steam_id")
-})
+@Table("users")
 public class User extends BaseEntity {
+
     @NonNull
-    @Column(name = "steam_id", nullable = false, unique = true)
+    @Column("steam_id")
     private Long steamId;
 
-    @Column(name = "is_active", nullable = false)
+    @Column("is_active")
     private boolean isActive;
 
     @NonNull
-    @Enumerated
-    @JdbcType(PostgreSQLEnumJdbcType.class)
-    @Column(nullable = false)
+    @Column("role")
     private UserRole role;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<UserPreference> userPreferences;
-
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private SteamProfile steamProfile;
-
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<ApiLog> apiLogs;
 }

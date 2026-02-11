@@ -51,5 +51,19 @@ public class SteamPlayerResponse {
          */
         @JsonProperty("avatarfull")
         private String avatarFull;
+
+        /**
+         * URL публичной страницы профиля Steam.
+         */
+        @JsonProperty("profileurl")
+        private String profileUrl;
+
+        /**
+         * Unix timestamp (seconds) даты создания Steam аккаунта.
+         * <p>
+         * Может отсутствовать для некоторых профилей.
+         */
+        @JsonProperty("timecreated")
+        private Integer timeCreated;
     }
 }

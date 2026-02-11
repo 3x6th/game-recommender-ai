@@ -25,4 +25,8 @@
         <sqlFile path="../sql/v1/004_CreateIndexForSteamAppTable.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="5-drop-refresh-tokens-table" author="PlayCure">
+        <sqlFile path="../sql/v1/005_DropRefreshTokensTable.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>

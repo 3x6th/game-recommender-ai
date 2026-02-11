@@ -8,7 +8,9 @@ import org.mockito.ArgumentMatchers;
 import org.mockito.Mockito;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.RetryBackoffSpec;
 import ru.perevalov.gamerecommenderai.client.props.SteamUserProps;
+import ru.perevalov.gamerecommenderai.client.retry.ReactiveRetryStrategy;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
 
@@ -20,7 +22,6 @@ import java.util.Collections;
 class SteamUserClientTest {
     private WebClient webClientMock;
     private SteamUserClient steamUserClient;
-
     @BeforeEach
     void setUp() {
         webClientMock = Mockito.mock(WebClient.class, Mockito.RETURNS_DEEP_STUBS);
@@ -34,8 +35,10 @@ class SteamUserClientTest {
                 3,
                 5L
         );
-
-        steamUserClient = new SteamUserClient(webClientMock, steamProps);
+        //TODO: PCAI-84
+        ReactiveRetryStrategy retryStrategy = new ReactiveRetryStrategy();
+        steamUserClient = new SteamUserClient(webClientMock, steamProps, retryStrategy);
+        steamUserClient.init();
     }
 
     @Test
@@ -53,8 +56,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
-
-        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("76561198000000000");
+        // TODO: Mono<SteamPlayerResponse>. Переписать в PCAI-84
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("76561198000000000").block();
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(1, response.getResponse().getPlayers().size(), "Response should have one player");
@@ -62,6 +65,8 @@ class SteamUserClientTest {
         Assertions.assertEquals("76561198000000000", player.getSteamId(), "Steam id should match");
         Assertions.assertEquals("TestUser", player.getPersonaName(), "Persona name should match");
         Assertions.assertEquals("http://example.com/avatar.jpg", player.getAvatarFull(), "Avatar full should match");
+        Assertions.assertEquals("https://steamcommunity.com/id/TestUser/", player.getProfileUrl(), "Profile url should match");
+        Assertions.assertEquals(1234567890, player.getTimeCreated(), "Time created should match");
     }
 
     @Test
@@ -79,8 +84,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(mappedResponse));
-
-        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("76561198000000000", true, true);
+        // TODO: Mono<SteamOwnedGamesResponse>. Переписать в PCAI-84
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("76561198000000000", true, true).block();
 
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");
         Assertions.assertEquals(2, response.getResponse().getGameCount(), "Response should have two games");
@@ -91,12 +96,14 @@ class SteamUserClientTest {
         Assertions.assertEquals("Team Fortress 2", game1.getName(), "Name should match");
         Assertions.assertEquals(1234, game1.getPlaytimeForever(), "Playtime forever should match");
         Assertions.assertEquals(50, game1.getPlaytime2weeks(), "Playtime 2weeks should match");
+        Assertions.assertEquals(1700000000, game1.getRtimeLastPlayed(), "Last played time should match");
 
         var game2 = response.getResponse().getGames().get(1);
         Assertions.assertEquals(570, game2.getAppId(), "App id should match");
         Assertions.assertEquals("Dota 2", game2.getName(), "Name should match");
         Assertions.assertEquals(5678, game2.getPlaytimeForever(), "Playtime forever should match");
         Assertions.assertEquals(100, game2.getPlaytime2weeks(), "Playtime 2weeks should match");
+        Assertions.assertEquals(1700001000, game2.getRtimeLastPlayed(), "Last played time should match");
     }
 
     @Test
@@ -109,8 +116,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamPlayerResponse.class))
                 .thenReturn(Mono.just(emptyProfile));
-
-        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("123456");
+        // TODO: Mono<SteamPlayerResponse>. Переписать в PCAI-84
+        SteamPlayerResponse response = steamUserClient.fetchPlayerSummaries("123456").block();
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertTrue(response.getResponse() == null
@@ -132,8 +139,8 @@ class SteamUserClientTest {
                         .retrieve()
                         .bodyToMono(SteamOwnedGamesResponse.class))
                 .thenReturn(Mono.just(emptyGames));
-
-        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("123456", true, true);
+        // TODO: Mono<SteamOwnedGamesResponse>. Переписать в PCAI-84
+        SteamOwnedGamesResponse response = steamUserClient.fetchOwnedGames("123456", true, true).block();
 
         Assertions.assertNotNull(response, "Response should not be null");
         Assertions.assertNotNull(response.getResponse(), "Response should not be null");

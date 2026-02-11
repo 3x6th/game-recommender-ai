@@ -1,0 +1,202 @@
+# Spring / dev DV / Liquibase Configuration
+spring:
+  application:
+    name: "${SPRING_APPLICATION_NAME:game-recommender-ai}"
+  cache:
+    cache-names:
+      - "${SPRING_CACHE_NAME_RATE_LIMIT_BUCKETS:rate-limit-buckets}"
+      - "${SPRING_CACHE_NAME_FILTER_CONFIG:filter-config-cache}"
+  r2dbc:
+    url: "${SPRING_DATASOURCE_URL:r2dbc:postgresql://localhost:5433/game_recommender_ai_db?schema=game_recommender}"
+    username: "${SPRING_DATASOURCE_USERNAME:postgres}"
+    password: "${SPRING_DATASOURCE_PASSWORD:password}"
+  liquibase:
+    change-log: "${SPRING_LIQUIBASE_CHANGE_LOG:classpath:/db/changelog/changelog-master.xml}"
+    driver-class-name: "${SPRING_LIQUIBASE_DRIVER_CLASS_NAME:org.postgresql.Driver}"
+
+# Server Configuration
+server:
+  port: "${SERVER_PORT:8080}"
+
+# Application Configuration
+application:
+  version: "@project.version@"
+  base:
+    url: "${APPLICATION_BASE_URL:http://localhost:${server.port}}"
+  frontend:
+    url: "${FRONTEND_BASE_URL:http://localhost:5173}"
+  security:
+    cookie:
+      refresh-token:
+        name: "${REFRESH_TOKEN_COOKIE_NAME:refresh_token}"
+      max-age-in-days: "${COOKIE_MAX_AGE:${tokens.refresh-token.ttl-in-days}}"
+      secure: "${COOKIE_SECURE:false}"
+    cors:
+      allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173}"
+
+# gRPC Configuration
+grpc:
+  ai-service:
+    host: "${GRPC_AI_SERVICE_HOST:localhost}"
+    port: "${GRPC_AI_SERVICE_PORT:9090}"
+  client:
+    ai-service:
+      address: "${GRPC_CLIENT_AI_SERVICE_ADDRESS:${grpc.ai-service.host}:${grpc.ai-service.port}}"
+      negotiationType: "${GRPC_CLIENT_AI_SERVICE_NEGOTIATION_TYPE:plaintext}"
+      maxInboundMessageSize: "${GRPC_CLIENT_AI_SERVICE_MAX_INBOUND_MESSAGE_SIZE:1048576}"
+
+# Security and token
+security:
+  jwt:
+    secret: "${JWT_SECRET:your-jwt-secret-i-dont-remember-how-long-it-should-be-but-this-should-be-long-enough}"
+    refresh-secret: "${JWT_REFRESH_SECRET:your-refresh-jwt-secret-should-be-different-and-long-enough}"
+
+tokens:
+  access-token:
+    ttl-in-minutes: "${ACCESS_TOKEN_TTL_MINUTES:15}"
+  refresh-token:
+    ttl-in-days: "${REFRESH_TOKEN_TTL_DAYS:3}"
+
+# Rate limiting
+performance:
+  rate-limiter:
+    role:
+      limit:
+        of-hour:
+          GUEST_USER: "${RATE_LIMIT_GUEST_USER_PER_HOUR:5}"
+          USER: "${RATE_LIMIT_USER_PER_HOUR:10}"
+
+# OpenAPI / Swagger Configuration
+springdoc:
+  swagger-ui:
+    path: "${SPRINGDOC_SWAGGER_UI_PATH:/swagger-ui.html}"
+    enabled: "${SPRINGDOC_SWAGGER_UI_ENABLED:${SWAGGER_ENABLED:false}}"
+    disable-swagger-default-url: "${SPRINGDOC_SWAGGER_UI_DISABLE_DEFAULT_URL:true}"
+    persistAuthorization: "${SPRINGDOC_SWAGGER_UI_PERSIST_AUTHORIZATION:true}"
+  api-docs:
+    path: "${SPRINGDOC_API_DOCS_PATH:/api-docs}"
+    enabled: "${SPRINGDOC_API_DOCS_ENABLED:${SWAGGER_ENABLED:false}}"
+  paths-to-match: "${SPRINGDOC_PATHS_TO_MATCH:/api/**}"
+
+# Actuator
+management:
+  endpoints:
+    web:
+      base-path: "${MANAGEMENT_ENDPOINTS_WEB_BASE_PATH:/actuator}"
+      exposure:
+        include: "${MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE:health,info,metrics,prometheus,env,configprops}"
+  endpoint:
+    health:
+      show-details: "${MANAGEMENT_ENDPOINT_HEALTH_SHOW_DETAILS:always}"
+      show-components: "${MANAGEMENT_ENDPOINT_HEALTH_SHOW_COMPONENTS:always}"
+  info:
+    env:
+      enabled: "${MANAGEMENT_INFO_ENV_ENABLED:true}"
+    git:
+      enabled: "${MANAGEMENT_INFO_GIT_ENABLED:true}"
+
+# Metrics
+metrics:
+  distribution:
+    percentiles-histogram:
+      http:
+        server:
+          requests: "${MANAGEMENT_METRICS_HTTP_SERVER_REQUESTS_HISTOGRAM:true}"
+  tags:
+    application: "${MANAGEMENT_METRICS_TAG_APPLICATION:${spring.application.name}}"
+  simple:
+    metrics:
+      export:
+        enabled: "${MANAGEMENT_SIMPLE_METRICS_EXPORT_ENABLED:true}"
+  prometheus:
+    metrics:
+      export:
+        enabled: "${MANAGEMENT_PROMETHEUS_METRICS_EXPORT_ENABLED:true}"
+
+# Health
+health:
+  defaults:
+    enabled: "${MANAGEMENT_HEALTH_DEFAULTS_ENABLED:true}"
+  diskspace:
+    enabled: "${MANAGEMENT_HEALTH_DISKSPACE_ENABLED:true}"
+  db:
+    enabled: "${MANAGEMENT_HEALTH_DB_ENABLED:true}"
+
+# Logging
+logging:
+  level:
+    "ru.perevalov.gamerecommenderai": "${LOGGING_LEVEL_GAMERECOMMENDER:DEBUG}"
+    "org.springframework.web": "${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK_WEB:DEBUG}"
+    "io.grpc": "${LOGGING_LEVEL_IO_GRPC:DEBUG}"
+    "io.grpc.internal.ManagedChannelImplBuilder": "${LOGGING_LEVEL_IO_GRPC_INTERNAL_MANAGED_CHANNEL_IMPL_BUILDER:ERROR}"
+    "io.grpc.internal": "${LOGGING_LEVEL_IO_GRPC_INTERNAL:ERROR}"
+    "io.grpc.ManagedChannelRegistry": "${LOGGING_LEVEL_IO_GRPC_MANAGED_CHANNEL_REGISTRY:ERROR}"
+    "io.grpc.netty.shaded.io.grpc.netty.Utils": "${LOGGING_LEVEL_IO_GRPC_NETTY_SHADED_IO_GRPC_NETTY_UTILS:WARN}"
+    root: "${LOGGING_LEVEL_ROOT:INFO}"
+    "org.hibernate": "${LOGGING_LEVEL_ORG_HIBERNATE:WARN}"
+    "org.springframework": "${LOGGING_LEVEL_ORG_SPRINGFRAMEWORK:WARN}"
+    "io.grpc.Context": "${LOGGING_LEVEL_IO_GRPC_CONTEXT:ERROR}"
+    "io.grpc.netty.shaded.io.grpc.netty": "${LOGGING_LEVEL_IO_GRPC_NETTY_SHADED_IO_GRPC_NETTY:INFO}"
+
+# Steam
+steam:
+  user:
+    apiKey: "${STEAM_API_KEY}"
+    scheme: "${STEAM_USER_SCHEME:https}"
+    host: "${STEAM_USER_HOST:api.steampowered.com}"
+    getPlayerSummariesPath: "${STEAM_USER_GET_PLAYER_SUMMARIES_PATH:/ISteamUser/GetPlayerSummaries/v0002/}"
+    getOwnedGamesPath: "${STEAM_USER_GET_OWNED_GAMES_PATH:/IPlayerService/GetOwnedGames/v0001/}"
+    retryAttempts: "${STEAM_USER_RETRY_ATTEMPTS:3}"
+    retryDelaySeconds: "${STEAM_USER_RETRY_DELAY_SECONDS:2}"
+  store:
+    scheme: "${STEAM_STORE_SCHEME:https}"
+    host: "${STEAM_STORE_HOST:store.steampowered.com}"
+    getAppDetailsPath: "${STEAM_STORE_GET_APP_DETAILS_PATH:/api/appdetails}"
+    retryAttempts: "${STEAM_STORE_RETRY_ATTEMPTS:10}"
+    retryDelaySeconds: "${STEAM_STORE_RETRY_DELAY_SECONDS:5}"
+  api:
+    scheme: "${STEAM_API_SCHEME:https}"
+    host: "${STEAM_API_HOST:api.steampowered.com}"
+    getAppListPath: "${STEAM_API_GET_APP_LIST_PATH:/ISteamApps/GetAppList/v2}"
+    retryAttempts: "${STEAM_API_RETRY_ATTEMPTS:3}"
+    retryDelaySeconds: "${STEAM_API_RETRY_DELAY_SECONDS:10}"
+    maxInMemorySize: "${STEAM_API_MAX_IN_MEMORY_SIZE:20971520}"
+    durationOfMinutes: "${STEAM_API_DURATION_OF_MINUTES:3}"
+    jitter: "${STEAM_API_JITTER:0.5}"
+    connectTimeoutMillis: "${STEAM_API_CONNECT_TIMEOUT_MILLIS:50000}"
+  openid:
+    endpoint: "${STEAM_OPENID_ENDPOINT:https://steamcommunity.com/openid/login}"
+    timeout-seconds: "${STEAM_OPENID_TIMEOUT_SECONDS:5}"
+
+# Request tracing metadata
+requestid:
+  header:
+    key: "${REQUEST_ID_HEADER_KEY:rquid}"
+  logging:
+    param: "${REQUEST_ID_LOGGING_PARAM:RequestID}"
+
+# Redis
+redis:
+  redis-uri: "${REDIS_REDIS_URI:redis://localhost:6379}"
+  bucket-key: "${REDIS_BUCKET_KEY:steam-api-global-bucket}"
+  capacity: "${REDIS_CAPACITY:50}"
+  tokens-per-refill: "${REDIS_TOKENS_PER_REFILL:10}"
+  refill-duration: "${REDIS_REFILL_DURATION:PT1S}"
+  bucket-ttl: "${REDIS_BUCKET_TTL:PT10M}"
+  cache:
+    key: "${REDIS_CACHE_KEY:steam_apps}"
+    steam-profiles:
+      key: "${REDIS_CACHE_STEAM_PROFILES_KEY:steam_profiles}"
+    user-game-stats:
+      key: "${REDIS_CACHE_USER_GAME_STATS_KEY:user_game_stats}"
+
+# Scheduled tasks and batching
+app:
+  scheduler:
+    update-steam-apps:
+      cron: "${SCHEDULER_UPDATE_STEAM_APPS_CRON:0 0 2 ? * SUN}"
+    update-user-data:
+      cron: "${SCHEDULER_UPDATE_USER_DATA_CRON:0 0 */6 * * *}"
+  batch:
+    size: "${APP_BATCH_SIZE:10000}"
+    concurrency: "${APP_BATCH_CONCURRENCY:8}"

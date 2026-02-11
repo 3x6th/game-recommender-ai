@@ -11,11 +11,13 @@ import org.springframework.http.HttpStatus;
 @Getter
 public enum ErrorType {
     ACCESS_TOKEN_EXPIRED("Access token expired", HttpStatus.UNAUTHORIZED),
+    ACCESS_TOKEN_INVALID("Access token invalid", HttpStatus.UNAUTHORIZED),
     AI_SERVICE_ERROR("Error accessing AI service", HttpStatus.INTERNAL_SERVER_ERROR),
     AI_SERVICE_RATE_LIMIT("Rate limit exceeded for AI service. Please try later.", HttpStatus.TOO_MANY_REQUESTS),
     AI_SERVICE_RECOMMENDATION_ERROR("Failed to get recommendations from AI service for preferences: %s", HttpStatus.SERVICE_UNAVAILABLE),
     AI_SERVICE_UNAUTHORIZED("Authorization error in AI service. Please check your API key.", HttpStatus.UNAUTHORIZED),
     AI_SERVICE_UNAVAILABLE("AI service is temporarily unavailable. Please try later.", HttpStatus.INTERNAL_SERVER_ERROR),
+    API_RATE_LIMIT_EXCEEDED("Rate limit exceeded. Please try later.", HttpStatus.TOO_MANY_REQUESTS),
     AUTH_REFRESH_TOKEN_INVALID("Refresh token invalid", HttpStatus.UNAUTHORIZED),
     CHATTING_WITH_AI_ERROR("Error chatting with AI via gRPC service: Failed to chat with AI service. ", HttpStatus.SERVICE_UNAVAILABLE),
     DATABASE_BATCH_INSERT_ERROR("Failed to insert Steam apps batch into database", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -31,6 +33,8 @@ public enum ErrorType {
             " body: %s", HttpStatus.UNAUTHORIZED),
     REDIS_CACHE_READ_ERROR("Failed to read Steam apps from Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
     REDIS_CACHE_SAVE_ERROR("Failed to save Steam apps to Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
+    REDIS_USER_DATA_CACHE_READ_ERROR("Failed to read user data from Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
+    REDIS_USER_DATA_CACHE_SAVE_ERROR("Failed to save user data to Redis cache", HttpStatus.INTERNAL_SERVER_ERROR),
     SCHEDULER_UPDATE_EXECUTION_ERROR("Error occurred during scheduled update execution", HttpStatus.INTERNAL_SERVER_ERROR),
     STEAM_API_FETCH_GAMES_LIST_ERROR("Failed to fetch games list from Steam API by uri=%s", HttpStatus.SERVICE_UNAVAILABLE),
     STEAM_API_FETCH_OWNED_GAMES_ERROR("Failed to fetch owned games from Steam API. steamId=%s", HttpStatus.SERVICE_UNAVAILABLE),
@@ -42,6 +46,8 @@ public enum ErrorType {
             " https://steamcommunity.com/id/76561197973845818", HttpStatus.BAD_REQUEST),
     STEAM_JSON_PROCESSING_ERROR("Failed to parse JSON response.", HttpStatus.INTERNAL_SERVER_ERROR),
     STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE),
+    USER_GAME_STATS_SAVE_ERROR("Failed to save user game stats. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
+    USER_STEAM_PROFILE_SAVE_ERROR("Failed to save Steam profile. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
     USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
 
     private final String description;

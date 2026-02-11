@@ -1,15 +1,12 @@
 package ru.perevalov.gamerecommenderai.security;
 
-
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.stereotype.Service;
-
-import java.time.Duration;
+import org.springframework.web.server.ServerWebExchange;
 
 @Slf4j
 @Service
@@ -18,33 +15,28 @@ public class CookieService {
     private String refreshTokenCookieName;
     @Value("${application.security.cookie.max-age-in-days}")
     private int cookieMaxAgeInDays;
+    @Value("${application.security.cookie.secure:false}")
+    private boolean secureCookie;
 
     /**
-     * RefreshToken сохраняется в HttpOnly Cookies, что защищает токен от компрометации через XSS атаку.
+     * RefreshToken сохраняется в HttpOnly cookies, что защищает токен от компрометации через XSS атаку.
      */
-    public void insertRefreshTokenInCookie(String refreshToken, HttpServletResponse response) {
+    public void insertRefreshTokenInCookie(String refreshToken, ServerWebExchange exchange) {
         ResponseCookie cookie = ResponseCookie.from(refreshTokenCookieName, refreshToken)
                 .httpOnly(true)
-                .secure(false) // TODO: в продакшене в true флаг
+                .secure(secureCookie)
                 .sameSite("Lax")
                 .path("/")
                 .maxAge(Duration.ofDays(cookieMaxAgeInDays))
                 .build();
 
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        exchange.getResponse().getHeaders().add(HttpHeaders.SET_COOKIE, cookie.toString());
     }
 
-    public String extractRefreshTokenFromCookies(Cookie[] cookies) {
-        String refreshToken = null;
-
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (refreshTokenCookieName.equals(cookie.getName())) {
-                    refreshToken = cookie.getValue();
-                    break;
-                }
-            }
+    public String extractRefreshTokenFromCookies(ServerWebExchange exchange) {
+        if (exchange.getRequest().getCookies().getFirst(refreshTokenCookieName) == null) {
+            return null;
         }
-        return refreshToken;
+        return exchange.getRequest().getCookies().getFirst(refreshTokenCookieName).getValue();
     }
 }

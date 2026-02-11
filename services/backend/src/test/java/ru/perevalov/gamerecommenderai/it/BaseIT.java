@@ -8,7 +8,7 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
-@Testcontainers
+@Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public abstract class BaseIT {
 
@@ -29,6 +29,18 @@ public abstract class BaseIT {
         registry.add("spring.datasource.url", POSTGRE_SQL_CONTAINER::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRE_SQL_CONTAINER::getUsername);
         registry.add("spring.datasource.password", POSTGRE_SQL_CONTAINER::getPassword);
+
+        // R2DBC (reactive repositories)
+        registry.add("spring.r2dbc.url", () -> String.format("r2dbc:postgresql://%s:%d/%s?schema=game_recommender",
+                POSTGRE_SQL_CONTAINER.getHost(),
+                POSTGRE_SQL_CONTAINER.getMappedPort(5432),
+                POSTGRE_SQL_CONTAINER.getDatabaseName()
+        ));
+        registry.add("spring.r2dbc.username", POSTGRE_SQL_CONTAINER::getUsername);
+        registry.add("spring.r2dbc.password", POSTGRE_SQL_CONTAINER::getPassword);
+
+        // Disable scheduled jobs for integration tests (avoid flaky background calls)
+        registry.add("spring.task.scheduling.enabled", () -> "false");
 
         // Redis
         registry.add("redis.redis-uri", () -> String.format("redis://%s:%d",

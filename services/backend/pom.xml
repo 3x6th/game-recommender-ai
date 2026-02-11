@@ -27,7 +27,6 @@
     </scm>
     <properties>
         <java.version>21</java.version>
-        <bucket4j-starter.version>0.13.0</bucket4j-starter.version>
         <bucket4j-core.version>8.15.0</bucket4j-core.version>
         <!--suppress UnresolvedMavenProperty -->
         <db.url>${.env.DB_URL}</db.url>
@@ -55,19 +54,45 @@
     </dependencyManagement>
 
     <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-data-jpa</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.boot</groupId>-->
+<!--            <artifactId>spring-boot-starter-data-jpa</artifactId>-->
+<!--        </dependency>-->
 
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.aspectj</groupId>
+            <artifactId>aspectjweaver</artifactId>
+        </dependency>
+
+        <!-- Reactive stack-->
+
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- TODO: Удалить зависимость spring-boot-starter-data-jpa после завершения задачи PCAI-78 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-r2dbc</artifactId>
+        </dependency>
+
+        <!-- TODO: Удалить JDBC драйвер PostgreSQL и добавить его в блок <plugin> для Liquibase после завершения задачи PCAI-78-->
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>r2dbc-postgresql</artifactId>
+            <version>1.1.0.RELEASE</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.projectreactor</groupId>
+            <artifactId>reactor-test</artifactId>
+            <scope>test</scope>
         </dependency>
 
         <!-- Lettuce Redis client -->
@@ -75,19 +100,6 @@
             <groupId>io.lettuce</groupId>
             <artifactId>lettuce-core</artifactId>
             <version>6.4.0.RELEASE</version>
-        </dependency>
-
-        <!-- Development database -->
-        <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
-            <version>2.3.232</version>
-        </dependency>
-
-        <!-- HTTP Client for DeepSeek API -->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-webflux</artifactId>
         </dependency>
 
         <!-- Spring Boot Actuator -->
@@ -132,7 +144,7 @@
         <!-- Swagger/OpenAPI -->
         <dependency>
             <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+            <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
             <version>${springdoc.version}</version>
         </dependency>
 
@@ -172,12 +184,6 @@
             <scope>test</scope>
         </dependency>
 
-        <!-- Bucket4j -->
-        <dependency>
-            <groupId>com.giffing.bucket4j.spring.boot.starter</groupId>
-            <artifactId>bucket4j-spring-boot-starter</artifactId>
-            <version>${bucket4j-starter.version}</version>
-        </dependency>
         <dependency>
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j_jdk17-core</artifactId>
@@ -211,11 +217,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-cache</artifactId>
         </dependency>
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.7.3</version>
-        </dependency>
 
         <dependency>
             <groupId>org.jetbrains</groupId>
@@ -236,6 +237,20 @@
             <version>${mapstruct.version}</version>
         </dependency>
 
+        <!-- reactor-grpc -->
+        <dependency>
+            <groupId>com.salesforce.servicelibs</groupId>
+            <artifactId>reactor-grpc</artifactId>
+            <version>${reactor-grpc.version}</version>
+        </dependency>
+
+        <!-- reactor-grpc-stub -->
+        <dependency>
+            <groupId>com.salesforce.servicelibs</groupId>
+            <artifactId>reactor-grpc-stub</artifactId>
+            <version>${reactor-grpc.version}</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -247,6 +262,35 @@
             </extension>
         </extensions>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>3.6.2</version>
+                <executions>
+                    <execution>
+                        <id>enforce-no-tomcat</id>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <rules>
+                                <bannedDependencies>
+                                    <level>WARN</level>
+                                    <excludes>
+                                        <exclude>org.springframework.boot:spring-boot-starter-tomcat</exclude>
+                                        <exclude>org.apache.tomcat.embed:*</exclude>
+                                    </excludes>
+                                    <message>
+                                        !!! --- TOMCAT DEPENDENCIES FOUND --- !!!
+                                        Delete all tomcat dependencies after switching to reactive stack
+                                    </message>
+                                </bannedDependencies>
+                            </rules>
+                            <fail>false</fail>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
@@ -283,16 +327,40 @@
                 <version>0.6.1</version>
                 <configuration>
                     <protocArtifact>com.google.protobuf:protoc:4.28.2:exe:${os.detected.classifier}</protocArtifact>
-                    <pluginId>grpc-java</pluginId>
-                    <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.63.0:exe:${os.detected.classifier}</pluginArtifact>
                     <protoSourceRoot>${project.basedir}/../../contracts/proto</protoSourceRoot>
                 </configuration>
                 <executions>
+                    <!-- Стандартные protobuf классы (в java/) -->
                     <execution>
+                        <id>protobuf</id>
                         <goals>
                             <goal>compile</goal>
+                        </goals>
+                    </execution>
+
+                    <!-- Стандартные gRPC stubs (в grpc-java/) -->
+                    <execution>
+                        <id>grpc-java</id>
+                        <goals>
                             <goal>compile-custom</goal>
                         </goals>
+                        <configuration>
+                            <pluginId>grpc-java</pluginId>
+                            <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.63.0:exe:${os.detected.classifier}</pluginArtifact>
+                            <outputDirectory>${project.build.directory}/generated-sources/protobuf/grpc-java</outputDirectory>
+                        </configuration>
+                    </execution>
+
+                    <!-- Реактивные gRPC stubs (в reactor-grpc/) -->
+                    <execution>
+                        <goals>
+                            <goal>compile-custom</goal>
+                        </goals>
+                        <configuration>
+                            <pluginId>reactor-grpc</pluginId>
+                            <pluginArtifact>com.salesforce.servicelibs:reactor-grpc:1.2.4:exe:${os.detected.classifier}</pluginArtifact>
+                            <outputDirectory>${project.build.directory}/generated-sources/protobuf/reactor-grpc</outputDirectory>
+                        </configuration>
                     </execution>
                 </executions>
             </plugin>
@@ -367,6 +435,25 @@
                                 </rule>
                             </rules>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <!-- Integration tests (e.g. Testcontainers) -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.5.3</version>
+                <configuration>
+                    <includes>
+                        <include>**/*IT.java</include>
+                    </includes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

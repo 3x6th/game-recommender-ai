@@ -11,6 +11,7 @@ import re
 from typing import List, Dict, Any
 
 from deepseek_ai import DeepSeekAI
+from json_repair import repair_json
 from app.services.base import BaseAIService
 
 logger = logging.getLogger(__name__)
@@ -64,6 +65,67 @@ class DeepSeekService(BaseAIService):
         if self.circuit_open:
             self.circuit_open = False
             logger.info("Circuit breaker closed after successful request")
+
+    def _extract_json_string(self, content: str) -> str | None:
+        """Extract JSON object from LLM content (code block or raw)."""
+        # Prefer fenced JSON blocks if present
+        json_match = re.search(
+            r'```(?:json)?\s*(\{[\s\S]*\})\s*```',
+            content,
+            re.IGNORECASE,
+        )
+        if json_match:
+            return json_match.group(1)
+
+        # Fallback: any JSON-looking object in the text
+        json_match = re.search(r'(\{[\s\S]*\})', content)
+        if json_match:
+            return json_match.group(1)
+
+        return None
+
+    def _loads_json_with_repair(self, json_str: str) -> Dict[str, Any] | None:
+        """Parse JSON, attempting repair on malformed LLM output."""
+        try:
+            parsed = json.loads(json_str)
+            return parsed if isinstance(parsed, dict) else None
+        except json.JSONDecodeError as e:
+            logger.warning(f"Standard JSON parsing failed: {e}. Trying JSON repair.")
+
+        try:
+            repaired = repair_json(json_str)
+            parsed = json.loads(repaired)
+            if isinstance(parsed, dict):
+                logger.info("JSON repaired successfully")
+                return parsed
+        except Exception as repair_error:
+            logger.warning(f"Failed to repair JSON from chat response: {repair_error}")
+
+        return None
+
+    def _parse_recommendations_from_content(
+        self,
+        content: str,
+        max_recommendations: int,
+    ) -> List[Dict[str, Any]] | None:
+        json_str = self._extract_json_string(content)
+        if not json_str:
+            return None
+
+        logger.info(f"Extracted JSON string: {json_str[:200]}...")
+        parsed_response = self._loads_json_with_repair(json_str)
+        if not parsed_response:
+            return None
+
+        recommendations = parsed_response.get('recommendations')
+        if isinstance(recommendations, list):
+            return recommendations[:max_recommendations]
+
+        logger.warning(
+            "JSON parsed but no 'recommendations' list found. Keys: %s",
+            list(parsed_response.keys()),
+        )
+        return None
     
     async def get_recommendations(
         self, 
@@ -108,6 +170,7 @@ class DeepSeekService(BaseAIService):
                 ]
             }}
 
+            Reply in the language of the user's message!
             Focus on games that best match the user's preferences. Do not include any text before or after the JSON.
             """
             
@@ -121,32 +184,15 @@ class DeepSeekService(BaseAIService):
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
                 logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
-                
-                try:
-                    # Try to extract JSON from the response
-                    import re
-                    # Handle both markdown code blocks and plain JSON
-                    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
-                    if not json_match:
-                        # Try to find JSON without markdown
-                        json_match = re.search(r'(\{.*\})', content, re.DOTALL)
-                    
-                    if json_match:
-                        json_str = json_match.group(1)
-                        logger.info(f"Extracted JSON string: {json_str[:200]}...")
-                        parsed_response = json.loads(json_str)
-                        if 'recommendations' in parsed_response:
-                            self._record_success()
-                            logger.info("Successfully parsed JSON recommendations from chat response")
-                            return parsed_response['recommendations'][:max_recommendations]
-                        else:
-                            logger.warning(f"JSON parsed but no 'recommendations' key found. Keys: {list(parsed_response.keys())}")
-                    else:
-                        logger.warning("No JSON pattern found in response")
-                        
-                except (json.JSONDecodeError, KeyError) as e:
-                    logger.warning(f"Failed to parse JSON from chat response: {e}")
-                    logger.warning(f"Raw content: {content[:500]}...")
+
+                json_recommendations = self._parse_recommendations_from_content(content, max_recommendations)
+                if json_recommendations is not None:
+                    self._record_success()
+                    logger.info("Successfully parsed JSON recommendations from chat response")
+                    return json_recommendations
+
+                logger.warning("Failed to parse JSON recommendations from chat response; falling back to text extraction")
+                logger.warning(f"Raw content: {content[:500]}...")
                 
                 # Try to extract recommendations manually from text
                 extracted_recommendations = self._extract_recommendations_from_text(content, max_recommendations)
@@ -214,7 +260,7 @@ class DeepSeekService(BaseAIService):
             1. Match user's preferences from their message
             2. Are similar to their most played games
             3. Align with their selected tags
-            4. Are NOT already in their Steam library
+            4. Reply in the language of the user's message!
 
             RESPOND WITH ONLY valid JSON in this exact format:
             {{
@@ -244,32 +290,14 @@ class DeepSeekService(BaseAIService):
                 content = response['choices'][0]['message']['content']
                 logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
 
-                try:
-                    # Try to extract JSON from the response
-                    import re
-                    # Handle both markdown code blocks and plain JSON
-                    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
-                    if not json_match:
-                        # Try to find JSON without markdown
-                        json_match = re.search(r'(\{.*\})', content, re.DOTALL)
+                json_recommendations = self._parse_recommendations_from_content(content, max_recommendations)
+                if json_recommendations is not None:
+                    self._record_success()
+                    logger.info("Successfully parsed JSON recommendations from chat response")
+                    return json_recommendations
 
-                    if json_match:
-                        json_str = json_match.group(1)
-                        logger.info(f"Extracted JSON string: {json_str[:200]}...")
-                        parsed_response = json.loads(json_str)
-                        if 'recommendations' in parsed_response:
-                            self._record_success()
-                            logger.info("Successfully parsed JSON recommendations from chat response")
-                            return parsed_response['recommendations'][:max_recommendations]
-                        else:
-                            logger.warning(
-                                f"JSON parsed but no 'recommendations' key found. Keys: {list(parsed_response.keys())}")
-                    else:
-                        logger.warning("No JSON pattern found in response")
-
-                except (json.JSONDecodeError, KeyError) as e:
-                    logger.warning(f"Failed to parse JSON from chat response: {e}")
-                    logger.warning(f"Raw content: {content[:500]}...")
+                logger.warning("Failed to parse JSON recommendations from chat response; falling back to text extraction")
+                logger.warning(f"Raw content: {content[:500]}...")
 
                 # Try to extract recommendations manually from text
                 extracted_recommendations = self._extract_recommendations_from_text(content, max_recommendations)
@@ -293,44 +321,6 @@ class DeepSeekService(BaseAIService):
             logger.error(f"Error getting recommendations with Steam library: {e}")
             return self._get_mock_recommendations(max_recommendations)
 
-    async def chat(self, message: str, context: str = "") -> str:
-        """Chat with DeepSeek AI"""
-        try:
-            if not self.api_key or not self.client:
-                logger.warning("No DeepSeek API key or client available")
-                return "Sorry, DeepSeek API key is not configured. Please set DEEPSEEK_API_KEY environment variable."
-            
-            # Check circuit breaker
-            if self._is_circuit_open():
-                logger.warning("Circuit breaker is open, returning fallback response")
-                return "Sorry, the AI service is temporarily unavailable. Please try again later."
-            
-            logger.info(f"Chatting with DeepSeek: {message}")
-            
-            # Prepare chat prompt
-            prompt = f"""
-            Context: {context}
-            User Message: {message}
-            
-            Please provide a helpful and informative response about video games, gaming, or any related topic the user is asking about.
-            """
-            
-            # Call DeepSeek API with retry logic
-            response = await self._call_deepseek_api_with_retry(prompt, is_chat=True)
-            
-            if response and 'choices' in response and len(response['choices']) > 0:
-                self._record_success()
-                return response['choices'][0]['message']['content']
-            else:
-                self._record_failure()
-                logger.warning("Invalid chat response from DeepSeek")
-                return "Sorry, I couldn't generate a proper response. Please try again."
-            
-        except Exception as e:
-            self._record_failure()
-            logger.error(f"Error chatting with DeepSeek: {e}")
-            return f"Sorry, I encountered an error: {str(e)}"
-    
     async def _call_deepseek_api_with_retry(self, prompt: str, is_chat: bool = False) -> Dict[str, Any]:
         """Make API call to DeepSeek with retry logic using SDK"""
         start_time = time.time()
@@ -416,6 +406,25 @@ class DeepSeekService(BaseAIService):
                 "rating": 9.5,
                 "release_year": "2022"
             }
+            ,
+            {
+                "title": "Forza Horizon 5",
+                "genre": "Racing",
+                "description": "Open-world racing game set in Mexico with tons of events and cars",
+                "why_recommended": "Relaxing driving with lots of variety and freedom to explore",
+                "platforms": ["PC", "Xbox One", "Xbox Series X"],
+                "rating": 9.0,
+                "release_year": "2021"
+            },
+            {
+                "title": "Hades",
+                "genre": "Roguelike Action",
+                "description": "Fast-paced action roguelike set in Greek mythology",
+                "why_recommended": "Highly replayable with great narrative and satisfying combat",
+                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
+                "rating": 9.2,
+                "release_year": "2020"
+            }
         ]
         
         return recommendations[:max_recommendations]
@@ -476,8 +485,23 @@ class DeepSeekService(BaseAIService):
                 recommendations.append(current_game)
             
             # Fill with mock data if not enough recommendations found
-            while len(recommendations) < max_recommendations:
-                recommendations.append(self._get_mock_recommendations(1)[0])
+            if len(recommendations) < max_recommendations:
+                existing_titles = {
+                    rec.get('title')
+                    for rec in recommendations
+                    if isinstance(rec, dict) and isinstance(rec.get('title'), str)
+                }
+                for mock in self._get_mock_recommendations(max_recommendations):
+                    if len(recommendations) >= max_recommendations:
+                        break
+
+                    title = mock.get('title')
+                    if isinstance(title, str) and title in existing_titles:
+                        continue
+
+                    recommendations.append(mock)
+                    if isinstance(title, str):
+                        existing_titles.add(title)
             
             logger.info(f"Extracted {len(recommendations)} recommendations from text")
             return recommendations[:max_recommendations]

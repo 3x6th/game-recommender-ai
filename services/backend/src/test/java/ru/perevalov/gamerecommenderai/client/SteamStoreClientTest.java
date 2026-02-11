@@ -12,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.props.SteamStoreProps;
+import ru.perevalov.gamerecommenderai.client.retry.ReactiveRetryStrategy;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
@@ -36,7 +37,10 @@ class SteamStoreClientTest {
                 3,
                 2L
         );
-        steamStoreClient = new SteamStoreClient(webClientMock, steamStoreProps);
+        //TODO: PCAI-84
+        ReactiveRetryStrategy retryStrategy = new ReactiveRetryStrategy();
+        steamStoreClient = new SteamStoreClient(webClientMock, steamStoreProps, retryStrategy);
+        steamStoreClient.init();
     }
 
     @Test
@@ -59,7 +63,8 @@ class SteamStoreClientTest {
                 .thenReturn(mockMono);
 
         /* When */
-        SteamGameDetailsResponseDto actualResponse = steamStoreClient.fetchGameDetails("730");
+        // TODO: Mono<SteamGameDetailsResponseDto>. Переписать в PCAI-84
+        SteamGameDetailsResponseDto actualResponse = steamStoreClient.fetchGameDetails("730").block();
 
         /* Then */
         Assertions.assertNotNull(actualResponse, "Response should not be null");
@@ -91,11 +96,11 @@ class SteamStoreClientTest {
                 .thenReturn(mockMono);
 
         Mockito.verify(webClientMock, Mockito.atLeastOnce()).get();
-
+        //TODO: PCAI-84
         /* When */
         GameRecommenderException exception = Assertions.assertThrows(
                 GameRecommenderException.class,
-                () -> steamStoreClient.fetchGameDetails("12345"),
+                () -> steamStoreClient.fetchGameDetails("12345").block(),
                 "Should throw custom exception for mapping error"
         );
 

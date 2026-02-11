@@ -117,8 +117,7 @@ poetry run python -m app.main
 
 #### GameRecommenderService
 
-- **Recommend** - получение рекомендаций игр
-- **Chat** - чат с AI о играх
+- **RecommendGames** - получение рекомендаций игр с учётом Steam библиотеки
 
 ### HTTP API (порт 8000)
 
@@ -210,8 +209,8 @@ poetry run pytest test_service.py -v
 grpcurl -plaintext localhost:9090 list
 
 # Тест рекомендаций
-grpcurl -plaintext -d '{"preferences": "action RPGs"}' \
-    localhost:9090 gamerecommender.GameRecommenderService/Recommend
+grpcurl -plaintext -d '{"userMessage": "action RPGs"}' \
+    localhost:9090 gamerecommender.GameRecommenderService/RecommendGames
 ```
 
 ## 🔌 Интеграция с Java Backend
@@ -222,8 +221,7 @@ grpcurl -plaintext -d '{"preferences": "action RPGs"}' \
 
 ```protobuf
 service GameRecommenderService {
-  rpc Recommend(RecommendationRequest) returns (RecommendationResponse);
-  rpc Chat(ChatRequest) returns (ChatResponse);
+  rpc RecommendGames(FullAiContextRequestProto) returns (RecommendationResponse);
 }
 ```
 

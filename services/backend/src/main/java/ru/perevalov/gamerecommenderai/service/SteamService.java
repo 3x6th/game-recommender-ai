@@ -2,6 +2,7 @@ package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.SteamUserClient;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamPlayerResponse;
@@ -24,13 +25,13 @@ public class SteamService {
 
     private final SteamUserClient steamUserClient;
 
-    public SteamPlayerResponse getPlayerSummaries(String steamId) {
+    public Mono<SteamPlayerResponse> getPlayerSummaries(String steamId) {
         return steamUserClient.fetchPlayerSummaries(steamId);
     }
 
-    public SteamOwnedGamesResponse getOwnedGames(String steamId,
-                                                 boolean includeAppInfo,
-                                                 boolean includePlayedFreeGames) {
+    public Mono<SteamOwnedGamesResponse> getOwnedGames(String steamId,
+                                                       boolean includeAppInfo,
+                                                       boolean includePlayedFreeGames) {
         return steamUserClient.fetchOwnedGames(steamId, includeAppInfo, includePlayedFreeGames);
     }
 }

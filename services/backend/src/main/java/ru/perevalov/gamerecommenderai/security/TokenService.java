@@ -1,32 +1,29 @@
 package ru.perevalov.gamerecommenderai.security;
 
+import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import java.time.Duration;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ServerWebExchange;
+import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.PreAuthResponse;
-import ru.perevalov.gamerecommenderai.entity.RefreshToken;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
-import ru.perevalov.gamerecommenderai.repository.RefreshTokenRepository;
 import ru.perevalov.gamerecommenderai.security.jwt.JwtClaimKey;
 import ru.perevalov.gamerecommenderai.security.jwt.JwtUtil;
+import ru.perevalov.gamerecommenderai.security.jwt.TokenType;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
-
-import java.time.Duration;
-import java.util.UUID;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class TokenService {
 
-    private final RefreshTokenRepository refreshTokenRepository;
     private final JwtUtil jwtUtil;
     private final CookieService cookieService;
 
@@ -43,100 +40,106 @@ public class TokenService {
         return Duration.ofDays(refreshTtl);
     }
 
-    @Transactional
-    public PreAuthResponse preAuthorize(HttpServletResponse response) {
-        String sessionId = UUID.randomUUID().toString();
+    public Mono<PreAuthResponse> preAuthorize(ServerWebExchange exchange) {
+        return Mono.fromSupplier(() -> {
+            String sessionId = UUID.randomUUID().toString();
 
-        String accessToken = jwtUtil.createToken(sessionId, getAccessTtl(), UserRole.GUEST, null);
-        String refreshToken = jwtUtil.createToken(sessionId, getRefreshTtl(), UserRole.GUEST, null);
+            String accessToken = jwtUtil.createAccessToken(sessionId, getAccessTtl(), UserRole.GUEST, null);
+            String refreshToken = jwtUtil.createRefreshToken(sessionId, getRefreshTtl(), UserRole.GUEST, null);
 
-        RefreshToken token = new RefreshToken(refreshToken, sessionId);
-        RefreshToken savedToken = refreshTokenRepository.save(token);
+            cookieService.insertRefreshTokenInCookie(refreshToken, exchange);
 
-        cookieService.insertRefreshTokenInCookie(savedToken.getToken(), response);
-
-        return PreAuthResponse.builder()
-                .accessToken(accessToken)
-                .accessExpiresIn(getAccessTtl().toSeconds())
-                .role(UserRole.GUEST.getAuthority())
-                .sessionId(sessionId)
-                .build();
+            return PreAuthResponse.builder()
+                    .accessToken(accessToken)
+                    .accessExpiresIn(getAccessTtl().toSeconds())
+                    .role(UserRole.GUEST.getAuthority())
+                    .sessionId(sessionId)
+                    .steamId(null)
+                    .build();
+        });
     }
 
-    public AccessTokenResponse refreshAccessToken(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenFromCookies = cookieService.extractRefreshTokenFromCookies(request.getCookies());
-        RefreshToken storedRefreshToken = refreshTokenRepository.findByTokenOrThrow(refreshTokenFromCookies);
+    public Mono<AccessTokenResponse> refreshAccessToken(ServerWebExchange exchange) {
+        return Mono.fromSupplier(() -> {
+            String refreshToken = cookieService.extractRefreshTokenFromCookies(exchange);
+            DecodedJWT decoded = decodeAndValidateRefreshToken(refreshToken);
 
-        DecodedJWT decoded = decodeAndValidate(storedRefreshToken);
+            Long steamId = decoded.getClaim(JwtClaimKey.STEAM_ID.getKey()).asLong();
+            UserRole userRole = resolveRoleClaim(decoded.getClaim(JwtClaimKey.ROLE.getKey()));
+            String sessionId = decoded.getSubject();
 
-        Long steamId = decoded.getClaim(JwtClaimKey.STEAM_ID.getKey()).asLong();
-        UserRole userRole = UserRole.fromAuthority(decoded.getClaim(JwtClaimKey.ROLE.getKey()).asString());
+            String newAccessToken = jwtUtil.createAccessToken(sessionId, getAccessTtl(), userRole, steamId);
+            String newRefreshToken = jwtUtil.createRefreshToken(sessionId, getRefreshTtl(), userRole, steamId);
 
-        String newAccessToken = jwtUtil.createToken(
-                storedRefreshToken.getSessionId(),
-                getAccessTtl(),
-                userRole,
-                steamId);
+            cookieService.insertRefreshTokenInCookie(newRefreshToken, exchange);
 
-        cookieService.insertRefreshTokenInCookie(storedRefreshToken.getToken(), response);
-
-        return AccessTokenResponse.builder()
-                .accessToken(newAccessToken)
-                .accessExpiresIn(getAccessTtl().toSeconds())
-                .build();
+            return AccessTokenResponse.builder()
+                    .accessToken(newAccessToken)
+                    .accessExpiresIn(getAccessTtl().toSeconds())
+                    .build();
+        });
     }
 
-    /**
-     * Обновляем токен, привязывая к нему steamId юзера.
-     */
-    @Transactional
-    public AccessTokenResponse linkSteamIdToToken(String inputRefreshToken,
-                                                  Long steamId,
-                                                  HttpServletResponse response) {
-        RefreshToken stored = refreshTokenRepository.findByTokenOrThrow(inputRefreshToken);
-        log.info("Привязываем steamId={} к сессии {}", steamId, stored.getSessionId());
+    public Mono<AccessTokenResponse> linkSteamIdToToken(String refreshToken,
+                                                       Long steamId,
+                                                       ServerWebExchange exchange) {
+        return Mono.fromSupplier(() -> {
+            DecodedJWT decoded = decodeAndValidateRefreshToken(refreshToken);
+            String sessionId = decoded.getSubject();
 
-        String newAccessToken = jwtUtil.createToken(
-                stored.getSessionId(),
-                getAccessTtl(),
-                UserRole.USER,
-                steamId);
+            log.info("Linking steamId={} to session {}", steamId, sessionId);
 
-        String newRefreshToken = jwtUtil.createToken(
-                stored.getSessionId(),
-                getRefreshTtl(),
-                UserRole.USER,
-                steamId
-        );
+            String newAccessToken = jwtUtil.createAccessToken(sessionId, getAccessTtl(), UserRole.USER, steamId);
+            String newRefreshToken = jwtUtil.createRefreshToken(sessionId, getRefreshTtl(), UserRole.USER, steamId);
 
-        stored.setToken(newRefreshToken);
-        refreshTokenRepository.save(stored);
+            cookieService.insertRefreshTokenInCookie(newRefreshToken, exchange);
 
-        cookieService.insertRefreshTokenInCookie(newRefreshToken, response);
-
-        return AccessTokenResponse.builder()
-                .accessToken(newAccessToken)
-                .accessExpiresIn(getAccessTtl().toSeconds())
-                .build();
-    }
-
-    private DecodedJWT decodeAndValidate(RefreshToken refreshToken) {
-        if (refreshToken.getToken() == null || refreshToken.getToken().isBlank()) {
-            log.warn("Refresh token is null or blank during validation");
-            throw new GameRecommenderException(ErrorType.AUTH_REFRESH_TOKEN_INVALID);
-        }
-
-        DecodedJWT decoded = jwtUtil.decodeToken(refreshToken.getToken());
-        jwtUtil.validateTokenExpiration(decoded);
-        return decoded;
+            return AccessTokenResponse.builder()
+                    .accessToken(newAccessToken)
+                    .accessExpiresIn(getAccessTtl().toSeconds())
+                    .build();
+        });
     }
 
     public boolean isRefreshToken(String token) {
         try {
-            refreshTokenRepository.findByTokenOrThrow(token);
-            return true;
-        } catch (GameRecommenderException e) {
+            DecodedJWT decoded = decodeAndValidateRefreshToken(token);
+            return isTokenType(decoded, TokenType.REFRESH);
+        } catch (Exception e) {
             return false;
+        }
+    }
+
+    private DecodedJWT decodeAndValidateRefreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            log.warn("Refresh token is null or blank during validation");
+            throw new GameRecommenderException(ErrorType.AUTH_REFRESH_TOKEN_INVALID);
+        }
+
+        DecodedJWT decoded = jwtUtil.decodeRefreshToken(refreshToken);
+        jwtUtil.validateTokenExpiration(decoded);
+
+        if (!isTokenType(decoded, TokenType.REFRESH)) {
+            throw new GameRecommenderException(ErrorType.AUTH_REFRESH_TOKEN_INVALID);
+        }
+
+        return decoded;
+    }
+
+    private boolean isTokenType(DecodedJWT decodedJWT, TokenType expected) {
+        Claim tokenTypeClaim = decodedJWT.getClaim(JwtClaimKey.TOKEN_TYPE.getKey());
+        String tokenType = tokenTypeClaim != null ? tokenTypeClaim.asString() : null;
+        return expected.getValue().equals(tokenType);
+    }
+
+    private UserRole resolveRoleClaim(Claim roleClaim) {
+        if (roleClaim == null || roleClaim.isNull()) {
+            return UserRole.GUEST;
+        }
+        try {
+            return UserRole.fromAuthority(roleClaim.asString());
+        } catch (IllegalArgumentException ex) {
+            throw new GameRecommenderException(ErrorType.AUTH_REFRESH_TOKEN_INVALID);
         }
     }
 }
