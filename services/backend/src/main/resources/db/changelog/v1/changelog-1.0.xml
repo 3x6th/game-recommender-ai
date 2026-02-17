@@ -29,4 +29,12 @@
         <sqlFile path="../sql/v1/005_DropRefreshTokensTable.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="6-create-chat-tables" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/006_CreateChatTables.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="7-create-chat-indexes" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/007_CreateChatIndexes.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>
