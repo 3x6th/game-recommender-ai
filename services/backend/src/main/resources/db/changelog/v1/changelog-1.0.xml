@@ -41,4 +41,8 @@
         <sqlFile path="../sql/v1/008_DropApiLogsTable.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="9-add-updated-at-to-chat-messages" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/009_AddUpdatedAtToChatMessages.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>

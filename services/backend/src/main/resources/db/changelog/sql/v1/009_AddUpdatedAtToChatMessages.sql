@@ -1,0 +1,2 @@
+ALTER TABLE IF EXISTS game_recommender.chat_messages
+    ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
