@@ -37,4 +37,8 @@
         <sqlFile path="../sql/v1/007_CreateChatIndexes.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="8-drop-api-logs-table" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/008_DropApiLogsTable.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>
