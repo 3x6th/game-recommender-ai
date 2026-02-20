@@ -15,6 +15,7 @@ import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+//@RequiredArgsConstructor
 @Table("chats")
 public class Chats extends BaseEntity {
 
