@@ -1,4 +1,4 @@
-package ru.perevalov.gamerecommenderai.dto.message;
+package ru.perevalov.gamerecommenderai.message;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
