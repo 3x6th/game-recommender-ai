@@ -1,9 +1,12 @@
-package ru.perevalov.gamerecommenderai.dto.message;
-
-import lombok.RequiredArgsConstructor;
+package ru.perevalov.gamerecommenderai.message;
 
 import java.util.Arrays;
 
+import lombok.RequiredArgsConstructor;
+
+/**
+ * Типы meta-сообщений, сериализуемые в поле {@code type}.
+ */
 @RequiredArgsConstructor
 public enum MessageMetaType {
     REPLY("reply"),
