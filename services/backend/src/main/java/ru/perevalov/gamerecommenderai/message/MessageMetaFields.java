@@ -27,6 +27,9 @@ public final class MessageMetaFields {
     public static final String MIXED_EXTRA = "extra";
 
     public static final String REPLY_TEXT = "text";
+    public static final String REPLY_CLIENT_REQUEST_ID = "clientRequestId";
+    public static final String REPLY_TAGS = "tags";
+    public static final String REPLY_EXTRA = "extra";
 
     public static final String CARD_GAME_ID = "gameId";
     public static final String CARD_TITLE = "title";

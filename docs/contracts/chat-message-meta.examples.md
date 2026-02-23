@@ -134,7 +134,7 @@ Minimal example:
 
 ## Optional: Reply / Mixed (for completeness)
 
-Reply example:
+Reply example (with optional fields, пояснение ниже):
 ```json
 {
   "content": "Hello!",
@@ -142,11 +142,19 @@ Reply example:
     "schemaVersion": 1,
     "type": "reply",
     "payload": {
-      "text": "Hello!"
+      "text": "Hello!",
+      "clientRequestId": "8a9d3a6a-9f3a-4c6c-9f0a-2e6f8d9a4f1b",
+      "tags": ["RPG", "Story"],
+      "extra": { "debug": true }
     }
   }
 }
 ```
+
+Пояснение:
+- `clientRequestId` — опциональный id запроса клиента (дедупликация/трейс)
+- `tags` — опциональные выбранные пользователем теги
+- `extra` — опциональные метаданные для клиента
 
 Mixed example (text + cards):
 ```json

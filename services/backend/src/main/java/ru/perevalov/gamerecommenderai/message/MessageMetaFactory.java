@@ -2,6 +2,7 @@ package ru.perevalov.gamerecommenderai.message;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
@@ -10,8 +11,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import lombok.RequiredArgsConstructor;
-import ru.perevalov.gamerecommenderai.message.dto.MessageCardsPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageCardsPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageErrorPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageMetaDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageMixedPayloadDto;
@@ -20,7 +21,7 @@ import ru.perevalov.gamerecommenderai.message.dto.MessageStatusPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageTraceDto;
 
 /**
- * Фабрика канонического meta-контракта. Создает envelope и типовые payload-структуры через DTO.
+ * Фабрика канонического meta-контракта. Создает envelope и типовые payload-структуры.
  */
 @Component
 @RequiredArgsConstructor
@@ -123,14 +124,39 @@ public class MessageMetaFactory {
      * Шорткат для REPLY meta: payload = { text } без trace.
      */
     public ObjectNode reply(String text) {
-        return reply(text, null);
+        return reply(text, null, null, null, null);
     }
 
     /**
      * Шорткат для REPLY meta: payload = { text } с опциональным trace.
      */
     public ObjectNode reply(String text, MessageTraceDto trace) {
-        MessageReplyPayloadDto payload = new MessageReplyPayloadDto(text != null ? text : "");
+        return reply(text, null, null, null, trace);
+    }
+
+    /**
+     * Шорткат для REPLY meta: payload = { text, clientRequestId?, tags?, extra? } без trace.
+     */
+    public ObjectNode reply(String text, UUID clientRequestId, List<String> tags, JsonNode extra) {
+        return reply(text, clientRequestId, tags, extra, null);
+    }
+
+    /**
+     * Шорткат для REPLY meta: payload = { text, clientRequestId?, tags?, extra? } с опциональным trace.
+     */
+    public ObjectNode reply(
+            String text,
+            UUID clientRequestId,
+            List<String> tags,
+            JsonNode extra,
+            MessageTraceDto trace
+    ) {
+        MessageReplyPayloadDto payload = new MessageReplyPayloadDto(
+                text != null ? text : "",
+                clientRequestId,
+                tags,
+                extra
+        );
         return envelope(MessageMetaType.REPLY, payload, trace);
     }
 

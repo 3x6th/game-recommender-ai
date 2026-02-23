@@ -20,6 +20,7 @@ services/backend/*.jar
 services/backend/*.war
 services/backend/*.ear
 services/backend/*dev.properties
+services/backend/bin/
 
 # Python
 services/ai-service/**/__pycache__/
