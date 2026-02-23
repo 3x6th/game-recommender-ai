@@ -10,6 +10,8 @@ import org.springframework.boot.autoconfigure.r2dbc.ConnectionFactoryOptionsBuil
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.r2dbc.config.AbstractR2dbcConfiguration;
+import ru.perevalov.gamerecommenderai.entity.converter.JsonNodeReadingConverter;
+import ru.perevalov.gamerecommenderai.entity.converter.JsonNodeWritingConverter;
 import ru.perevalov.gamerecommenderai.entity.converter.UserRoleEnumTypeConverter;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
@@ -29,6 +31,8 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
     private String r2dbcUrl;
 
     private final UserRoleEnumTypeConverter userRoleEnumTypeConverter;
+    private final JsonNodeWritingConverter jsonNodeWritingConverter;
+    private final JsonNodeReadingConverter jsonNodeReadingConverter;
 
     @Override
     public ConnectionFactory connectionFactory() {
@@ -37,7 +41,11 @@ public class R2dbcConfig extends AbstractR2dbcConfiguration {
 
     @Override
     protected List<Object> getCustomConverters() {
-        return List.of(userRoleEnumTypeConverter);
+        return List.of(
+                userRoleEnumTypeConverter,
+                jsonNodeWritingConverter,
+                jsonNodeReadingConverter
+        );
     }
 
     @Bean

@@ -1,12 +1,13 @@
 package ru.perevalov.gamerecommenderai.exception;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Global exception handler for all controllers.
@@ -40,6 +41,29 @@ public class GlobalExceptionHandler {
                 message);
 
         return ResponseEntity.status(errorResponse.getStatus()).body(errorResponse);
+    }
+
+    /**
+     * Handles InvalidMetaException, converting it to a standardized HTTP error response.
+     *
+     * @param ex      the InvalidMetaException to handle
+     * @param request the web request that led to the exception
+     * @return ResponseEntity with {@link ErrorResponse} containing error details
+     */
+    @ExceptionHandler(InvalidMetaException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidMetaException(InvalidMetaException ex, WebRequest request) {
+        ErrorType errorType = ErrorType.INVALID_MESSAGE_META;
+
+        log.error("InvalidMetaException: {}", ex.getMessage(), ex);
+
+        ErrorResponse errorResponse = ErrorResponse.build(
+                errorType.getStatus().value(),
+                request.getDescription(false),
+                errorType,
+                ex.getMessage()
+        );
+
+        return ResponseEntity.status(errorType.getStatus()).body(errorResponse);
     }
 
     /**

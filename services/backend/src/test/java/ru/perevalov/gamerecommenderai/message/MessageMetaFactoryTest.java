@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageTraceDto;
 
@@ -19,7 +20,6 @@ public class MessageMetaFactoryTest {
     @Test
     void envelope_whenPayloadNull_thenUsesEmptyObjectAndNoTrace() {
         ObjectNode meta = factory.envelope(MessageMetaType.REPLY, null);
-
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_SCHEMA_VERSION).asInt()).isEqualTo(1);
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_TYPE).asText()).isEqualTo("reply");
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_PAYLOAD).isObject()).isTrue();
