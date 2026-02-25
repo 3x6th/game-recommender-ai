@@ -31,7 +31,7 @@ public class GrpcMapper {
         }
 
         if (dto.getGameLibrary() != null) {
-            builder.setUserSteamLibrary(toProto(dto.getGameLibrary()));
+            builder.addAllUserSteamLibrary(dto.getGameLibrary());
         }
 
         return builder.build();

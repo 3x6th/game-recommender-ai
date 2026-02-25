@@ -30,15 +30,21 @@ public class GameRecommenderService {
 
     public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
         return request.flatMap(req -> {
-                    Mono<SteamOwnedGamesResponse> steamLib = loadSteamLibrary(req.getSteamId());
+                    // Загружаем библиотеку и сразу превращаем в список имен (String)
+                    Mono<List<String>> steamLib = loadSteamLibrary(req.getSteamId()).map(
+                            s -> s.getResponse().getGames().stream()
+                                    .map(SteamOwnedGamesResponse.Game::getName)
+                                    .toList()
+                    );
 
                     return Mono.just(req)
-                            .zipWith(steamLib, (r, lib) ->
-                                    AiContextRequest.builder()
-                                            .userMessage(r.getContent())
-                                            .selectedTags(r.getTags())
-                                            .gameLibrary(lib)
-                                            .build()
+                            .zipWith(steamLib, (r, lib) -> AiContextRequest.builder()
+                                    .requestId(java.util.UUID.randomUUID().toString())
+                                    .userMessage(r.getContent() != null ? r.getContent().trim() : "")
+                                    .selectedTags(r.getTags() != null ? r.getTags() : new String[0])
+                                    .gameLibrary(lib) // Передаем список строк
+                                    .maxResults(10)
+                                    .build()
                             );
                 })
                 .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
