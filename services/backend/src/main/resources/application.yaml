@@ -45,6 +45,32 @@ grpc:
       negotiationType: "${GRPC_CLIENT_AI_SERVICE_NEGOTIATION_TYPE:plaintext}"
       maxInboundMessageSize: "${GRPC_CLIENT_AI_SERVICE_MAX_INBOUND_MESSAGE_SIZE:1048576}"
 
+# AI HTTP client configuration
+ai:
+  service:
+    scheme: "${AI_SERVICE_SCHEME:http}"
+    host: "${AI_SERVICE_HOST:localhost}"
+    port: "${AI_SERVICE_PORT:8000}"
+    recommendPath: "${AI_SERVICE_RECOMMEND_PATH:/ai/v1/recommend}"
+    retryAttempts: "${AI_SERVICE_RETRY_ATTEMPTS:1}"
+    retryDelaySeconds: "${AI_SERVICE_RETRY_DELAY_SECONDS:1}"
+    connectTimeoutMillis: "${AI_SERVICE_CONNECT_TIMEOUT_MILLIS:5000}"
+    responseTimeoutSeconds: "${AI_SERVICE_RESPONSE_TIMEOUT_SECONDS:25}"
+    maxInMemorySize: "${AI_SERVICE_MAX_IN_MEMORY_SIZE:2097152}"
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      aiServiceRecommend:
+        registerHealthIndicator: true
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        permittedNumberOfCallsInHalfOpenState: 5
+        waitDurationInOpenState: 20s
+        failureRateThreshold: 50
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
 # Security and token
 security:
   jwt:

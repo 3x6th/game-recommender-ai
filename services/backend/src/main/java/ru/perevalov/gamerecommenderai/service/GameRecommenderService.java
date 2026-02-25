@@ -1,30 +1,29 @@
 package ru.perevalov.gamerecommenderai.service;
 
+import java.util.Collections;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
+import ru.perevalov.gamerecommenderai.client.AiServiceClient;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
+import ru.perevalov.gamerecommenderai.dto.AiRecommendationResponse;
+import ru.perevalov.gamerecommenderai.dto.GameRecommendation;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
-import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
-import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
-
-import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class GameRecommenderService {
 
-    private final GameRecommenderGrpcClient grpcClient;
+    private final AiServiceClient aiServiceClient;
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
 
@@ -41,8 +40,8 @@ public class GameRecommenderService {
                                             .build()
                             );
                 })
-                .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
-                .flatMap(this::processGrpcResponse);
+                .flatMap(aiServiceClient::getGameRecommendations)
+                .flatMap(this::processAiResponse);
     }
 
     /**
@@ -71,51 +70,33 @@ public class GameRecommenderService {
                 .switchIfEmpty(Mono.just(new SteamOwnedGamesResponse()));
     }
 
-    private Mono<GameRecommendationResponse> processGrpcResponse(RecommendationResponse grpcResponse) {
-        return Mono.just(grpcResponse)
-                .flatMapMany(response -> {
-                    if (!response.getSuccess()) {
-                        throw new GameRecommenderException(ErrorType.GRPC_AI_ERROR, response.getMessage());
-                    }
+    private Mono<GameRecommendationResponse> processAiResponse(AiRecommendationResponse aiResponse) {
+        if (aiResponse == null) {
+            return Mono.error(new GameRecommenderException(ErrorType.AI_SERVICE_UNAVAILABLE));
+        }
 
-                    return extractRecommendations(response);
-                })
-                .collectList()
-                .doOnSuccess(gameRecommendations -> {
-                    log.info("Received {} recommendations from gRPC service", gameRecommendations.size());
+        if (!aiResponse.isSuccess()) {
+            return Mono.error(new GameRecommenderException(ErrorType.AI_SERVICE_ERROR, aiResponse.getMessage()));
+        }
 
-                    if (!gameRecommendations.isEmpty()) {
-                        log.info("First recommendation: {}", gameRecommendations.getFirst().getTitle());
-                    }
-                })
-                .map(this::buildResponse);
+        List<GameRecommendation> recommendations = aiResponse.getRecommendations() == null
+                ? Collections.emptyList()
+                : aiResponse.getRecommendations();
+
+        log.info("Received {} recommendations from AI HTTP service", recommendations.size());
+
+        if (!recommendations.isEmpty()) {
+            log.info("First recommendation: {}", recommendations.getFirst().getTitle());
+        }
+
+        return Mono.just(buildResponse(recommendations));
     }
 
-    private Flux<ru.perevalov.gamerecommenderai.dto.GameRecommendation> extractRecommendations
-            (RecommendationResponse grpcResponse) {
-        return Flux.fromIterable(grpcResponse.getRecommendationsList())
-                .map(this::mapGrpcToDto);
-    }
-
-    private GameRecommendationResponse buildResponse(
-            List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations) {
+    private GameRecommendationResponse buildResponse(List<GameRecommendation> recommendations) {
         return GameRecommendationResponse.builder()
                 .recommendation("Получено " + recommendations.size() + " рекомендаций")
                 .success(true)
                 .recommendations(recommendations)
                 .build();
     }
-
-    private ru.perevalov.gamerecommenderai.dto.GameRecommendation mapGrpcToDto(GameRecommendation grpcRec) {
-        return ru.perevalov.gamerecommenderai.dto.GameRecommendation.builder()
-                .title(grpcRec.getTitle())
-                .genre(grpcRec.getGenre())
-                .description(grpcRec.getDescription())
-                .whyRecommended(grpcRec.getWhyRecommended())
-                .platforms(grpcRec.getPlatformsList())
-                .rating(grpcRec.getRating())
-                .releaseYear(grpcRec.getReleaseYear())
-                .build();
-    }
-
 }

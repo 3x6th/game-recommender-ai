@@ -1,6 +1,7 @@
 package ru.perevalov.gamerecommenderai.client.retry;
 
 import java.time.Duration;
+import java.util.concurrent.TimeoutException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
@@ -38,6 +39,21 @@ public class ReactiveRetryStrategy {
     }
 
     /**
+     * Retry strategy for AI recommend HTTP call:
+     * single retry only for timeout/502/503.
+     */
+    public RetryBackoffSpec doAiRecommendRetry(int retryAttempts, long retryDelaySeconds) {
+        return Retry.fixedDelay(retryAttempts, Duration.ofSeconds(retryDelaySeconds))
+                .filter(this::shouldRetryAiRecommend)
+                .onRetryExhaustedThrow((retryBackoffSpec, retrySignal) -> retrySignal.failure())
+                .doBeforeRetry(r -> log.warn(
+                        "AI recommend retry attempt {} due to: {}",
+                        r.totalRetries() + 1,
+                        r.failure().getMessage()
+                ));
+    }
+
+    /**
      * Determines whether a failed request should be retried.
      *
      * @param throwable
@@ -50,6 +66,17 @@ public class ReactiveRetryStrategy {
             return e.getStatusCode().is5xxServerError();
         }
         return true;
+    }
+
+    private boolean shouldRetryAiRecommend(Throwable throwable) {
+        if (throwable instanceof TimeoutException) {
+            return true;
+        }
+        if (throwable instanceof WebClientResponseException e) {
+            int status = e.getStatusCode().value();
+            return status == 502 || status == 503;
+        }
+        return false;
     }
 
 }

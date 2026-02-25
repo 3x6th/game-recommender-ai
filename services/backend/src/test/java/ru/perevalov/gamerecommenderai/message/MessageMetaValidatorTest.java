@@ -3,11 +3,11 @@ package ru.perevalov.gamerecommenderai.message;
 import java.util.List;
 
 import org.assertj.core.api.Assertions;
-import org.junit.jupiter.api.Test;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
+import org.junit.jupiter.api.Test;
 import ru.perevalov.gamerecommenderai.exception.InvalidMetaException;
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
 
