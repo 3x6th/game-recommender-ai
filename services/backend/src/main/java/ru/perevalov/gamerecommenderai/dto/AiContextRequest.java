@@ -15,6 +15,10 @@ public class AiContextRequest {
     private String requestId;
     private String userMessage;
     private String[] selectedTags;
-    private List<String> gameLibrary;
+    private List<String> userSteamLibrary;
     private Integer maxResults;
+
+    private String chatId;
+    private String agentId;
+    private String constraints;
 }

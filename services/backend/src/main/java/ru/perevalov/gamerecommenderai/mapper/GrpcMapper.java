@@ -30,8 +30,27 @@ public class GrpcMapper {
             builder.addAllSelectedTags(Arrays.asList(dto.getSelectedTags()));
         }
 
-        if (dto.getGameLibrary() != null) {
-            builder.addAllUserSteamLibrary(dto.getGameLibrary());
+         if (dto.getUserSteamLibrary() != null) {
+            builder.addAllUserSteamLibrary(dto.getUserSteamLibrary());
+        }
+
+        if (dto.getRequestId() != null) {
+            builder.setRequestId(dto.getRequestId());
+        }
+
+        if (dto.getMaxResults() != null) {
+            builder.setMaxResults(dto.getMaxResults());
+        }
+        if (dto.getChatId() != null) {
+            builder.setChatId(dto.getChatId());
+        }
+
+        if (dto.getAgentId() != null) {
+            builder.setAgentId(dto.getAgentId());
+        }
+
+        if (dto.getConstraints() != null) {
+            builder.setConstraints(dto.getConstraints());
         }
 
         return builder.build();

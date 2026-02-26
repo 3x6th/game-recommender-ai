@@ -18,6 +18,9 @@ message FullAiContextRequestProto {
   repeated string user_steam_library = 3;
   string request_id = 4;
   int32 max_results = 5;
+  string chat_id = 6;
+  string agent_id = 7;
+  string constraints = 8;
 }
 
 // Модель ответа Steam API при получении списка игр пользователя.

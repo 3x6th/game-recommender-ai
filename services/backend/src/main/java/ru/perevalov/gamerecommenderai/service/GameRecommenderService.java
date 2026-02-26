@@ -27,25 +27,29 @@ public class GameRecommenderService {
     private final GameRecommenderGrpcClient grpcClient;
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
-
     public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
         return request.flatMap(req -> {
-                    // Загружаем библиотеку и сразу превращаем в список имен (String)
-                    Mono<List<String>> steamLib = loadSteamLibrary(req.getSteamId()).map(
-                            s -> s.getResponse().getGames().stream()
-                                    .map(SteamOwnedGamesResponse.Game::getName)
-                                    .toList()
-                    );
+                    Mono<List<String>> steamLib = loadSteamLibrary(req.getSteamId())
+                            .map(s -> {
+                                if (s == null || s.getResponse() == null || s.getResponse().getGames() == null) {
+                                    return java.util.Collections.<String>emptyList();
+                                }
+                                return s.getResponse().getGames().stream()
+                                        .map(SteamOwnedGamesResponse.Game::getName)
+                                        .toList();
+                            })
+                            .onErrorResume(e -> Mono.just(java.util.Collections.emptyList())) // Защита от ошибок API
+                            .defaultIfEmpty(java.util.Collections.emptyList());
 
-                    return Mono.just(req)
-                            .zipWith(steamLib, (r, lib) -> AiContextRequest.builder()
-                                    .requestId(java.util.UUID.randomUUID().toString())
-                                    .userMessage(r.getContent() != null ? r.getContent().trim() : "")
-                                    .selectedTags(r.getTags() != null ? r.getTags() : new String[0])
-                                    .gameLibrary(lib) // Передаем список строк
-                                    .maxResults(10)
-                                    .build()
-                            );
+                    return Mono.zip(Mono.just(req), steamLib, (r, lib) -> AiContextRequest.builder()
+                            .requestId(java.util.UUID.randomUUID().toString())
+                            .userMessage(r.getContent() != null ? r.getContent().trim() : "")
+                            .selectedTags(r.getTags() != null ? r.getTags() : new String[0])
+                            .userSteamLibrary(lib) // Используем новое имя поля из DTO
+                            .chatId("")
+                            .constraints("")
+                            .maxResults(10)
+                            .build());
                 })
                 .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
                 .flatMap(this::processGrpcResponse);
