@@ -38,14 +38,14 @@ public class GameRecommenderService {
                                         .map(SteamOwnedGamesResponse.Game::getName)
                                         .toList();
                             })
-                            .onErrorResume(e -> Mono.just(java.util.Collections.emptyList())) // Защита от ошибок API
+                            .onErrorResume(e -> Mono.just(java.util.Collections.emptyList()))
                             .defaultIfEmpty(java.util.Collections.emptyList());
 
                     return Mono.zip(Mono.just(req), steamLib, (r, lib) -> AiContextRequest.builder()
                             .requestId(java.util.UUID.randomUUID().toString())
                             .userMessage(r.getContent() != null ? r.getContent().trim() : "")
                             .selectedTags(r.getTags() != null ? r.getTags() : new String[0])
-                            .userSteamLibrary(lib) // Используем новое имя поля из DTO
+                            .userSteamLibrary(lib)
                             .chatId("")
                             .constraints("")
                             .maxResults(10)

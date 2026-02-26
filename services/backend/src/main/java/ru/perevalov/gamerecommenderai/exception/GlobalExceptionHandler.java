@@ -7,10 +7,21 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
+/**
+ * Global exception handler for all controllers.
+ * Provides centralized error handling by mapping exceptions to standardized HTTP responses using ErrorType and ErrorResponse.
+ */
 @Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
-
+    /**
+     * Handles GameRecommenderException, converting it to a standardized HTTP error response.
+     *
+     * @param ex      the GameRecommenderException to handle
+     * @param request the web request that led to the exception
+     * @return ResponseEntity with {@link ErrorResponse} containing error details
+     * @see ErrorType
+     */
     @ExceptionHandler(GameRecommenderException.class)
     public ResponseEntity<ErrorResponse> handleGameRecommenderException(GameRecommenderException ex, ServerHttpRequest request) {
         ErrorType errorType = ex.getErrorType();
@@ -22,7 +33,7 @@ public class GlobalExceptionHandler {
 
         ErrorResponse errorResponse = ErrorResponse.build(
                 errorType.getStatus().value(),
-                request.getPath().value(), // ИЗМЕНЕНО
+                request.getPath().value(),
                 errorType,
                 message);
 
@@ -54,6 +65,14 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(errorType.getStatus()).body(errorResponse);
     }
 
+    /**
+     * Handles generic Exception for any unexpected errors, responding with a default internal server error.
+     *
+     * @param ex      the generic Exception to handle
+     * @param request the web request that led to the exception
+     * @return ResponseEntity with {@link ErrorResponse} containing error details
+     * @see ErrorType#DEFAULT_INTERNAL_SERVER_ERROR
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, ServerHttpRequest request) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
@@ -62,7 +81,7 @@ public class GlobalExceptionHandler {
 
         ErrorResponse errorResponse = ErrorResponse.build(
                 errorType.getStatus().value(),
-                request.getPath().value(), // ИЗМЕНЕНО
+                request.getPath().value(),
                 errorType,
                 ex.getMessage()
         );
