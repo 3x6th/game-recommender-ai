@@ -431,24 +431,36 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "{__name__=\"jdbc_connections_active\", application=\"game-recommender-ai\", instance=\"host.docker.internal:8080\", job=\"game-recommender-backend\", name=\"dataSource\"}"
+              "options": "{__name__=\"r2dbc_pool_allocated_connections\"}"
             },
             "properties": [
               {
                 "id": "displayName",
-                "value": "Active connections"
+                "value": "Allocated connections"
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "{__name__=\"jdbc_connections_idle\", application=\"game-recommender-ai\", instance=\"host.docker.internal:8080\", job=\"game-recommender-backend\", name=\"dataSource\"}"
+              "options": "{__name__=\"r2dbc_pool_idle_connections\"}"
             },
             "properties": [
               {
                 "id": "displayName",
-                "value": "Established but idle connections"
+                "value": "Idle connections"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "{__name__=\"r2dbc_pool_acquired_connections\"}"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Acquired connections"
               }
             ]
           }
@@ -479,12 +491,12 @@
         {
           "disableTextWrap": false,
           "editorMode": "builder",
-          "expr": "jdbc_connections_active",
+          "expr": "r2dbc_pool_allocated_connections{instance=~\"$instance\",name=~\"$name\"}",
           "fullMetaSearch": false,
           "includeNullMetadata": true,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "active connections allocated from data source",
+          "refId": "A",
           "useBackend": false,
           "datasource": {
             "type": "prometheus",
@@ -497,12 +509,25 @@
             "uid": "${DS_PROMETHEUS}"
           },
           "editorMode": "builder",
-          "expr": "jdbc_connections_idle{application=\"game-recommender-ai\",name=\"dataSource\"}",
+          "expr": "r2dbc_pool_idle_connections{instance=~\"$instance\",name=~\"$name\"}",
           "hide": false,
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
-          "refId": "Number of established but idle connections"
+          "refId": "B"
+        },
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "${DS_PROMETHEUS}"
+          },
+          "editorMode": "builder",
+          "expr": "r2dbc_pool_acquired_connections{instance=~\"$instance\",name=~\"$name\"}",
+          "hide": false,
+          "instant": false,
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "C"
         }
       ],
       "title": "Connection pool",
@@ -512,7 +537,38 @@
   "schemaVersion": 41,
   "tags": [],
   "templating": {
-    "list": []
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "includeAll": true,
+        "label": "Instance",
+        "name": "instance",
+        "options": [],
+        "query": "label_values(r2dbc_pool_allocated_connections, instance)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "prometheus",
+          "uid": "${DS_PROMETHEUS}"
+        },
+        "includeAll": true,
+        "label": "Pool Name",
+        "name": "name",
+        "options": [],
+        "query": "label_values(r2dbc_pool_allocated_connections{instance=~\"$instance\"}, name)",
+        "refresh": 2,
+        "regex": "",
+        "type": "query"
+      }
+    ]
   },
   "time": {
     "from": "now-15m",
