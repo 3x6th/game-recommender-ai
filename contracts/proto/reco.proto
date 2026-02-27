@@ -15,7 +15,18 @@ service GameRecommenderService {
 message FullAiContextRequestProto {
   string userMessage = 1;
   repeated string selectedTags = 2;
-  SteamOwnedGamesResponseProto userSteamLibrary = 3;
+  repeated string user_steam_library = 3;
+
+
+  string chatId = 4;
+  string agentId = 5;
+  string requestId = 6;
+  string correlationId = 7;
+
+  string language = 8;
+  repeated string excludeGenres=9;
+  int32 maxResults = 10;
+
 }
 
 // Модель ответа Steam API при получении списка игр пользователя.
