@@ -2,6 +2,7 @@ package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -17,7 +18,9 @@ import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -28,16 +31,39 @@ public class GameRecommenderService {
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
 
+    @Value("${app.recommender.defaults.language}")
+    private String defaultLanguage;
+
+    @Value("${app.recommender.defaults.max-results}")
+    private int defaultMaxResults;
+
+
     public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
         return request.flatMap(req -> {
-                    Mono<SteamOwnedGamesResponse> steamLib = loadSteamLibrary(req.getSteamId());
+                    Mono<List<String>> steamLib = loadSteamLibrary(req.getSteamId())
+                            .map(s -> Optional.ofNullable(s.getResponse())
+                                    .map(SteamOwnedGamesResponse.Response::getGames)
+                                    .map(games -> games.stream()
+                                            .map(SteamOwnedGamesResponse.Game::getName)
+                                            .toList())
+                                    .orElse(Collections.emptyList())
+                            );
 
                     return Mono.just(req)
                             .zipWith(steamLib, (r, lib) ->
                                     AiContextRequest.builder()
                                             .userMessage(r.getContent())
                                             .selectedTags(r.getTags())
-                                            .gameLibrary(lib)
+                                            .userSteamLibrary(lib)
+
+                                            .requestId(java.util.UUID.randomUUID().toString())
+                                            .correlationId(java.util.UUID.randomUUID().toString())
+                                            .chatId(null)
+                                            .agentId(null)
+
+                                            .language(defaultLanguage)
+                                            .excludeGenres(List.of())
+                                            .maxResults(defaultMaxResults)
                                             .build()
                             );
                 })

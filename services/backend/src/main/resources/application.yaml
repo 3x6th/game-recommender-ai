@@ -200,3 +200,8 @@ app:
   batch:
     size: "${APP_BATCH_SIZE:10000}"
     concurrency: "${APP_BATCH_CONCURRENCY:8}"
+
+  recommender:
+    defaults:
+      language: "${RECO_DEFAULT_LANGUAGE:ru}"
+      max-results: "${RECO_DEFAULT_MAX_RESULTS:10}"
