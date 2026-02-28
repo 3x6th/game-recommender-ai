@@ -202,6 +202,18 @@ Card item (`items[*]`) fields:
     - `chat.meta.payload = { "code": RecommendationResponse.meta.code, "message": RecommendationResponse.meta.message, "retryable": RecommendationResponse.meta.retryable }`
 - `RecommendationResponse.debug` is optional and can be stored in logs/telemetry; it is not required in `chat.meta`.
 
+### 3.1 Mapping to REST meta.type (PCAI-111)
+
+When mapping current gRPC proto `RecommendationResponse` to REST `message.meta.type`:
+
+- if `success = false` -> `error`
+- if `success = true` and both `message` and `recommendations` are present -> `mixed`
+- if `success = true` and only `message` is present -> `reply`
+- if `success = true` and only `recommendations` are present -> `cards`
+- intermediate progress (future streaming/SSE) -> `status`
+
+This mapping must be documented and kept consistent across BE and FE.
+
 ---
 
 ## 4) JSON examples (3)

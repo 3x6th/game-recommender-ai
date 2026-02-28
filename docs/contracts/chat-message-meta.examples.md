@@ -1,6 +1,11 @@
 # Chat Message Meta Examples
 
 This document fixes the canonical shape of `chat_messages.meta` and provides examples.
+For REST API contract and pagination rules, see `docs/contracts/api-contract.md`.
+
+Note: PR #70 JSON Schema expects `meta.type` in `UPPER_SNAKE_CASE`. This document
+currently uses lowercase (`reply`, `cards`, `mixed`, `status`, `error`).
+This MUST be aligned before merging both PRs.
 
 ## Canonical Envelope
 
