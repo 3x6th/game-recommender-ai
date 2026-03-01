@@ -53,7 +53,8 @@ public enum ErrorType {
     STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE),
     USER_GAME_STATS_SAVE_ERROR("Failed to save user game stats. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
     USER_STEAM_PROFILE_SAVE_ERROR("Failed to save Steam profile. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
-    USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
+    USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND),
+    USER_GAME_STATS_VALIDATION_ERROR("User game stats validation failed: %s for steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR);
 
     private final String description;
     private final HttpStatus status;

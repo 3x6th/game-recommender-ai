@@ -11,6 +11,7 @@ import ru.perevalov.gamerecommenderai.entity.User;
 import ru.perevalov.gamerecommenderai.entity.UserGameStats;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.mapper.OwnedGamesSnapshotMapper;
 import ru.perevalov.gamerecommenderai.repository.SteamProfileRepository;
 import ru.perevalov.gamerecommenderai.repository.UserGameStatsRepository;
 
@@ -29,6 +30,8 @@ public class SteamUserDataService {
     private final SteamProfileRepository steamProfileRepository;
     private final UserGameStatsRepository userGameStatsRepository;
     private final UserDataCacheService userDataCacheService;
+    private final OwnedGamesSnapshotMapper ownedGamesSnapshotMapper;
+    private final UserGameStatsValidator userGameStatsValidator;
 
     /**
      * Fetches user profile and game stats from Steam API and stores them in DB + Redis cache.
@@ -84,6 +87,7 @@ public class SteamUserDataService {
     private Mono<Void> syncUserGameStats(Long steamId, UUID userId) {
         return steamService.getOwnedGames(String.valueOf(steamId), true, true)
                 .map(resp -> buildStats(steamId, userId, resp))
+                .doOnNext(userGameStatsValidator::validate)
                 .flatMap(stats -> upsertUserGameStats(userId, stats))
                 .flatMap(saved -> userDataCacheService.saveUserGameStats(steamId, saved).thenReturn(saved))
                 .doOnSuccess(saved -> log.info("User game stats synced for steamId={}, userId={}", steamId, userId))
@@ -133,6 +137,8 @@ public class SteamUserDataService {
                     existing.setFavoriteGenreCount(newStats.getFavoriteGenreCount());
                     existing.setFavoriteGenreHours(newStats.getFavoriteGenreHours());
 
+                    existing.setOwnedGamesSnapshot(newStats.getOwnedGamesSnapshot());
+
                     return userGameStatsRepository.save(existing);
                 })
                 .switchIfEmpty(Mono.defer(() -> userGameStatsRepository.save(newStats)))
@@ -177,6 +183,8 @@ public class SteamUserDataService {
             stats.setLastPlayedGameName(lastPlayed.getName());
             stats.setLastPlaytime(lastPlayed.getRtimeLastPlayed());
         }
+
+        stats.setOwnedGamesSnapshot(ownedGamesSnapshotMapper.toSnapshot(ownedGamesResponse));
 
         return stats;
     }

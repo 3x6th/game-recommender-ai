@@ -7,6 +7,7 @@ import lombok.NonNull;
 import lombok.Setter;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
+import ru.perevalov.gamerecommenderai.entity.embedded.OwnedGamesSnapshot;
 
 import java.util.UUID;
 
@@ -59,5 +60,8 @@ public class UserGameStats extends BaseEntity {
 
     @Column("user_id")
     private UUID userId;
+
+    @Column("owned_games_snapshot")
+    private OwnedGamesSnapshot ownedGamesSnapshot;
 
 }
