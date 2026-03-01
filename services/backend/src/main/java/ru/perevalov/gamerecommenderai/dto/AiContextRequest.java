@@ -9,13 +9,13 @@ import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import java.util.List;
 
 @Data
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class AiContextRequest {
     private String userMessage;
     private String[] selectedTags;
-    private List<String> userSteamLibrary;
+    private String profileSummary;
+
 
     private String chatId;
     private String agentId;

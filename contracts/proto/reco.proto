@@ -15,7 +15,7 @@ service GameRecommenderService {
 message FullAiContextRequestProto {
   string userMessage = 1;
   repeated string selectedTags = 2;
-  repeated string userSteamLibrary = 3;
+  string profileSummary = 3;
 
 
   string chatId = 4;

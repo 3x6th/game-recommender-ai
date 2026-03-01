@@ -27,11 +27,11 @@ public class GrpcMapper {
         }
 
         if (dto.getSelectedTags() != null) {
-            builder.addAllSelectedTags(Arrays.asList(dto.getSelectedTags()));
+            builder.addAllSelectedTags(List.of(dto.getSelectedTags()));
         }
 
-        if (dto.getUserSteamLibrary() != null) {
-            builder.addAllUserSteamLibrary(dto.getUserSteamLibrary());
+        if (dto.getProfileSummary() != null) {
+            builder.setProfileSummary(dto.getProfileSummary());
         }
 
         if (dto.getChatId() != null) {

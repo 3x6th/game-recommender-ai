@@ -51,19 +51,14 @@ public class GameRecommenderService {
 
                     return Mono.just(req)
                             .zipWith(steamLib, (r, lib) ->
-                                    AiContextRequest.builder()
+                                    new AiContextBuilder()
                                             .userMessage(r.getContent())
                                             .selectedTags(r.getTags())
-                                            .userSteamLibrary(lib)
-
-                                            .requestId(java.util.UUID.randomUUID().toString())
-                                            .correlationId(java.util.UUID.randomUUID().toString())
+                                            .profileSummary(lib.toString())
+                                            .reqId(null)
                                             .chatId(null)
                                             .agentId(null)
-
-                                            .language(defaultLanguage)
-                                            .excludeGenres(List.of())
-                                            .maxResults(defaultMaxResults)
+                                            .excludeGenres(null)
                                             .build()
                             );
                 })

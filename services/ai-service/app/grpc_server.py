@@ -40,8 +40,8 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             recommendations = await self.service_registry.get_recommendations_with_steam_library(
                 user_message=request.userMessage,
                 selected_tags=list(request.selectedTags),
-                steam_library=request.userSteamLibrary,
-                max_recommendations=5
+                steam_library=request.profileSummary,
+                max_recommendations=request.maxResults
             )
 
             # Convert to gRPC format
