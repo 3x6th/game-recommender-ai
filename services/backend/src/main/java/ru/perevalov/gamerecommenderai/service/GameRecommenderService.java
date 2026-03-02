@@ -30,13 +30,7 @@ public class GameRecommenderService {
     private final GameRecommenderGrpcClient grpcClient;
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
-
-    @Value("${app.recommender.defaults.language}")
-    private String defaultLanguage;
-
-    @Value("${app.recommender.defaults.max-results}")
-    private int defaultMaxResults;
-
+    private final AiContextBuilderFactory builderFactory;
 
     public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
         return request.flatMap(req -> {
@@ -51,15 +45,19 @@ public class GameRecommenderService {
 
                     return Mono.just(req)
                             .zipWith(steamLib, (r, lib) ->
-                                    new AiContextBuilder()
-                                            .userMessage(r.getContent())
-                                            .selectedTags(r.getTags())
-                                            .profileSummary(lib.toString())
-                                            .reqId(null)
-                                            .chatId(null)
-                                            .agentId(null)
-                                            .excludeGenres(null)
-                                            .build()
+                                             builderFactory.create()
+                                                        .userMessage(r.getContent())
+                                                        .selectedTags(r.getTags())
+                                                        .profileSummary(lib)
+                                                        .reqId(null)
+                                                        .corrId(null)
+                                                        .language(null) // TODO: заменить null на реальные значения
+                                                        .corrId(null)   //       из контекста запроса/пользователя
+                                                        .maxResults(0)
+                                                        .chatId(null)
+                                                        .agentId(null)
+                                                        .excludeGenres(null)
+                                                        .build()
                             );
                 })
                 .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
