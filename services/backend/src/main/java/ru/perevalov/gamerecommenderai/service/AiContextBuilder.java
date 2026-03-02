@@ -59,13 +59,5 @@ public class AiContextBuilder {
         req.setMaxResults(this.maxResults > 0 ? this.maxResults : defaultMaxResults);
 
         return req;
-
-
-
     }
-
-
-
-
-
 }

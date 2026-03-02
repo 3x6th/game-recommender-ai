@@ -45,19 +45,19 @@ public class GameRecommenderService {
 
                     return Mono.just(req)
                             .zipWith(steamLib, (r, lib) ->
-                                             builderFactory.create()
-                                                        .userMessage(r.getContent())
-                                                        .selectedTags(r.getTags())
-                                                        .profileSummary(lib)
-                                                        .reqId(null)
-                                                        .corrId(null)
-                                                        .language(null) // TODO: заменить null на реальные значения
-                                                        .corrId(null)   //       из контекста запроса/пользователя
-                                                        .maxResults(0)
-                                                        .chatId(null)
-                                                        .agentId(null)
-                                                        .excludeGenres(null)
-                                                        .build()
+                                    builderFactory.create()
+                                            .userMessage(r.getContent())
+                                            .selectedTags(r.getTags())
+                                            .profileSummary(lib)
+                                            .reqId(null)
+                                            .corrId(null)
+                                            .language(null) // TODO: заменить null на реальные значения
+                                            .corrId(null)   //       из контекста запроса/пользователя
+                                            .maxResults(0)
+                                            .chatId(null)
+                                            .agentId(null)
+                                            .excludeGenres(null)
+                                            .build()
                             );
                 })
                 .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))

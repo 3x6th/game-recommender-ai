@@ -16,12 +16,10 @@ public class AiContextRequest {
     private String[] selectedTags;
     private String profileSummary;
 
-
     private String chatId;
     private String agentId;
     private String requestId;
     private String correlationId;
-
 
     private String language;
     private List<String> excludeGenres;
