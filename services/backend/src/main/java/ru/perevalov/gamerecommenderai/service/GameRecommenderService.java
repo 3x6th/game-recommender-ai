@@ -6,7 +6,6 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
-import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
@@ -17,7 +16,9 @@ import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @Service
@@ -27,17 +28,32 @@ public class GameRecommenderService {
     private final GameRecommenderGrpcClient grpcClient;
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
+    private final AiContextBuilderFactory builderFactory;
 
     public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
         return request.flatMap(req -> {
-                    Mono<SteamOwnedGamesResponse> steamLib = loadSteamLibrary(req.getSteamId());
+                    Mono<List<String>> steamLib = loadSteamLibrary(req.getSteamId())
+                            .map(s -> Optional.ofNullable(s.getResponse())
+                                    .map(SteamOwnedGamesResponse.Response::getGames)
+                                    .map(games -> games.stream()
+                                            .map(SteamOwnedGamesResponse.Game::getName)
+                                            .toList())
+                                    .orElse(Collections.emptyList())
+                            );
 
                     return Mono.just(req)
                             .zipWith(steamLib, (r, lib) ->
-                                    AiContextRequest.builder()
+                                    builderFactory.create()
                                             .userMessage(r.getContent())
                                             .selectedTags(r.getTags())
-                                            .gameLibrary(lib)
+                                            .profileSummary(lib)
+                                            .reqId(null)
+                                            .language(null) // TODO: заменить null на реальные значения
+                                            .corrId(null)   //       из контекста запроса/пользователя
+                                            .maxResults(0)
+                                            .chatId(null)
+                                            .agentId(null)
+                                            .excludeGenres(null)
                                             .build()
                             );
                 })

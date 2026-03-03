@@ -27,14 +27,42 @@ public class GrpcMapper {
         }
 
         if (dto.getSelectedTags() != null) {
-            builder.addAllSelectedTags(Arrays.asList(dto.getSelectedTags()));
+            builder.addAllSelectedTags(List.of(dto.getSelectedTags()));
         }
 
-        if (dto.getGameLibrary() != null) {
-            builder.setUserSteamLibrary(toProto(dto.getGameLibrary()));
+        if (dto.getProfileSummary() != null) {
+            builder.setProfileSummary(dto.getProfileSummary());
         }
+
+        if (dto.getChatId() != null) {
+            builder.setChatId(dto.getChatId());
+        }
+
+        if (dto.getAgentId() != null) {
+            builder.setAgentId(dto.getAgentId());
+        }
+
+        if (dto.getRequestId() != null) {
+            builder.setRequestId(dto.getRequestId());
+        }
+
+        if (dto.getCorrelationId() != null) {
+            builder.setCorrelationId(dto.getCorrelationId());
+        }
+
+        if (dto.getLanguage() != null) {
+            builder.setLanguage(dto.getLanguage());
+        }
+
+        if (dto.getExcludeGenres() != null) {
+            builder.addAllExcludeGenres(dto.getExcludeGenres());
+        }
+
+
+        builder.setMaxResults(dto.getMaxResults() > 0 ? dto.getMaxResults() : 10);
 
         return builder.build();
+
     }
 
     public SteamOwnedGamesResponseProto toProto(SteamOwnedGamesResponse dto) {
