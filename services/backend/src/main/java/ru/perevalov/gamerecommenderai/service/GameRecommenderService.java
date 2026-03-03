@@ -2,12 +2,10 @@ package ru.perevalov.gamerecommenderai.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
-import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
@@ -50,7 +48,6 @@ public class GameRecommenderService {
                                             .selectedTags(r.getTags())
                                             .profileSummary(lib)
                                             .reqId(null)
-                                            .corrId(null)
                                             .language(null) // TODO: заменить null на реальные значения
                                             .corrId(null)   //       из контекста запроса/пользователя
                                             .maxResults(0)

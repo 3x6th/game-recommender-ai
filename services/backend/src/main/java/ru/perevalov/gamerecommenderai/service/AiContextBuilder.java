@@ -49,7 +49,10 @@ public class AiContextBuilder {
 
         req.setUserMessage(this.userMessage != null ? this.userMessage : "");
         req.setSelectedTags(this.selectedTags != null ? this.selectedTags : new String[0]);
+
+        // TODO: PCAI-134 заменить на структурированный JSON через ProfileSummaryBuilder
         req.setProfileSummary(this.profileSummary != null ? "User plays: " + String.join(", ", this.profileSummary) : "");
+
         req.setRequestId(this.requestId != null ? this.requestId : UUID.randomUUID().toString());
         req.setCorrelationId(this.correlationId != null ? this.correlationId : UUID.randomUUID().toString());
         req.setChatId(this.chatId);

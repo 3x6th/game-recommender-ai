@@ -215,4 +215,4 @@ app:
   recommender:
     defaults:
       language: "${RECO_DEFAULT_LANGUAGE:english}"
-      max-results: "${RECO_DEFAULT_MAX_RESULTS:10}"
+      max-results: "${RECO_DEFAULT_MAX_RESULTS:5}"
