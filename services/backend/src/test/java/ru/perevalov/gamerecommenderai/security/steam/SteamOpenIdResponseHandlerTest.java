@@ -92,8 +92,6 @@ class SteamOpenIdResponseHandlerTest {
                 .accessExpiresIn(900)
                 .build();
         when(tokenService.linkSteamIdToToken(eq("refresh-token"), eq(steamId), any())).thenReturn(Mono.just(tokenResponse));
-        when(steamUserDataService.syncUserData(user)).thenReturn(Mono.empty());
-
         MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get("/api/v1/auth/steam/return").build());
 
         // when / then

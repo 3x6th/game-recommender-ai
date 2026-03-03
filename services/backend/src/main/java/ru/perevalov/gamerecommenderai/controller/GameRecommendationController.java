@@ -3,28 +3,44 @@ package ru.perevalov.gamerecommenderai.controller;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.bind.annotation.PostMapping;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
-import ru.perevalov.gamerecommenderai.service.GameRecommenderService;
+import ru.perevalov.gamerecommenderai.pipeline.PipelineContext;
+import ru.perevalov.gamerecommenderai.pipeline.PipelineOrchestrator;
 
+/**
+ * Контроллер получения игровых рекомендаций.
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/v1/games")
 @RequiredArgsConstructor
 public class GameRecommendationController {
 
-    private final GameRecommenderService gameRecommenderService;
+    private static final String CLIENT_REQUEST_ID_HEADER = "X-Client-Request-Id";
 
+    private final PipelineOrchestrator orchestrator;
+
+    /**
+     * Обрабатывает шаг диалога и делегирует бизнес-логику recommendation pipeline.
+     *
+     * @param reqMono поток запроса клиента
+     * @param clientRequestIdHeader идентификатор запроса клиента для идемпотентности
+     * @return HTTP-ответ с рекомендациями и идентификаторами чата и сообщения
+     */
     @PostMapping("/proceed")
     public Mono<ResponseEntity<GameRecommendationResponse>> getRecommendations(
-            @RequestBody Mono<GameRecommendationRequest> reqMono
+            @RequestBody Mono<GameRecommendationRequest> reqMono,
+            @RequestHeader(value = CLIENT_REQUEST_ID_HEADER, required = false) String clientRequestIdHeader
     ) {
-        return gameRecommenderService.getGameRecommendationsWithContext(reqMono)
+        return reqMono
+                .flatMap(req -> orchestrator.handle(new PipelineContext(req, clientRequestIdHeader)))
                 .doOnNext(resp -> log.info("Returning response with {} recommendations",
                         resp.getRecommendations() != null ? resp.getRecommendations().size() : 0))
                 .map(ResponseEntity::ok);

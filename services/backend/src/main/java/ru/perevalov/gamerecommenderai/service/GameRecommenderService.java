@@ -1,17 +1,21 @@
 package ru.perevalov.gamerecommenderai.service;
 
+import java.util.List;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
+import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
 import ru.perevalov.gamerecommenderai.entity.UserGameStats;
 import ru.perevalov.gamerecommenderai.entity.embedded.OwnedGamesSnapshot;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.filter.RequestIdWebFilter;
 import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.mapper.OwnedGamesSnapshotMapper;
@@ -19,8 +23,9 @@ import ru.perevalov.gamerecommenderai.repository.UserGameStatsRepository;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
-import java.util.List;
-
+/**
+ * Сервис получения рекомендаций игр и формирования AI-контекста.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -34,32 +39,66 @@ public class GameRecommenderService {
     private final UserGameStatsRepository userGameStatsRepository;
     private final OwnedGamesSnapshotMapper ownedGamesSnapshotMapper;
 
-    public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
-        return request.flatMap(req ->
-                        getProfileSummaryJson(req.getSteamId())
-                                .defaultIfEmpty("")
-                                .map(profileSummary ->
-                                        builderFactory.create()
-                                                .userMessage(req.getContent())
-                                                .selectedTags(req.getTags())
-                                                .profileSummary(profileSummary)
-                                                .reqId(null)
-                                                .language(null) // TODO: заменить null на реальные значения
-                                                .corrId(null)   //       из контекста запроса/пользователя
-                                                .maxResults(0)
-                                                .chatId(null)
-                                                .agentId(null)
-                                                .excludeGenres(null)
-                                                .build()
-                                )
-                )
+    /**
+     * Получает рекомендации с учетом контекста чата.
+     *
+     * @param request входной запрос на рекомендации
+     * @param chatId идентификатор чата для передачи в AI-контекст
+     * @return ответ с рекомендациями
+     */
+    public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(
+            GameRecommendationRequest request,
+            String chatId
+    ) {
+        return buildAiContextRequest(request, chatId)
                 .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
                 .flatMap(this::processGrpcResponse);
     }
 
     /**
-     * Получаем библиотеку пользователя из БД. Если в БД данных нет, то обращаемся к Steam API.
-     * Преобразуем библиотеку в Json.
+     * Сохраняет обратную совместимость со старыми вызовами сервиса.
+     *
+     * @param request поток входного запроса
+     * @return ответ с рекомендациями
+     */
+    public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
+        return request.flatMap(req -> getGameRecommendationsWithContext(req, null));
+    }
+
+    /**
+     * Формирует AI-контекст из клиентского запроса, профиля игрока и системного request id.
+     *
+     * @param request входной запрос клиента
+     * @param chatId идентификатор чата
+     * @return собранный AI-контекст
+     */
+    private Mono<AiContextRequest> buildAiContextRequest(GameRecommendationRequest request, String chatId) {
+        return getProfileSummaryJson(request.getSteamId())
+                .defaultIfEmpty("")
+                .flatMap(profileSummary -> Mono.deferContextual(ctxView -> {
+                    // Серверный request id должен приходить из Reactor Context, если он там уже есть.
+                    String serverRequestId = ctxView.getOrDefault(RequestIdWebFilter.REQUEST_ID_CONTEXT_KEY, null);
+
+                    return Mono.just(builderFactory.create()
+                            .userMessage(request.getContent())
+                            .selectedTags(request.getTags())
+                            .profileSummary(profileSummary)
+                            .reqId(serverRequestId)
+                            .corrId(serverRequestId)
+                            .language(null)
+                            .maxResults(0)
+                            .chatId(chatId)
+                            .agentId(null)
+                            .excludeGenres(null)
+                            .build());
+                }));
+    }
+
+    /**
+     * Формирует JSON со структурированным summary библиотеки пользователя.
+     *
+     * @param steamIdFromRequest steamId из запроса, если он передан
+     * @return JSON-строка с profile summary либо пустой {@link Mono}
      */
     private Mono<String> getProfileSummaryJson(String steamIdFromRequest) {
         return getSteamIdOrEmpty(steamIdFromRequest)
@@ -79,8 +118,10 @@ public class GameRecommenderService {
     }
 
     /**
-     * Если стим id не введено, пробуем загрузить из секьюрити контекста.
-     * Если пользователь не зарегистрирован и не ввел стим id - возвращаем пустой Mono
+     * Определяет Steam ID из запроса или security context.
+     *
+     * @param steamIdFromRequest steamId из запроса
+     * @return Steam ID либо пустой {@link Mono}
      */
     private Mono<Long> getSteamIdOrEmpty(String steamIdFromRequest) {
         if (steamIdFromRequest != null && !steamIdFromRequest.isBlank()) {
@@ -105,6 +146,12 @@ public class GameRecommenderService {
                 .map(this::parseSteamId);
     }
 
+    /**
+     * Читает снапшот игр пользователя из базы данных.
+     *
+     * @param steamId steamId пользователя
+     * @return снапшот библиотеки либо пустой {@link Mono}
+     */
     private Mono<OwnedGamesSnapshot> getSnapshotFromDbOrEmpty(Long steamId) {
         return userGameStatsRepository.findBySteamId(steamId)
                 .mapNotNull(UserGameStats::getOwnedGamesSnapshot)
@@ -114,6 +161,12 @@ public class GameRecommenderService {
                 });
     }
 
+    /**
+     * Загружает снапшот игр пользователя из Steam API как fallback.
+     *
+     * @param steamId steamId пользователя
+     * @return снапшот библиотеки либо пустой {@link Mono}
+     */
     private Mono<OwnedGamesSnapshot> getSnapshotFromSteamOrEmpty(Long steamId) {
         return steamClient.getOwnedGames(steamId.toString(), true, true)
                 .map(ownedGamesSnapshotMapper::toSnapshot)
@@ -123,6 +176,12 @@ public class GameRecommenderService {
                 });
     }
 
+    /**
+     * Преобразует строковый steamId в число.
+     *
+     * @param steamId строковое значение steamId
+     * @return числовой steamId
+     */
     private Long parseSteamId(String steamId) {
         try {
             return Long.parseLong(steamId);
@@ -131,6 +190,12 @@ public class GameRecommenderService {
         }
     }
 
+    /**
+     * Преобразует gRPC-ответ в HTTP DTO ответа сервиса.
+     *
+     * @param grpcResponse ответ gRPC сервиса
+     * @return ответ приложения
+     */
     private Mono<GameRecommendationResponse> processGrpcResponse(RecommendationResponse grpcResponse) {
         return Mono.just(grpcResponse)
                 .flatMapMany(response -> {
@@ -151,12 +216,24 @@ public class GameRecommenderService {
                 .map(this::buildResponse);
     }
 
-    private Flux<ru.perevalov.gamerecommenderai.dto.GameRecommendation> extractRecommendations
-            (RecommendationResponse grpcResponse) {
+    /**
+     * Извлекает список рекомендаций из gRPC-ответа.
+     *
+     * @param grpcResponse ответ gRPC сервиса
+     * @return поток рекомендаций
+     */
+    private Flux<ru.perevalov.gamerecommenderai.dto.GameRecommendation> extractRecommendations(
+            RecommendationResponse grpcResponse) {
         return Flux.fromIterable(grpcResponse.getRecommendationsList())
                 .map(this::mapGrpcToDto);
     }
 
+    /**
+     * Строит итоговый ответ приложения из списка рекомендаций.
+     *
+     * @param recommendations список рекомендаций
+     * @return ответ приложения
+     */
     private GameRecommendationResponse buildResponse(
             List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations) {
         return GameRecommendationResponse.builder()
@@ -166,6 +243,12 @@ public class GameRecommenderService {
                 .build();
     }
 
+    /**
+     * Преобразует protobuf-модель рекомендации в DTO приложения.
+     *
+     * @param grpcRec рекомендация из gRPC
+     * @return DTO рекомендации
+     */
     private ru.perevalov.gamerecommenderai.dto.GameRecommendation mapGrpcToDto(GameRecommendation grpcRec) {
         return ru.perevalov.gamerecommenderai.dto.GameRecommendation.builder()
                 .title(grpcRec.getTitle())
@@ -177,5 +260,4 @@ public class GameRecommenderService {
                 .releaseYear(grpcRec.getReleaseYear())
                 .build();
     }
-
 }

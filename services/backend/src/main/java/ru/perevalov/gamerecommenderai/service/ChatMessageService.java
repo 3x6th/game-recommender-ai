@@ -118,6 +118,57 @@ public class ChatMessageService {
     }
 
     /**
+     * Возвращает последнее сообщение пользователя по clientRequestId внутри чата.
+     * Если идентификаторы не заданы, возвращает пустой результат.
+     *
+     * @param chatId идентификатор чата
+     * @param clientRequestId идентификатор клиентского запроса
+     * @return найденное сообщение пользователя или пустой результат
+     */
+    public Mono<ChatMessage> findLatestUserMessage(UUID chatId, UUID clientRequestId) {
+        return Mono.defer(() -> {
+            if (chatId == null || clientRequestId == null) {
+                return Mono.empty();
+            }
+            return chatMessageRepository.findLatestUserByChatAndClientRequestId(chatId, clientRequestId);
+        });
+    }
+
+    /**
+     * Возвращает последнее сообщение пользователя по clientRequestId в рамках владельца.
+     * Если контекст или clientRequestId не заданы, возвращает пустой результат.
+     *
+     * @param ctx контекст запроса (user/session)
+     * @param clientRequestId идентификатор клиентского запроса
+     * @return найденное сообщение пользователя или пустой результат
+     */
+    public Mono<ChatMessage> findLatestUserMessage(RequestContext ctx, UUID clientRequestId) {
+        return Mono.defer(() -> {
+            if (ctx == null || clientRequestId == null) {
+                return Mono.empty();
+            }
+            return chatMessageRepository.findLatestUserByClientRequestId(
+                    clientRequestId,
+                    ctx.userId(),
+                    ctx.sessionId()
+            );
+        });
+    }
+
+    /**
+     * Возвращает последнее сообщение ассистента по чату.
+     * Если chatId не задан, возвращает пустой результат.
+     *
+     * @param chatId идентификатор чата
+     * @return найденное сообщение ассистента или пустой результат
+     */
+    public Mono<ChatMessage> findLastAssistantMessage(UUID chatId) {
+        return Mono.defer(() -> chatId == null
+                ? Mono.empty()
+                : chatMessageRepository.findLastAssistantByChatId(chatId));
+    }
+
+    /**
      * Возвращает последние сообщения в порядке {@code created_at DESC, id DESC}.
      *
      * @param chatId идентификатор чата
