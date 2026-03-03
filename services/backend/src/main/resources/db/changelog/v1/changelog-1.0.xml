@@ -45,4 +45,8 @@
         <sqlFile path="../sql/v1/009_AddUpdatedAtToChatMessages.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="10-add-owned-games-snapshot-to-user-game-stats" author="Ekaterina Katyshevtseva">
+        <sqlFile path="../sql/v1/010_AddOwnedGamesSnapshotToUserGameStats.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>

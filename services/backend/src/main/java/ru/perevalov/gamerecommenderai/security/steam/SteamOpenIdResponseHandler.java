@@ -1,13 +1,14 @@
 package ru.perevalov.gamerecommenderai.security.steam;
 
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.http.HttpHeaders;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import ru.perevalov.gamerecommenderai.dto.AccessTokenResponse;
 import ru.perevalov.gamerecommenderai.dto.OpenIdResponse;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
@@ -48,8 +49,13 @@ public class SteamOpenIdResponseHandler {
                     }
 
                     return tokenService.linkSteamIdToToken(refreshToken, steamId, exchange)
-                            .flatMap(tokens ->
-                                    steamUserDataService.syncUserData(user).thenReturn(tokens)
+                            .doOnNext(tokens ->
+                                    Mono.defer(() -> steamUserDataService.syncUserData(user))
+                                            .subscribeOn(Schedulers.boundedElastic())
+                                            .subscribe(
+                                                    unused -> {},
+                                                    err -> log.error("User data sync failed for user={}", user.getId(), err)
+                                            )
                             );
                 })
                 .doOnSuccess(resp -> meterRegistry.counter("steam_auth_success").increment())
