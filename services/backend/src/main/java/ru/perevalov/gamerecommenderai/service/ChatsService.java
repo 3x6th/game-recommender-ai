@@ -135,9 +135,13 @@ public class ChatsService {
      */
     public Mono<Integer> bindGuestChatsToUser(String sessionId, UUID userId) {
         return Mono.defer(() -> {
-            if (sessionId == null || sessionId.isBlank() || userId == null) {
+            if (userId == null) {
                 return Mono.error(new GameRecommenderException(
-                        ErrorType.INVALID_REQUEST_CONTEXT, "sessionId and userId are required"));
+                        ErrorType.INVALID_REQUEST_CONTEXT, "userId is required"));
+            }
+            if (sessionId == null || sessionId.isBlank()) {
+                log.warn("Skip bind guest chats: sessionId is empty for userId={}", userId);
+                return Mono.just(0);
             }
             return chatsRepository.bindGuestChatsToUser(sessionId, userId)
                     .doOnNext(count -> log.info("Bound guest chats to userId={} sessionId={} rowsUpdated={}",

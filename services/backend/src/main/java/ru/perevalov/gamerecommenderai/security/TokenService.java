@@ -101,6 +101,23 @@ public class TokenService {
         });
     }
 
+        /**
+     * Извлекает sessionId из refresh токена после валидации.
+     *
+     * @param refreshToken refresh токен
+     * @return sessionId или {@code null}, если токен невалиден/истёк
+     */
+    @org.springframework.lang.Nullable
+    public String extractSessionIdFromRefreshToken(String refreshToken) {
+        try {
+            DecodedJWT decoded = decodeAndValidateRefreshToken(refreshToken);
+            return decoded.getSubject();
+        } catch (Exception ex) {
+            log.warn("Failed to extract sessionId from refresh token", ex);
+            return null;
+        }
+    }
+
     public boolean isRefreshToken(String token) {
         try {
             DecodedJWT decoded = decodeAndValidateRefreshToken(token);
@@ -143,3 +160,4 @@ public class TokenService {
         }
     }
 }
+
