@@ -10,5 +10,7 @@ import java.util.UUID;
 @Repository
 public interface UserGameStatsRepository extends ReactiveCrudRepository<UserGameStats, UUID> {
     Mono<UserGameStats> findByUserId(UUID userId);
+
+    Mono<UserGameStats> findBySteamId(Long steamId);
 }
 
