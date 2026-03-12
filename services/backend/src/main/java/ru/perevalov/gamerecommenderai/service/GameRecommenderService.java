@@ -8,17 +8,18 @@ import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
-import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
+import ru.perevalov.gamerecommenderai.entity.UserGameStats;
+import ru.perevalov.gamerecommenderai.entity.embedded.OwnedGamesSnapshot;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
+import ru.perevalov.gamerecommenderai.mapper.OwnedGamesSnapshotMapper;
+import ru.perevalov.gamerecommenderai.repository.UserGameStatsRepository;
 import ru.perevalov.gamerecommenderai.security.UserPrincipalUtil;
 import ru.perevalov.gamerecommenderai.security.model.UserRole;
 
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @Service
@@ -29,45 +30,62 @@ public class GameRecommenderService {
     private final SteamService steamClient;
     private final UserPrincipalUtil userPrincipalUtil;
     private final AiContextBuilderFactory builderFactory;
+    private final ProfileSummaryBuilder profileSummaryBuilder;
+    private final UserGameStatsRepository userGameStatsRepository;
+    private final OwnedGamesSnapshotMapper ownedGamesSnapshotMapper;
 
     public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(Mono<GameRecommendationRequest> request) {
-        return request.flatMap(req -> {
-                    Mono<List<String>> steamLib = loadSteamLibrary(req.getSteamId())
-                            .map(s -> Optional.ofNullable(s.getResponse())
-                                    .map(SteamOwnedGamesResponse.Response::getGames)
-                                    .map(games -> games.stream()
-                                            .map(SteamOwnedGamesResponse.Game::getName)
-                                            .toList())
-                                    .orElse(Collections.emptyList())
-                            );
-
-                    return Mono.just(req)
-                            .zipWith(steamLib, (r, lib) ->
-                                    builderFactory.create()
-                                            .userMessage(r.getContent())
-                                            .selectedTags(r.getTags())
-                                            .profileSummary(lib)
-                                            .reqId(null)
-                                            .language(null) // TODO: заменить null на реальные значения
-                                            .corrId(null)   //       из контекста запроса/пользователя
-                                            .maxResults(0)
-                                            .chatId(null)
-                                            .agentId(null)
-                                            .excludeGenres(null)
-                                            .build()
-                            );
-                })
+        return request.flatMap(req ->
+                        getProfileSummaryJson(req.getSteamId())
+                                .defaultIfEmpty("")
+                                .map(profileSummary ->
+                                        builderFactory.create()
+                                                .userMessage(req.getContent())
+                                                .selectedTags(req.getTags())
+                                                .profileSummary(profileSummary)
+                                                .reqId(null)
+                                                .language(null) // TODO: заменить null на реальные значения
+                                                .corrId(null)   //       из контекста запроса/пользователя
+                                                .maxResults(0)
+                                                .chatId(null)
+                                                .agentId(null)
+                                                .excludeGenres(null)
+                                                .build()
+                                )
+                )
                 .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
                 .flatMap(this::processGrpcResponse);
     }
 
     /**
-     * Загружаем библиотеку стима пользователя из введеннго стим id. Если стим id не введено, пробуем загрузить из
-     * секьюрити контекста. Если пользователь не зарегистрирован и не ввел стим id - возвращаем пустой SteamOwnedGamesResponse
+     * Получаем библиотеку пользователя из БД. Если в БД данных нет, то обращаемся к Steam API.
+     * Преобразуем библиотеку в Json.
      */
-    private Mono<SteamOwnedGamesResponse> loadSteamLibrary(String steamId) {
-        if (steamId != null && !steamId.isBlank()) {
-            return steamClient.getOwnedGames(steamId, true, true);
+    private Mono<String> getProfileSummaryJson(String steamIdFromRequest) {
+        return getSteamIdOrEmpty(steamIdFromRequest)
+                .onErrorResume(e -> {
+                    log.error("Error getting steamId", e);
+                    return Mono.empty();
+                })
+                .flatMap(steamId ->
+                        getSnapshotFromDbOrEmpty(steamId)
+                                .switchIfEmpty(Mono.defer(() -> getSnapshotFromSteamOrEmpty(steamId)))
+                                .flatMap(snapshot -> profileSummaryBuilder.buildJson(snapshot, steamId))
+                                .onErrorResume(e -> {
+                                    log.error("Error getting profile summary for steamId={}", steamId, e);
+                                    return Mono.empty();
+                                })
+                );
+    }
+
+    /**
+     * Если стим id не введено, пробуем загрузить из секьюрити контекста.
+     * Если пользователь не зарегистрирован и не ввел стим id - возвращаем пустой Mono
+     */
+    private Mono<Long> getSteamIdOrEmpty(String steamIdFromRequest) {
+        if (steamIdFromRequest != null && !steamIdFromRequest.isBlank()) {
+            return Mono.just(steamIdFromRequest)
+                    .map(this::parseSteamId);
         }
 
         Mono<String> steamIdMono = userPrincipalUtil.getSteamIdFromSecurityContext().defaultIfEmpty("");
@@ -79,12 +97,38 @@ public class GameRecommenderService {
                     UserRole userRole = tuple.getT2();
 
                     if (userRole.equals(UserRole.GUEST) || contextSteamId.isBlank()) {
-                        return Mono.just(new SteamOwnedGamesResponse());
+                        return Mono.empty();
                     }
 
-                    return steamClient.getOwnedGames(contextSteamId, true, true);
+                    return Mono.just(contextSteamId);
                 })
-                .switchIfEmpty(Mono.just(new SteamOwnedGamesResponse()));
+                .map(this::parseSteamId);
+    }
+
+    private Mono<OwnedGamesSnapshot> getSnapshotFromDbOrEmpty(Long steamId) {
+        return userGameStatsRepository.findBySteamId(steamId)
+                .mapNotNull(UserGameStats::getOwnedGamesSnapshot)
+                .onErrorResume(e -> {
+                    log.error("Error retrieving snapshot from database for steamId={}", steamId, e);
+                    return Mono.empty();
+                });
+    }
+
+    private Mono<OwnedGamesSnapshot> getSnapshotFromSteamOrEmpty(Long steamId) {
+        return steamClient.getOwnedGames(steamId.toString(), true, true)
+                .map(ownedGamesSnapshotMapper::toSnapshot)
+                .onErrorResume(e -> {
+                    log.error("Error retrieving snapshot from Steam API for steamId={}", steamId, e);
+                    return Mono.empty();
+                });
+    }
+
+    private Long parseSteamId(String steamId) {
+        try {
+            return Long.parseLong(steamId);
+        } catch (NumberFormatException e) {
+            throw new GameRecommenderException(ErrorType.INVALID_STEAM_ID_FORMAT, steamId);
+        }
     }
 
     private Mono<GameRecommendationResponse> processGrpcResponse(RecommendationResponse grpcResponse) {

@@ -19,7 +19,7 @@ public class AiContextBuilder {
     private List<String> excludeGenres;
     private int maxResults;
     private final int defaultMaxResults;
-    private List<String> profileSummary;
+    private String profileSummary;
 
     public AiContextBuilder(String defaultLanguage, int defaultMaxResults) {
         this.defaultLanguage = defaultLanguage;
@@ -28,7 +28,7 @@ public class AiContextBuilder {
 
     public AiContextBuilder userMessage(String val) { this.userMessage = val; return this; }
     public AiContextBuilder selectedTags(String[] val) { this.selectedTags = val; return this; }
-    public AiContextBuilder profileSummary(List<String> val) {this.profileSummary = val; return this;}
+    public AiContextBuilder profileSummary(String val) {this.profileSummary = val; return this;}
     public AiContextBuilder chatId(String val) { this.chatId = val; return this; }
     public AiContextBuilder agentId(String val) { this.agentId = val; return this; }
     public AiContextBuilder reqId(String val) { this.requestId = val; return this; }
@@ -50,8 +50,7 @@ public class AiContextBuilder {
         req.setUserMessage(this.userMessage != null ? this.userMessage : "");
         req.setSelectedTags(this.selectedTags != null ? this.selectedTags : new String[0]);
 
-        // TODO: PCAI-134 заменить на структурированный JSON через ProfileSummaryBuilder
-        req.setProfileSummary(this.profileSummary != null ? "User plays: " + String.join(", ", this.profileSummary) : "");
+        req.setProfileSummary(this.profileSummary != null ? profileSummary : "");
 
         req.setRequestId(this.requestId != null ? this.requestId : UUID.randomUUID().toString());
         req.setCorrelationId(this.correlationId != null ? this.correlationId : UUID.randomUUID().toString());
