@@ -44,4 +44,6 @@ public interface ChatsRepository extends ReactiveCrudRepository<Chats, UUID> {
               AND user_id IS NULL
             """)
     Mono<Integer> bindGuestChatsToUser(String sessionId, UUID userId);
+
+    Flux<Chats> findAllByUserIdOrderByUpdatedAtDesc(UUID userId, Pageable pageable);
 }

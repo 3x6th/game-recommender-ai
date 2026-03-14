@@ -2,15 +2,21 @@ package ru.perevalov.gamerecommenderai.service;
 
 import java.util.UUID;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import ru.perevalov.gamerecommenderai.dto.chat.ChatPaginationResponse;
 import ru.perevalov.gamerecommenderai.entity.Chats;
 import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.mapper.ChatMapper;
+import ru.perevalov.gamerecommenderai.repository.ChatMessageRepository;
 import ru.perevalov.gamerecommenderai.repository.ChatsRepository;
 
 /**
@@ -22,6 +28,8 @@ import ru.perevalov.gamerecommenderai.repository.ChatsRepository;
 public class ChatsService {
 
     private final ChatsRepository chatsRepository;
+    private final ChatMapper chatMapper;
+    private final ChatMessageRepository chatMessageRepository;
 
     /**
      * Возвращает существующий chat id при успешной проверке владения
@@ -198,5 +206,20 @@ public class ChatsService {
 
         return Mono.error(new GameRecommenderException(
                 ErrorType.INVALID_REQUEST_CONTEXT, "request context has no userId or sessionId"));
+    }
+
+    public Flux<ChatPaginationResponse> getUserChats(int page, int size, UUID userId) {
+        Pageable pageable = PageRequest.of(page, size);
+
+        return chatsRepository.findAllByUserIdOrderByUpdatedAtDesc(userId, pageable)
+                .flatMap(chat -> {
+                    ChatPaginationResponse response = chatMapper.toPaginationResponse(chat);
+                    return chatMessageRepository.findLastChatMessage(chat.getId())
+                            .map(message -> {
+                                response.setLastMessagePreview(message.getContent());
+                                return response;
+                            })
+                            .defaultIfEmpty(response);
+                });
     }
 }
