@@ -68,16 +68,16 @@ public class MessageMetaFactory {
     /**
      * Шорткат для CARDS meta: payload = { "items": [...] } без trace.
      */
-    public ObjectNode cards(List<MessageCardDto> items) {
-        return cards(items, null);
+    public ObjectNode cards(List<MessageCardDto> items, String reasoning) {
+        return cards(items, reasoning, null);
     }
 
     /**
      * Шорткат для CARDS meta: payload = { "items": [...] } с опциональным trace.
      */
-    public ObjectNode cards(List<MessageCardDto> items, MessageTraceDto trace) {
+    public ObjectNode cards(List<MessageCardDto> items, String reasoning, MessageTraceDto trace) {
         List<MessageCardDto> safeItems = items != null ? items : Collections.emptyList();
-        MessageCardsPayloadDto payload = new MessageCardsPayloadDto(safeItems);
+        MessageCardsPayloadDto payload = new MessageCardsPayloadDto(safeItems, reasoning);
         return envelope(MessageMetaType.CARDS, payload, trace);
     }
 

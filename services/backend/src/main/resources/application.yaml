@@ -45,7 +45,7 @@ grpc:
       negotiationType: "${GRPC_CLIENT_AI_SERVICE_NEGOTIATION_TYPE:plaintext}"
       maxInboundMessageSize: "${GRPC_CLIENT_AI_SERVICE_MAX_INBOUND_MESSAGE_SIZE:1048576}"
   ai-client:
-    deadlineSeconds: "${GRPC_AI_CLIENT_DEADLINE_SECONDS:20}"
+    deadlineSeconds: "${GRPC_AI_CLIENT_DEADLINE_SECONDS:60}"
     retryMaxAttempts: "${GRPC_AI_CLIENT_RETRY_MAX_ATTEMPTS:1}"
     retryBackoffMs: "${GRPC_AI_CLIENT_RETRY_BACKOFF_MS:250}"
   ai-circuit-breaker:

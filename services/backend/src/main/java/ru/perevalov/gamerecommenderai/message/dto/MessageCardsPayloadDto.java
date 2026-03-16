@@ -19,4 +19,5 @@ import ru.perevalov.gamerecommenderai.message.MessageMetaFields;
 public class MessageCardsPayloadDto {
     @JsonProperty(MessageMetaFields.CARDS_ITEMS)
     private List<MessageCardDto> items;
+    private String reasoning;
 }

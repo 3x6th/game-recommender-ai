@@ -19,7 +19,9 @@ public class MessageMetaValidatorTest {
 
     @Test
     void validate_validMetaFromFactory_thenNoErrorsOrWarnings() {
-        ObjectNode meta = factory.cards(List.of(new MessageCardDto("steam:1", "Game", null, null, null, null, null)));
+        ObjectNode meta = factory.cards(List.of(new MessageCardDto("steam:1", "Game", null, null, null, null, null)),
+                null
+        );
 
         MessageMetaValidationResult result = validator.validate(meta);
 

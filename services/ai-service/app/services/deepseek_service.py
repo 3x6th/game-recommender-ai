@@ -107,7 +107,7 @@ class DeepSeekService(BaseAIService):
         self,
         content: str,
         max_recommendations: int,
-    ) -> List[Dict[str, Any]] | None:
+    ) -> Dict[str, Any] | None:
         json_str = self._extract_json_string(content)
         if not json_str:
             return None
@@ -117,9 +117,11 @@ class DeepSeekService(BaseAIService):
         if not parsed_response:
             return None
 
-        recommendations = parsed_response.get('recommendations')
-        if isinstance(recommendations, list):
-            return recommendations[:max_recommendations]
+        if 'recommendations' in parsed_response:
+            # Обрезаем рекомендации до максимума
+            if isinstance(parsed_response['recommendations'], list):
+                parsed_response['recommendations'] = parsed_response['recommendations'][:max_recommendations]
+            return parsed_response
 
         logger.warning(
             "JSON parsed but no 'recommendations' list found. Keys: %s",
@@ -128,13 +130,13 @@ class DeepSeekService(BaseAIService):
         return None
     
     async def get_recommendations(
-        self, 
-        preferences: str, 
-        genres: List[str] = None, 
+        self,
+        preferences: str,
+        genres: List[str] = None,
         platforms: List[str] = None,
         max_recommendations: int = 5
-    ) -> List[Dict[str, Any]]:
-        """Get game recommendations from DeepSeek"""
+    ) -> Dict[str, Any]:
+        """Get game recommendations from DeepSeek. Returns dict with reasoning and recommendations."""
         try:
             if not self.api_key or not self.client:
                 logger.warning("No DeepSeek API key or client available")
@@ -157,6 +159,7 @@ class DeepSeekService(BaseAIService):
 
             IMPORTANT: You must respond with ONLY valid JSON in this exact format, no additional text:
             {{
+                "reasoning": "A brief explanation (2-4 sentences) of why these particular games were chosen, based on what criteria (preferences, genres, platforms)",
                 "recommendations": [
                     {{
                         "title": "Game Title",
@@ -176,10 +179,12 @@ class DeepSeekService(BaseAIService):
             
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(prompt)
-            
-            if response and 'recommendations' in response:
-                self._record_success()
-                return response['recommendations'][:max_recommendations]
+
+            if response and 'recommendations' in response and 'reasoning' in response:
+                        self._record_success()
+                        if isinstance(response['recommendations'], list):
+                            response['recommendations'] = response['recommendations'][:max_recommendations]
+                        return response
             elif response and 'choices' in response and len(response['choices']) > 0:
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
@@ -199,7 +204,10 @@ class DeepSeekService(BaseAIService):
                 if extracted_recommendations:
                     self._record_success()
                     logger.info("Successfully extracted recommendations from text response")
-                    return extracted_recommendations
+                    return {
+                                "reasoning": "",
+                                "recommendations": extracted_recommendations[:max_recommendations]
+                            }
                 
                 # For now, return mock data but log the actual response for analysis
                 logger.info(f"Full DeepSeek response content: {content}")
@@ -220,7 +228,7 @@ class DeepSeekService(BaseAIService):
             selected_tags: List[str],
             steam_library: Dict[str, Any],
             max_recommendations: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> Dict[str, Any]:
         """Get recommendations based on user preferences and Steam library"""
         try:
             if not self.api_key or not self.client:
@@ -264,10 +272,11 @@ class DeepSeekService(BaseAIService):
 
             RESPOND WITH ONLY valid JSON in this exact format:
             {{
+                "reasoning": "A brief explanation (2-4 sentences) of why these particular games were chosen, with a link to the Steam library: which games/genres/patterns influenced the choice",
                 "recommendations": [
                     {{
                         "title": "Game Title",
-                        "genre": "Game Genre", 
+                        "genre": "Game Genre",
                         "description": "Brief description",
                         "why_recommended": "Explain why this game matches their preferences and play history",
                         "platforms": ["PC", "PS5", "Xbox"],
@@ -282,9 +291,11 @@ class DeepSeekService(BaseAIService):
             response = await self._call_deepseek_api_with_retry(prompt)
 
             # Process response (using existing response handling logic)
-            if response and 'recommendations' in response:
+            if response and 'recommendations' in response and 'reasoning' in response:
                 self._record_success()
-                return response['recommendations'][:max_recommendations]
+                if isinstance(response['recommendations'], list):
+                    response['recommendations'] = response['recommendations'][:max_recommendations]
+                return response
             elif response and 'choices' in response and len(response['choices']) > 0:
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
@@ -304,7 +315,10 @@ class DeepSeekService(BaseAIService):
                 if extracted_recommendations:
                     self._record_success()
                     logger.info("Successfully extracted recommendations from text response")
-                    return extracted_recommendations
+                    return {
+                            "reasoning": "",
+                            "recommendations": extracted_recommendations[:max_recommendations]
+                        }
 
                 # For now, return mock data but log the actual response for analysis
                 logger.info(f"Full DeepSeek response content: {content}")
@@ -376,58 +390,59 @@ class DeepSeekService(BaseAIService):
             logger.error(f"Error calling DeepSeek API via SDK: {e}")
             return None
     
-    def _get_mock_recommendations(self, max_recommendations: int) -> List[Dict[str, Any]]:
+    def _get_mock_recommendations(self, max_recommendations: int) -> Dict[str, Any]:
         """Return mock recommendations when API is not available"""
-        recommendations = [
-            {
-                "title": "Cyberpunk 2077",
-                "genre": "RPG",
-                "description": "Open-world action RPG set in Night City",
-                "why_recommended": "Matches your preference for action games with deep storytelling",
-                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
-                "rating": 8.5,
-                "release_year": "2020"
-            },
-            {
-                "title": "The Witcher 3: Wild Hunt",
-                "genre": "RPG",
-                "description": "Epic fantasy RPG with monster hunting",
-                "why_recommended": "Excellent action RPG with rich world and engaging combat",
-                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
-                "rating": 9.3,
-                "release_year": "2015"
-            },
-            {
-                "title": "Elden Ring",
-                "genre": "Action RPG",
-                "description": "Open-world action RPG with challenging combat",
-                "why_recommended": "Epic open-world game with deep combat mechanics",
-                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
-                "rating": 9.5,
-                "release_year": "2022"
-            }
-            ,
-            {
-                "title": "Forza Horizon 5",
-                "genre": "Racing",
-                "description": "Open-world racing game set in Mexico with tons of events and cars",
-                "why_recommended": "Relaxing driving with lots of variety and freedom to explore",
-                "platforms": ["PC", "Xbox One", "Xbox Series X"],
-                "rating": 9.0,
-                "release_year": "2021"
-            },
-            {
-                "title": "Hades",
-                "genre": "Roguelike Action",
-                "description": "Fast-paced action roguelike set in Greek mythology",
-                "why_recommended": "Highly replayable with great narrative and satisfying combat",
-                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
-                "rating": 9.2,
-                "release_year": "2020"
-            }
-        ]
-        
-        return recommendations[:max_recommendations]
+        return {
+        "reasoning": "Based on your preferences for action RPGs and story-driven games, I've selected these titles that match your interests. All games have high ratings and are available on PC and major consoles.",
+        "recommendations": [
+                    {
+                        "title": "Cyberpunk 2077",
+                        "genre": "RPG",
+                        "description": "Open-world action RPG set in Night City",
+                        "why_recommended": "Matches your preference for action games with deep storytelling",
+                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
+                        "rating": 8.5,
+                        "release_year": "2020"
+                    },
+                    {
+                        "title": "The Witcher 3: Wild Hunt",
+                        "genre": "RPG",
+                        "description": "Epic fantasy RPG with monster hunting",
+                        "why_recommended": "Excellent action RPG with rich world and engaging combat",
+                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
+                        "rating": 9.3,
+                        "release_year": "2015"
+                    },
+                    {
+                        "title": "Elden Ring",
+                        "genre": "Action RPG",
+                        "description": "Open-world action RPG with challenging combat",
+                        "why_recommended": "Epic open-world game with deep combat mechanics",
+                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
+                        "rating": 9.5,
+                        "release_year": "2022"
+                    }
+                    ,
+                    {
+                        "title": "Forza Horizon 5",
+                        "genre": "Racing",
+                        "description": "Open-world racing game set in Mexico with tons of events and cars",
+                        "why_recommended": "Relaxing driving with lots of variety and freedom to explore",
+                        "platforms": ["PC", "Xbox One", "Xbox Series X"],
+                        "rating": 9.0,
+                        "release_year": "2021"
+                    },
+                    {
+                        "title": "Hades",
+                        "genre": "Roguelike Action",
+                        "description": "Fast-paced action roguelike set in Greek mythology",
+                        "why_recommended": "Highly replayable with great narrative and satisfying combat",
+                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
+                        "rating": 9.2,
+                        "release_year": "2020"
+                    }
+                ][:max_recommendations]
+        }
     
     def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> List[Dict[str, Any]]:
         """Extract game recommendations from text response when JSON parsing fails"""
@@ -491,7 +506,11 @@ class DeepSeekService(BaseAIService):
                     for rec in recommendations
                     if isinstance(rec, dict) and isinstance(rec.get('title'), str)
                 }
-                for mock in self._get_mock_recommendations(max_recommendations):
+
+                mock_response = self._get_mock_recommendations(max_recommendations)
+                mock_games = mock_response.get('recommendations', [])
+
+                for mock in mock_games:
                     if len(recommendations) >= max_recommendations:
                         break
 

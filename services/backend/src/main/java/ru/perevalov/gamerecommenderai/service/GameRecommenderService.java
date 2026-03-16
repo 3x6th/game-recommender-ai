@@ -102,9 +102,10 @@ public class GameRecommenderService {
 
                     if (!gameRecommendations.isEmpty()) {
                         log.info("First recommendation: {}", gameRecommendations.getFirst().getTitle());
+                        log.info("Reasoning: {}", grpcResponse.getReasoning());
                     }
                 })
-                .map(this::buildResponse);
+                .map(recommendations -> buildResponse(grpcResponse, recommendations)); // ← передаем оба параметра
     }
 
     private Flux<ru.perevalov.gamerecommenderai.dto.GameRecommendation> extractRecommendations
@@ -114,9 +115,11 @@ public class GameRecommenderService {
     }
 
     private GameRecommendationResponse buildResponse(
+            RecommendationResponse grpcResponse,
             List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations) {
         return GameRecommendationResponse.builder()
                 .recommendation("Получено " + recommendations.size() + " рекомендаций")
+                .reasoning(grpcResponse.getReasoning())
                 .success(true)
                 .recommendations(recommendations)
                 .build();

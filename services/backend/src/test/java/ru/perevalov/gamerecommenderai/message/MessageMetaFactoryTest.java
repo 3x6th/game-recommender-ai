@@ -48,13 +48,16 @@ public class MessageMetaFactoryTest {
 
     @Test
     void cards_whenItemsNull_thenCreatesEmptyArray() {
-        ObjectNode meta = factory.cards(null);
+        ObjectNode meta = factory.cards(null, null);
 
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_TYPE).asText()).isEqualTo("cards");
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS).isArray())
                 .isTrue();
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS).size())
                 .isEqualTo(0);
+
+        JsonNode reasoning = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.REASONING);
+        Assertions.assertThat(reasoning).isNull();
     }
 
     @Test
@@ -90,11 +93,14 @@ public class MessageMetaFactoryTest {
     @Test
     void cards_whenItemsProvided_thenSerialized() {
         MessageCardDto card = new MessageCardDto("steam:1", "Game", 0.5, null, null, null, null);
-        ObjectNode meta = factory.cards(List.of(card));
+        ObjectNode meta = factory.cards(List.of(card), null);
 
         JsonNode items = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS);
         Assertions.assertThat(items.isArray()).isTrue();
         Assertions.assertThat(items.size()).isEqualTo(1);
         Assertions.assertThat(items.get(0).get(MessageMetaFields.CARD_GAME_ID).asText()).isEqualTo("steam:1");
+
+        JsonNode reasoning = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.REASONING);
+        Assertions.assertThat(reasoning).isNull();
     }
 }

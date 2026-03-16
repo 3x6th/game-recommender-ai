@@ -6,6 +6,8 @@ package ru.perevalov.gamerecommenderai.message;
 public final class MessageMetaFields {
     public static final int SCHEMA_VERSION = 1;
 
+    public static final String REASONING = "reasoning";
+
     public static final String FIELD_SCHEMA_VERSION = "schemaVersion";
     public static final String FIELD_TYPE = "type";
     public static final String FIELD_PAYLOAD = "payload";
