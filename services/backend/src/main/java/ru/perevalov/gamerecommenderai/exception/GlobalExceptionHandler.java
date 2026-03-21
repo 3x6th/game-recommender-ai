@@ -6,7 +6,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
-import org.springframework.web.server.ServerWebExchange;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -21,18 +20,15 @@ public class GlobalExceptionHandler {
      * Handles GameRecommenderException, converting it to a standardized HTTP error response.
      *
      * @param ex      the GameRecommenderException to handle
-     * @param exchange the server web exchange for the current request
+     * @param request the web request that led to the exception
      * @return ResponseEntity with {@link ErrorResponse} containing error details
      * @see ErrorType
      */
     @ExceptionHandler(GameRecommenderException.class)
-    public ResponseEntity<ErrorResponse> handleGameRecommenderException(
-            GameRecommenderException ex,
-            ServerWebExchange exchange) {
+    public ResponseEntity<ErrorResponse> handleGameRecommenderException(GameRecommenderException ex, WebRequest request) {
+        ErrorType errorType = ex.getErrorType();
 
         log.error("GameRecommenderException: {}", ex.getMessage(), ex);
-
-        ErrorType errorType = ex.getErrorType();
 
         String message = (ex.getParams() != null)
                 ? String.format(errorType.getDescription(), ex.getParams())
@@ -40,33 +36,29 @@ public class GlobalExceptionHandler {
 
         ErrorResponse errorResponse = ErrorResponse.build(
                 errorType.getStatus().value(),
-                exchange.getRequest().getPath().value(),
+                request.getDescription(false),
                 errorType,
-                message
-        );
+                message);
 
-        return ResponseEntity.status(errorType.getStatus()).body(errorResponse);
+        return ResponseEntity.status(errorResponse.getStatus()).body(errorResponse);
     }
 
     /**
      * Handles InvalidMetaException, converting it to a standardized HTTP error response.
      *
      * @param ex      the InvalidMetaException to handle
-     * @param exchange the server web exchange for the current request
+     * @param request the web request that led to the exception
      * @return ResponseEntity with {@link ErrorResponse} containing error details
      */
     @ExceptionHandler(InvalidMetaException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidMetaException(
-            InvalidMetaException ex,
-            ServerWebExchange exchange) {
+    public ResponseEntity<ErrorResponse> handleInvalidMetaException(InvalidMetaException ex, WebRequest request) {
+        ErrorType errorType = ErrorType.INVALID_MESSAGE_META;
 
         log.error("InvalidMetaException: {}", ex.getMessage(), ex);
 
-        ErrorType errorType = ErrorType.INVALID_MESSAGE_META;
-
         ErrorResponse errorResponse = ErrorResponse.build(
                 errorType.getStatus().value(),
-                exchange.getRequest().getPath().value(),
+                request.getDescription(false),
                 errorType,
                 ex.getMessage()
         );
@@ -78,15 +70,12 @@ public class GlobalExceptionHandler {
      * Handles WebClientResponseException from external API calls, mapping HTTP status codes to ErrorType.
      *
      * @param ex      the WebClientResponseException to handle
-     * @param exchange the server web exchange for the current request
+     * @param request the web request that led to the candida exception
      * @return ResponseEntity with {@link ErrorResponse} containing error details
      * @see ErrorType
      */
     @ExceptionHandler(WebClientResponseException.class)
-    public ResponseEntity<ErrorResponse> handleWebClientException(
-            WebClientResponseException ex,
-            ServerWebExchange exchange) {
-
+    public ResponseEntity<ErrorResponse> handleWebClientException(WebClientResponseException ex, WebRequest request) {
         log.error("WebClientException: {} - {}", ex.getStatusCode(), ex.getMessage(), ex);
 
         ErrorType errorType;
@@ -103,7 +92,7 @@ public class GlobalExceptionHandler {
 
         ErrorResponse errorResponse = ErrorResponse.build(
                 errorType.getStatus().value(),
-                exchange.getRequest().getPath().value(),
+                request.getDescription(false),
                 errorType,
                 errorType.getDescription()
         );
@@ -115,22 +104,19 @@ public class GlobalExceptionHandler {
      * Handles generic Exception for any unexpected errors, responding with a default internal server error.
      *
      * @param ex      the generic Exception to handle
-     * @param exchange the server web exchange for the current request
+     * @param request the web request that led to the exception
      * @return ResponseEntity with {@link ErrorResponse} containing error details
      * @see ErrorType#DEFAULT_INTERNAL_SERVER_ERROR
      */
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse> handleGenericException(
-            Exception ex,
-            ServerWebExchange exchange) {
-
+    public ResponseEntity<ErrorResponse> handleGenericException(Exception ex, WebRequest request) {
         log.error("Unexpected error: {}", ex.getMessage(), ex);
 
         ErrorType errorType = ErrorType.DEFAULT_INTERNAL_SERVER_ERROR;
 
         ErrorResponse errorResponse = ErrorResponse.build(
                 errorType.getStatus().value(),
-                exchange.getRequest().getPath().value(),
+                request.getDescription(false),
                 errorType,
                 ex.getMessage()
         );

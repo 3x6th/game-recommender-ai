@@ -61,6 +61,18 @@ public class MessageMetaFactoryTest {
     }
 
     @Test
+    void cards_whenReasoningProvided_thenReasoningInPayload() {
+        MessageCardDto card = new MessageCardDto("steam:1", "Game", 0.5, null, null, null, null);
+        String reasoning = "Подобрал RPG с сильным нарративом, т.к. в библиотеке много часов в Disco Elysium";
+
+        ObjectNode meta = factory.cards(List.of(card), reasoning);
+
+        JsonNode reasoningNode = meta.get(MessageMetaFields.FIELD_PAYLOAD)
+                .get(MessageMetaFields.REASONING);
+        Assertions.assertThat(reasoningNode.asText()).isEqualTo(reasoning);
+    }
+
+    @Test
     void error_whenCalled_thenBuildsErrorPayload() {
         ObjectNode meta = factory.error("TIMEOUT", "Service timeout", true);
 

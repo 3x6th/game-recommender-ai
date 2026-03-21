@@ -214,7 +214,7 @@ public class GameRecommenderService {
                         log.info("Reasoning: {}", grpcResponse.getReasoning());
                     }
                 })
-                .map(recommendations -> buildResponse(grpcResponse, recommendations)); // ← передаем оба параметра
+                .map(recommendations -> buildResponse(grpcResponse, recommendations));
     }
 
     /**

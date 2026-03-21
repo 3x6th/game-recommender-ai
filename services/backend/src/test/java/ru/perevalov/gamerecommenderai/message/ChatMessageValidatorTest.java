@@ -1,5 +1,6 @@
 package ru.perevalov.gamerecommenderai.message;
 
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -12,6 +13,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import ru.perevalov.gamerecommenderai.entity.enums.MessageRole;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
 
 class ChatMessageValidatorTest {
 
@@ -50,6 +52,15 @@ class ChatMessageValidatorTest {
         ObjectNode meta = metaFactory.reply("hello");
 
         validator.validateForAppend(UUID.randomUUID(), MessageRole.USER, "hello", meta);
+    }
+
+    @Test
+    void validateForAppend_whenCardsWithReasoning_thenOk() {
+        MessageCardDto card = new MessageCardDto("steam:1", "Game", null, null, null, null, null);
+        String reasoning = "Тестовое объяснение, почему выбраны эти игры";
+        ObjectNode meta = metaFactory.cards(List.of(card), reasoning);
+
+        validator.validateForAppend(UUID.randomUUID(), MessageRole.ASSISTANT, "Вот рекомендации", meta);
     }
 
     @Test

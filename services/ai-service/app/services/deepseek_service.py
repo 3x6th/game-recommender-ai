@@ -108,6 +108,20 @@ class DeepSeekService(BaseAIService):
         content: str,
         max_recommendations: int,
     ) -> Dict[str, Any] | None:
+        """
+        Parse JSON response from LLM content.
+
+        Returns a dictionary with 'reasoning' and 'recommendations' keys,
+        or None if parsing fails.
+
+        Args:
+            content: Raw text response from LLM
+            max_recommendations: Maximum number of recommendations to return
+
+        Returns:
+            Dict with structure: {'reasoning': str, 'recommendations': list}
+            or None if no valid JSON found
+        """
         json_str = self._extract_json_string(content)
         if not json_str:
             return None
@@ -180,11 +194,12 @@ class DeepSeekService(BaseAIService):
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(prompt)
 
-            if response and 'recommendations' in response and 'reasoning' in response:
-                        self._record_success()
-                        if isinstance(response['recommendations'], list):
-                            response['recommendations'] = response['recommendations'][:max_recommendations]
-                        return response
+            if response and 'recommendations' in response:  # ← ровно 12 пробелов (отступ от начала метода)
+                response.setdefault('reasoning', '')
+                self._record_success()
+                if isinstance(response['recommendations'], list):
+                    response['recommendations'] = response['recommendations'][:max_recommendations]
+                return response  # ← return после if, не внутри
             elif response and 'choices' in response and len(response['choices']) > 0:
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
@@ -204,10 +219,7 @@ class DeepSeekService(BaseAIService):
                 if extracted_recommendations:
                     self._record_success()
                     logger.info("Successfully extracted recommendations from text response")
-                    return {
-                                "reasoning": "",
-                                "recommendations": extracted_recommendations[:max_recommendations]
-                            }
+                    return extracted_recommendations
                 
                 # For now, return mock data but log the actual response for analysis
                 logger.info(f"Full DeepSeek response content: {content}")
@@ -329,7 +341,8 @@ class DeepSeekService(BaseAIService):
             response = await self._call_deepseek_api_with_retry(prompt)
 
             # Process response (using existing response handling logic)
-            if response and 'recommendations' in response and 'reasoning' in response:
+            if response and 'recommendations' in response:
+                response.setdefault('reasoning', '')
                 self._record_success()
                 if isinstance(response['recommendations'], list):
                     response['recommendations'] = response['recommendations'][:max_recommendations]
@@ -353,10 +366,7 @@ class DeepSeekService(BaseAIService):
                 if extracted_recommendations:
                     self._record_success()
                     logger.info("Successfully extracted recommendations from text response")
-                    return {
-                            "reasoning": "",
-                            "recommendations": extracted_recommendations[:max_recommendations]
-                        }
+                    return extracted_recommendations
 
                 # For now, return mock data but log the actual response for analysis
                 logger.info(f"Full DeepSeek response content: {content}")
@@ -482,7 +492,7 @@ class DeepSeekService(BaseAIService):
                 ][:max_recommendations]
         }
     
-    def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> List[Dict[str, Any]]:
+    def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> Dict[str, Any]:
         """Extract game recommendations from text response when JSON parsing fails"""
         try:
             recommendations = []
@@ -561,8 +571,11 @@ class DeepSeekService(BaseAIService):
                         existing_titles.add(title)
             
             logger.info(f"Extracted {len(recommendations)} recommendations from text")
-            return recommendations[:max_recommendations]
-            
+            return {
+                "reasoning": "",
+                "recommendations": recommendations[:max_recommendations]
+            }
+
         except Exception as e:
             logger.error(f"Error extracting recommendations from text: {e}")
             return []

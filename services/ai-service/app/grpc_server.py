@@ -80,7 +80,7 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             return reco_pb2.RecommendationResponse(
                 success=False,
                 message=f"Error: {str(e)}",
-                 reasoning="",
+                reasoning="",
                 recommendations=[],
                 provider=""
             )
