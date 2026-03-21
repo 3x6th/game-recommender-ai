@@ -216,3 +216,6 @@ app:
     defaults:
       language: "${RECO_DEFAULT_LANGUAGE:english}"
       max-results: "${RECO_DEFAULT_MAX_RESULTS:5}"
+    prompt:
+      top-by-playtime-list-size: "${TOP_BY_PLAYTIME_LIST_SIZE:10}"
+      all-games-list-size-limit: "${ALL_GAMES_LIST_SIZE_LIMIT:100}"

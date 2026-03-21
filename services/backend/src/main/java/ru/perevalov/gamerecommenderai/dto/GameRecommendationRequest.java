@@ -13,4 +13,5 @@ public class GameRecommendationRequest {
     private String content;
     private String[] tags;
     private String steamId;
-} 
+    private String chatId;
+}

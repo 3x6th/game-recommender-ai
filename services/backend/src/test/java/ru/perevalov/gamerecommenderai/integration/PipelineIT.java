@@ -10,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,10 +32,12 @@ import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.repository.ChatMessageRepository;
 import ru.perevalov.gamerecommenderai.service.SteamService;
 
+/**
+ * Интеграционные тесты recommendation pipeline.
+ */
 @AutoConfigureWebTestClient
 @Tag("integration")
-@Disabled("Depends on PCAI-113/115/116/117: chat storage, read API, idempotency, ownership")
-class ProceedIT extends IntegrationTestBase {
+class PipelineIT extends IntegrationTestBase {
 
     @Autowired
     private WebTestClient webTestClient;
@@ -53,8 +54,13 @@ class ProceedIT extends IntegrationTestBase {
     @MockBean
     private SteamService steamService;
 
+    /**
+     * Проверяет happy path с сохранением пользовательского и assistant-сообщений.
+     *
+     * @throws Exception если JSON-ответ не удалось разобрать
+     */
     @Test
-    void proceed_happyPath_persistsUserAndAssistant() throws Exception {
+    void pipeline_happyPath_persistsUserAndAssistant() throws Exception {
         when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
                 .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
         when(grpcClient.getGameRecommendations(any()))
@@ -99,8 +105,13 @@ class ProceedIT extends IntegrationTestBase {
         assertThat(messages.get(1).getCreatedAt()).isNotNull();
     }
 
+    /**
+     * Проверяет soft-failure AI: сохраняется только пользовательское сообщение.
+     *
+     * @throws Exception если JSON-ответ не удалось разобрать
+     */
     @Test
-    void proceed_aiError_returnsSoftFailureAndPersistsOnlyUser() throws Exception {
+    void pipeline_aiError_returnsSoftFailureAndPersistsOnlyUser() throws Exception {
         when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
                 .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
         when(grpcClient.getGameRecommendations(any()))
@@ -143,8 +154,13 @@ class ProceedIT extends IntegrationTestBase {
         assertThat(messages.get(0).getContent()).isEqualTo("Need advice");
     }
 
+    /**
+     * Проверяет идемпотентность запроса по X-Client-Request-Id.
+     *
+     * @throws Exception если JSON-ответ не удалось разобрать
+     */
     @Test
-    void proceed_idempotency_clientRequestId_doesNotDuplicateUserMessages() throws Exception {
+    void pipeline_idempotency_clientRequestId_doesNotDuplicateUserMessages() throws Exception {
         when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
                 .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
         when(grpcClient.getGameRecommendations(any()))
@@ -157,8 +173,8 @@ class ProceedIT extends IntegrationTestBase {
                 .steamId("76561198000000002")
                 .build();
 
-        JsonNode first = executeProceed(request, clientRequestId);
-        JsonNode second = executeProceed(request, clientRequestId);
+        JsonNode first = executePipeline(request, clientRequestId);
+        JsonNode second = executePipeline(request, clientRequestId);
 
         assertThat(first.path("assistantMessageId").asText()).isEqualTo(second.path("assistantMessageId").asText());
 
@@ -175,7 +191,15 @@ class ProceedIT extends IntegrationTestBase {
         assertThat(assistantCount).isEqualTo(1);
     }
 
-    private JsonNode executeProceed(GameRecommendationRequest request, String clientRequestId) throws Exception {
+    /**
+     * Выполняет POST-запрос к endpoint pipeline с указанным clientRequestId.
+     *
+     * @param request запрос рекомендаций
+     * @param clientRequestId значение заголовка X-Client-Request-Id
+     * @return JSON-ответ сервиса
+     * @throws Exception если JSON-ответ не удалось разобрать
+     */
+    private JsonNode executePipeline(GameRecommendationRequest request, String clientRequestId) throws Exception {
         byte[] responseBytes = webTestClient.post()
                 .uri("/api/v1/games/proceed")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -191,6 +215,11 @@ class ProceedIT extends IntegrationTestBase {
         return objectMapper.readTree(new String(responseBytes, StandardCharsets.UTF_8));
     }
 
+    /**
+     * Строит успешный mock gRPC-ответ для интеграционных тестов.
+     *
+     * @return успешный ответ recommendation service
+     */
     private RecommendationResponse successResponse() {
         GameRecommendation rec = GameRecommendation.newBuilder()
                 .setTitle("Example Game")

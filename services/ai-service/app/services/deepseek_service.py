@@ -222,11 +222,63 @@ class DeepSeekService(BaseAIService):
             logger.error(f"Error getting recommendations from DeepSeek: {e}")
             return self._get_mock_recommendations(max_recommendations)
 
+    def _format_library_data(self, steam_library_json: Dict[str, Any]) -> str:
+        recently_played = steam_library_json.get("recentlyPlayed") or []
+        top_by_playtime = steam_library_json.get("topByPlaytime") or []
+        all_games_played = steam_library_json.get("allGamesPlayed") or []
+
+        lines = []
+
+        if recently_played:
+            lines.append("Recently played (last 2 weeks) — DO NOT recommend these games:")
+            for g in recently_played:
+                recent_hours = g.get("recentPlaytimeHours") or 0
+                suffix = f" ({recent_hours} hours in last 2 weeks)" if recent_hours else ""
+                lines.append(f'    - {g.get("name", "Unknown")}{suffix}')
+        else:
+            lines.append("Recently played (last 2 weeks): none")
+
+        if top_by_playtime:
+            lines.append("\nTop played games (use as taste reference):")
+            for g in top_by_playtime:
+                total_hours = g.get("playtimeHours") or 0
+                suffix = f" ({total_hours} hours)" if total_hours else ""
+                lines.append(f'    - {g.get("name", "Unknown")}{suffix}')
+
+        if all_games_played:
+            lines.append("\nFull library (all games ever played — for full context):")
+            for g in all_games_played:
+                total_hours = g.get("playtimeHours") or 0
+                suffix = f" ({total_hours} hours)" if total_hours else ""
+                lines.append(f'    - {g.get("name", "Unknown")}{suffix}')
+
+        return "\n".join(lines)
+
+    def _build_library_prompt_block(self, steam_library: str | None) -> str:
+
+        if not steam_library:
+            logger.info("Steam library is null, skipping library sections in prompt")
+            return ""
+
+        steam_library_json = json.loads(steam_library)
+        if not isinstance(steam_library_json, dict):
+            logger.info("Steam library is malformed, skipping library sections in prompt")
+            return ""
+
+        logger.info("Steam library data available, adding to prompt")
+        return (
+            f"\n  {self._format_library_data(steam_library_json)}"
+            "\n"
+            "\n  STRICT RULES — follow these without exception:"
+            "\n   - NEVER recommend a game from Recently played (last 2 weeks)"
+            "\n   - Pay attention to hidden gems — games with low playtime from unusual genres"
+        )
+
     async def get_recommendations_with_steam_library(
             self,
             user_message: str,
             selected_tags: List[str],
-            steam_library: Dict[str, Any],
+            steam_library: str | None,
             max_recommendations: int = 5
     ) -> Dict[str, Any]:
         """Get recommendations based on user preferences and Steam library"""
@@ -239,19 +291,7 @@ class DeepSeekService(BaseAIService):
                 logger.warning("Circuit breaker is open, returning mock data")
                 return self._get_mock_recommendations(max_recommendations)
 
-            # Process Steam library data
-            played_games = []
-            if steam_library and hasattr(steam_library, 'response') and steam_library.response.games:
-                for game in steam_library.response.games:
-                    played_games.append({
-                        'name': game.name,
-                        'playtime': game.playtimeForever,
-                        'recent_playtime': game.playtime2weeks
-                    })
-
-            # Sort games by playtime to identify favorites
-            played_games.sort(key=lambda x: x['playtime'], reverse=True)
-            favorite_games = played_games[:5] if played_games else []
+            library_prompt_block = self._build_library_prompt_block(steam_library)
 
             # Prepare prompt with Steam library context
             prompt = f"""
@@ -260,9 +300,7 @@ class DeepSeekService(BaseAIService):
             User Message: {user_message}
             Selected Tags/Genres: {', '.join(selected_tags) if selected_tags else 'Any'}
 
-            Steam Library Analysis:
-            - Top played games: {', '.join(f"{game['name']} ({game['playtime']} hours)" for game in favorite_games)}
-            - Total games owned: {len(played_games)}
+            {library_prompt_block}
 
             IMPORTANT: Recommend games that:
             1. Match user's preferences from their message

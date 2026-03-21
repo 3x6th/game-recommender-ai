@@ -5,9 +5,7 @@ import org.springframework.http.HttpStatus;
 import lombok.Getter;
 
 /**
- * Enumeration of error types used in API responses.
- * Each error type provides a human-readable description
- * and an associated HTTP status code to represent the error condition.
+ * Перечисление типов ошибок, используемых в API-ответах приложения.
  */
 @Getter
 public enum ErrorType {
@@ -31,6 +29,7 @@ public enum ErrorType {
     INVALID_AUTHORIZATION_HEADER("Invalid Authorization header: %s", HttpStatus.UNAUTHORIZED),
     INVALID_MESSAGE_META("Invalid message meta: %s", HttpStatus.BAD_REQUEST),
     INVALID_REQUEST_CONTEXT("Invalid request context: %s", HttpStatus.BAD_REQUEST),
+    INVALID_STEAM_ID_FORMAT("Invalid steamId format: '%s'.", HttpStatus.BAD_REQUEST),
     MISSING_AUTHORIZATION_HEADER("Missing authorization header. Expected JWT token.", HttpStatus.UNAUTHORIZED),
     OPENID_VALIDATION_FAILED_ENDPOINT("OpenID validation failed: opEndpoint '%s' differs from expected in openId" +
             " authorization flow through Steam.", HttpStatus.UNAUTHORIZED),
@@ -54,11 +53,18 @@ public enum ErrorType {
     USER_GAME_STATS_SAVE_ERROR("Failed to save user game stats. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
     USER_STEAM_PROFILE_SAVE_ERROR("Failed to save Steam profile. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
     USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND),
-    USER_GAME_STATS_VALIDATION_ERROR("User game stats validation failed: %s for steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR);
+    USER_GAME_STATS_VALIDATION_ERROR("User game stats validation failed: %s for steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
+    VALIDATION_ERROR("Validation error: %s", HttpStatus.BAD_REQUEST);
 
     private final String description;
     private final HttpStatus status;
 
+    /**
+     * Создает описание ошибки и связанный с ней HTTP-статус.
+     *
+     * @param description шаблон описания ошибки
+     * @param status HTTP-статус ошибки
+     */
     ErrorType(String description, HttpStatus status) {
         this.description = description;
         this.status = status;
