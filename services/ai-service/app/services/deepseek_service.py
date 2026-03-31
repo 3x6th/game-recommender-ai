@@ -107,41 +107,34 @@ class DeepSeekService(BaseAIService):
         self,
         content: str,
         max_recommendations: int,
-    ) -> Dict[str, Any] | None:
+    ) -> tuple[List[Dict[str, Any]], str] | tuple[None, None]:
         """
         Parse JSON response from LLM content.
 
-        Returns a dictionary with 'reasoning' and 'recommendations' keys,
-        or None if parsing fails.
-
-        Args:
-            content: Raw text response from LLM
-            max_recommendations: Maximum number of recommendations to return
-
         Returns:
-            Dict with structure: {'reasoning': str, 'recommendations': list}
-            or None if no valid JSON found
+            Tuple of (recommendations_list, reasoning_string)
+            or (None, None) if parsing fails
         """
         json_str = self._extract_json_string(content)
         if not json_str:
-            return None
+            return None, None
 
         logger.info(f"Extracted JSON string: {json_str[:200]}...")
         parsed_response = self._loads_json_with_repair(json_str)
         if not parsed_response:
-            return None
+            return None, None
 
-        if 'recommendations' in parsed_response:
-            # Обрезаем рекомендации до максимума
-            if isinstance(parsed_response['recommendations'], list):
-                parsed_response['recommendations'] = parsed_response['recommendations'][:max_recommendations]
-            return parsed_response
+        recommendations = parsed_response.get('recommendations')
+        if isinstance(recommendations, list):
+            recommendations = recommendations[:max_recommendations]
+            reasoning = parsed_response.get('reasoning', '')
+            return recommendations, reasoning
 
         logger.warning(
             "JSON parsed but no 'recommendations' list found. Keys: %s",
             list(parsed_response.keys()),
         )
-        return None
+        return None, None
     
     async def get_recommendations(
         self,
@@ -149,8 +142,8 @@ class DeepSeekService(BaseAIService):
         genres: List[str] = None,
         platforms: List[str] = None,
         max_recommendations: int = 5
-    ) -> Dict[str, Any]:
-        """Get game recommendations from DeepSeek. Returns dict with reasoning and recommendations."""
+    ) -> List[Dict[str, Any]]:
+        """Get game recommendations from DeepSeek"""
         try:
             if not self.api_key or not self.client:
                 logger.warning("No DeepSeek API key or client available")
@@ -194,12 +187,9 @@ class DeepSeekService(BaseAIService):
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(prompt)
 
-            if response and 'recommendations' in response:  # ← ровно 12 пробелов (отступ от начала метода)
-                response.setdefault('reasoning', '')
+            if response and 'recommendations' in response:
                 self._record_success()
-                if isinstance(response['recommendations'], list):
-                    response['recommendations'] = response['recommendations'][:max_recommendations]
-                return response  # ← return после if, не внутри
+                return response['recommendations'][:max_recommendations]
             elif response and 'choices' in response and len(response['choices']) > 0:
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
@@ -292,7 +282,7 @@ class DeepSeekService(BaseAIService):
             selected_tags: List[str],
             steam_library: str | None,
             max_recommendations: int = 5
-    ) -> Dict[str, Any]:
+    ) -> tuple[List[Dict[str, Any]], str]:
         """Get recommendations based on user preferences and Steam library"""
         try:
             if not self.api_key or not self.client:
@@ -342,21 +332,20 @@ class DeepSeekService(BaseAIService):
 
             # Process response (using existing response handling logic)
             if response and 'recommendations' in response:
-                response.setdefault('reasoning', '')
+                recommendations = response['recommendations'][:max_recommendations]
+                reasoning = response.get('reasoning', '')
                 self._record_success()
-                if isinstance(response['recommendations'], list):
-                    response['recommendations'] = response['recommendations'][:max_recommendations]
-                return response
+                return recommendations, reasoning
             elif response and 'choices' in response and len(response['choices']) > 0:
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
                 logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
 
-                json_recommendations = self._parse_recommendations_from_content(content, max_recommendations)
-                if json_recommendations is not None:
+                recommendations, reasoning = self._parse_recommendations_from_content(content, max_recommendations)
+                if recommendations is not None:
                     self._record_success()
                     logger.info("Successfully parsed JSON recommendations from chat response")
-                    return json_recommendations
+                    return recommendations, reasoning
 
                 logger.warning("Failed to parse JSON recommendations from chat response; falling back to text extraction")
                 logger.warning(f"Raw content: {content[:500]}...")
@@ -438,61 +427,60 @@ class DeepSeekService(BaseAIService):
             logger.error(f"Error calling DeepSeek API via SDK: {e}")
             return None
     
-    def _get_mock_recommendations(self, max_recommendations: int) -> Dict[str, Any]:
+    def _get_mock_recommendations(self, max_recommendations: int) -> List[Dict[str, Any]]:
         """Return mock recommendations when API is not available"""
-        return {
-        "reasoning": "Based on your preferences for action RPGs and story-driven games, I've selected these titles that match your interests. All games have high ratings and are available on PC and major consoles.",
-        "recommendations": [
-                    {
-                        "title": "Cyberpunk 2077",
-                        "genre": "RPG",
-                        "description": "Open-world action RPG set in Night City",
-                        "why_recommended": "Matches your preference for action games with deep storytelling",
-                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
-                        "rating": 8.5,
-                        "release_year": "2020"
-                    },
-                    {
-                        "title": "The Witcher 3: Wild Hunt",
-                        "genre": "RPG",
-                        "description": "Epic fantasy RPG with monster hunting",
-                        "why_recommended": "Excellent action RPG with rich world and engaging combat",
-                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
-                        "rating": 9.3,
-                        "release_year": "2015"
-                    },
-                    {
-                        "title": "Elden Ring",
-                        "genre": "Action RPG",
-                        "description": "Open-world action RPG with challenging combat",
-                        "why_recommended": "Epic open-world game with deep combat mechanics",
-                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
-                        "rating": 9.5,
-                        "release_year": "2022"
-                    }
-                    ,
-                    {
-                        "title": "Forza Horizon 5",
-                        "genre": "Racing",
-                        "description": "Open-world racing game set in Mexico with tons of events and cars",
-                        "why_recommended": "Relaxing driving with lots of variety and freedom to explore",
-                        "platforms": ["PC", "Xbox One", "Xbox Series X"],
-                        "rating": 9.0,
-                        "release_year": "2021"
-                    },
-                    {
-                        "title": "Hades",
-                        "genre": "Roguelike Action",
-                        "description": "Fast-paced action roguelike set in Greek mythology",
-                        "why_recommended": "Highly replayable with great narrative and satisfying combat",
-                        "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
-                        "rating": 9.2,
-                        "release_year": "2020"
-                    }
-                ][:max_recommendations]
-        }
+        recommendations = [
+            {
+                "title": "Cyberpunk 2077",
+                "genre": "RPG",
+                "description": "Open-world action RPG set in Night City",
+                "why_recommended": "Matches your preference for action games with deep storytelling",
+                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
+                "rating": 8.5,
+                "release_year": "2020"
+            },
+            {
+                "title": "The Witcher 3: Wild Hunt",
+                "genre": "RPG",
+                "description": "Epic fantasy RPG with monster hunting",
+                "why_recommended": "Excellent action RPG with rich world and engaging combat",
+                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
+                "rating": 9.3,
+                "release_year": "2015"
+            },
+            {
+                "title": "Elden Ring",
+                "genre": "Action RPG",
+                "description": "Open-world action RPG with challenging combat",
+                "why_recommended": "Epic open-world game with deep combat mechanics",
+                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
+                "rating": 9.5,
+                "release_year": "2022"
+            }
+            ,
+            {
+                "title": "Forza Horizon 5",
+                "genre": "Racing",
+                "description": "Open-world racing game set in Mexico with tons of events and cars",
+                "why_recommended": "Relaxing driving with lots of variety and freedom to explore",
+                "platforms": ["PC", "Xbox One", "Xbox Series X"],
+                "rating": 9.0,
+                "release_year": "2021"
+            },
+            {
+                "title": "Hades",
+                "genre": "Roguelike Action",
+                "description": "Fast-paced action roguelike set in Greek mythology",
+                "why_recommended": "Highly replayable with great narrative and satisfying combat",
+                "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X", "Nintendo Switch"],
+                "rating": 9.2,
+                "release_year": "2020"
+            }
+        ]
+
+        return recommendations[:max_recommendations]
     
-    def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> Dict[str, Any]:
+    def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> List[Dict[str, Any]]:
         """Extract game recommendations from text response when JSON parsing fails"""
         try:
             recommendations = []
@@ -554,11 +542,7 @@ class DeepSeekService(BaseAIService):
                     for rec in recommendations
                     if isinstance(rec, dict) and isinstance(rec.get('title'), str)
                 }
-
-                mock_response = self._get_mock_recommendations(max_recommendations)
-                mock_games = mock_response.get('recommendations', [])
-
-                for mock in mock_games:
+                for mock in self._get_mock_recommendations(max_recommendations):
                     if len(recommendations) >= max_recommendations:
                         break
 
@@ -571,10 +555,7 @@ class DeepSeekService(BaseAIService):
                         existing_titles.add(title)
             
             logger.info(f"Extracted {len(recommendations)} recommendations from text")
-            return {
-                "reasoning": "",
-                "recommendations": recommendations[:max_recommendations]
-            }
+            return recommendations[:max_recommendations]
 
         except Exception as e:
             logger.error(f"Error extracting recommendations from text: {e}")

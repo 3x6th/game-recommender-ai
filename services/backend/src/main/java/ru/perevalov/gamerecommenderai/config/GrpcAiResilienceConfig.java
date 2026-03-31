@@ -17,6 +17,8 @@ public class GrpcAiResilienceConfig {
                 .failureRateThreshold(props.failureRateThreshold())
                 .waitDurationInOpenState(Duration.ofSeconds(props.waitDurationOpenSeconds()))
                 .permittedNumberOfCallsInHalfOpenState(props.permittedCallsInHalfOpen())
+                .slowCallDurationThreshold(Duration.ofSeconds(props.slowCallDurationThreshold()))
+                .slowCallRateThreshold(props.slowCallRateThreshold())
                 .build();
 
         return CircuitBreaker.of(props.name(), config);

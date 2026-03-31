@@ -14,7 +14,9 @@ public record GrpcAiCircuitBreakerProps(
         @Min(1) int minimumNumberOfCalls,
         @DecimalMin("0.0") float failureRateThreshold,
         @Min(0) long waitDurationOpenSeconds,
-        @Min(1) int permittedCallsInHalfOpen
+        @Min(1) int permittedCallsInHalfOpen,
+        @Min(1) int slowCallDurationThreshold,
+        @DecimalMin("0.0") float slowCallRateThreshold
 ) {
 }
 

@@ -36,20 +36,13 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             logger.info(f"User message: {request.userMessage}")
             logger.info(f"Selected tags: {request.selectedTags}")
 
-            # Get recommendations from service registry with Steam library context
-            result = await self.service_registry.get_recommendations_with_steam_library(
+            # Get recommendations, reasoning from service registry with Steam library context
+            recommendations, reasoning = await self.service_registry.get_recommendations_with_steam_library(
                 user_message=request.userMessage,
                 selected_tags=list(request.selectedTags),
                 steam_library=request.profileSummary,
                 max_recommendations=request.maxResults
             )
-
-            # Извлекаем reasoning и recommendations
-            reasoning = result.get('reasoning', '') if isinstance(result, dict) else ''
-            recommendations = result.get('recommendations', []) if isinstance(result, dict) else result
-
-            if isinstance(result, list):
-                recommendations = result
 
             # Convert to gRPC format
             grpc_recommendations = []

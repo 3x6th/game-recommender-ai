@@ -4,7 +4,7 @@ Service registry for managing AI service providers.
 
 import logging
 import os
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
 
 from app.services.base import BaseAIService
 from app.services.deepseek_service import DeepSeekService
@@ -88,22 +88,24 @@ class ServiceRegistry:
             selected_tags: List[str],
             steam_library: Dict[str, Any],
             max_recommendations: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> Tuple[List[Dict[str, Any]], str]:
         """Get recommendations based on user preferences and Steam library"""
         if not self.active_service:
             logger.error("No active AI service")
-            return []
+            return [], ""
 
         try:
             logger.info(f"Getting recommendations from {self.active_service.get_name()} with Steam library data")
-            recommendations = await self.active_service.get_recommendations_with_steam_library(
+            recommendations, reasoning = await self.active_service.get_recommendations_with_steam_library(
                 user_message, selected_tags, steam_library, max_recommendations
             )
             logger.info(f"Service {self.active_service.get_name()} returned {len(recommendations)} recommendations")
-            return recommendations
+            if reasoning:
+                logger.info(f"Reasoning: {reasoning}")
+            return recommendations, reasoning
         except Exception as e:
             logger.error(f"Error getting recommendations with Steam library: {e}")
-            return []
+            return [], ""
 
     def get_available_services(self) -> List[str]:
         """Get list of available service names"""
