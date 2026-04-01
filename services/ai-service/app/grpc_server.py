@@ -36,8 +36,8 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             logger.info(f"User message: {request.userMessage}")
             logger.info(f"Selected tags: {request.selectedTags}")
 
-            # Get recommendations from service registry with Steam library context
-            recommendations = await self.service_registry.get_recommendations_with_steam_library(
+            # Get recommendations, reasoning from service registry with Steam library context
+            recommendations, reasoning = await self.service_registry.get_recommendations_with_steam_library(
                 user_message=request.userMessage,
                 selected_tags=list(request.selectedTags),
                 steam_library=request.profileSummary,
@@ -61,6 +61,7 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             return reco_pb2.RecommendationResponse(
                 success=True,
                 message=f"Generated {len(grpc_recommendations)} recommendations based on preferences and Steam library",
+                reasoning=reasoning,
                 recommendations=grpc_recommendations,
                 provider=self.service_registry.get_active_provider()
             )
@@ -72,6 +73,7 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             return reco_pb2.RecommendationResponse(
                 success=False,
                 message=f"Error: {str(e)}",
+                reasoning="",
                 recommendations=[],
                 provider=""
             )

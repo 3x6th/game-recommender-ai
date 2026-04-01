@@ -211,9 +211,10 @@ public class GameRecommenderService {
 
                     if (!gameRecommendations.isEmpty()) {
                         log.info("First recommendation: {}", gameRecommendations.getFirst().getTitle());
+                        log.info("Reasoning: {}", grpcResponse.getReasoning());
                     }
                 })
-                .map(this::buildResponse);
+                .map(recommendations -> buildResponse(grpcResponse, recommendations));
     }
 
     /**
@@ -235,9 +236,11 @@ public class GameRecommenderService {
      * @return ответ приложения
      */
     private GameRecommendationResponse buildResponse(
+            RecommendationResponse grpcResponse,
             List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations) {
         return GameRecommendationResponse.builder()
                 .recommendation("Получено " + recommendations.size() + " рекомендаций")
+                .reasoning(grpcResponse.getReasoning())
                 .success(true)
                 .recommendations(recommendations)
                 .build();

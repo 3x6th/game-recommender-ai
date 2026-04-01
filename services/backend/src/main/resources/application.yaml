@@ -45,7 +45,7 @@ grpc:
       negotiationType: "${GRPC_CLIENT_AI_SERVICE_NEGOTIATION_TYPE:plaintext}"
       maxInboundMessageSize: "${GRPC_CLIENT_AI_SERVICE_MAX_INBOUND_MESSAGE_SIZE:1048576}"
   ai-client:
-    deadlineSeconds: "${GRPC_AI_CLIENT_DEADLINE_SECONDS:20}"
+    deadlineSeconds: "${GRPC_AI_CLIENT_DEADLINE_SECONDS:60}"
     retryMaxAttempts: "${GRPC_AI_CLIENT_RETRY_MAX_ATTEMPTS:1}"
     retryBackoffMs: "${GRPC_AI_CLIENT_RETRY_BACKOFF_MS:250}"
   ai-circuit-breaker:
@@ -55,6 +55,8 @@ grpc:
     failureRateThreshold: "${GRPC_AI_CB_FAILURE_RATE_THRESHOLD:50.0}"
     waitDurationOpenSeconds: "${GRPC_AI_CB_WAIT_DURATION_OPEN_SECONDS:30}"
     permittedCallsInHalfOpen: "${GRPC_AI_CB_PERMITTED_CALLS_IN_HALF_OPEN:2}"
+    slowCallDurationThreshold: "${GRPC_AI_CB_SLOW_CALL_DURATION_THRESHOLD:45}"
+    slowCallRateThreshold: "${GRPC_AI_CB_SLOW_CALL_RATE_THRESHOLD:50}"
 
 # Security and token
 security:

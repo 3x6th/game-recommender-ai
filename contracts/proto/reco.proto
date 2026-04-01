@@ -54,6 +54,7 @@ message RecommendationResponse {
   string message = 2;
   repeated GameRecommendation recommendations = 3;
   string provider = 4;          // AI provider used (e.g., "deepseek", "gigachat")
+  string reasoning = 5;         //Объяснение логики подбора: "Подобрал RPG с сильным нарративом, т.к. в вашей библиотеке 300+ часов в Disco Elysium"
 }
 
 // Individual game recommendation

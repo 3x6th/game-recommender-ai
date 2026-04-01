@@ -107,30 +107,39 @@ class DeepSeekService(BaseAIService):
         self,
         content: str,
         max_recommendations: int,
-    ) -> List[Dict[str, Any]] | None:
+    ) -> tuple[List[Dict[str, Any]], str] | tuple[None, None]:
+        """
+        Parse JSON response from LLM content.
+
+        Returns:
+            Tuple of (recommendations_list, reasoning_string)
+            or (None, None) if parsing fails
+        """
         json_str = self._extract_json_string(content)
         if not json_str:
-            return None
+            return None, None
 
         logger.info(f"Extracted JSON string: {json_str[:200]}...")
         parsed_response = self._loads_json_with_repair(json_str)
         if not parsed_response:
-            return None
+            return None, None
 
         recommendations = parsed_response.get('recommendations')
         if isinstance(recommendations, list):
-            return recommendations[:max_recommendations]
+            recommendations = recommendations[:max_recommendations]
+            reasoning = parsed_response.get('reasoning', '')
+            return recommendations, reasoning
 
         logger.warning(
             "JSON parsed but no 'recommendations' list found. Keys: %s",
             list(parsed_response.keys()),
         )
-        return None
+        return None, None
     
     async def get_recommendations(
-        self, 
-        preferences: str, 
-        genres: List[str] = None, 
+        self,
+        preferences: str,
+        genres: List[str] = None,
         platforms: List[str] = None,
         max_recommendations: int = 5
     ) -> List[Dict[str, Any]]:
@@ -157,6 +166,7 @@ class DeepSeekService(BaseAIService):
 
             IMPORTANT: You must respond with ONLY valid JSON in this exact format, no additional text:
             {{
+                "reasoning": "A brief explanation (2-4 sentences) of why these particular games were chosen, based on what criteria (preferences, genres, platforms)",
                 "recommendations": [
                     {{
                         "title": "Game Title",
@@ -176,7 +186,7 @@ class DeepSeekService(BaseAIService):
             
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(prompt)
-            
+
             if response and 'recommendations' in response:
                 self._record_success()
                 return response['recommendations'][:max_recommendations]
@@ -272,7 +282,7 @@ class DeepSeekService(BaseAIService):
             selected_tags: List[str],
             steam_library: str | None,
             max_recommendations: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> tuple[List[Dict[str, Any]], str]:
         """Get recommendations based on user preferences and Steam library"""
         try:
             if not self.api_key or not self.client:
@@ -302,10 +312,11 @@ class DeepSeekService(BaseAIService):
 
             RESPOND WITH ONLY valid JSON in this exact format:
             {{
+                "reasoning": "A brief explanation (2-4 sentences) of why these particular games were chosen, with a link to the Steam library: which games/genres/patterns influenced the choice",
                 "recommendations": [
                     {{
                         "title": "Game Title",
-                        "genre": "Game Genre", 
+                        "genre": "Game Genre",
                         "description": "Brief description",
                         "why_recommended": "Explain why this game matches their preferences and play history",
                         "platforms": ["PC", "PS5", "Xbox"],
@@ -321,18 +332,20 @@ class DeepSeekService(BaseAIService):
 
             # Process response (using existing response handling logic)
             if response and 'recommendations' in response:
+                recommendations = response['recommendations'][:max_recommendations]
+                reasoning = response.get('reasoning', '')
                 self._record_success()
-                return response['recommendations'][:max_recommendations]
+                return recommendations, reasoning
             elif response and 'choices' in response and len(response['choices']) > 0:
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
                 logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
 
-                json_recommendations = self._parse_recommendations_from_content(content, max_recommendations)
-                if json_recommendations is not None:
+                recommendations, reasoning = self._parse_recommendations_from_content(content, max_recommendations)
+                if recommendations is not None:
                     self._record_success()
                     logger.info("Successfully parsed JSON recommendations from chat response")
-                    return json_recommendations
+                    return recommendations, reasoning
 
                 logger.warning("Failed to parse JSON recommendations from chat response; falling back to text extraction")
                 logger.warning(f"Raw content: {content[:500]}...")
@@ -464,7 +477,7 @@ class DeepSeekService(BaseAIService):
                 "release_year": "2020"
             }
         ]
-        
+
         return recommendations[:max_recommendations]
     
     def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> List[Dict[str, Any]]:
@@ -543,7 +556,7 @@ class DeepSeekService(BaseAIService):
             
             logger.info(f"Extracted {len(recommendations)} recommendations from text")
             return recommendations[:max_recommendations]
-            
+
         except Exception as e:
             logger.error(f"Error extracting recommendations from text: {e}")
             return []
