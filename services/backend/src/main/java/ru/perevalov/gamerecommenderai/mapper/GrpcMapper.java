@@ -2,13 +2,16 @@ package ru.perevalov.gamerecommenderai.mapper;
 
 import org.springframework.stereotype.Component;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
+import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.grpc.FullAiContextRequestProto;
 import ru.perevalov.gamerecommenderai.grpc.GameProto;
 import ru.perevalov.gamerecommenderai.grpc.ResponseProto;
+import ru.perevalov.gamerecommenderai.grpc.SimilarGamesResponse;
+import ru.perevalov.gamerecommenderai.grpc.SteamAppResponse;
 import ru.perevalov.gamerecommenderai.grpc.SteamOwnedGamesResponseProto;
 
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -105,6 +108,54 @@ public class GrpcMapper {
 
         if (game.getName() != null) {
             builder.setName(game.getName());
+        }
+
+        return builder.build();
+    }
+
+    public SteamAppResponse toSteamAppResponse(SteamGameDetailsResponseDto response) {
+        if (response == null || !response.success()) {
+            return SteamAppResponse.newBuilder().build();
+        }
+        var data = response.steamGameDataResponseDto();
+
+        String description = data.shortDescription();
+        if (description == null) {
+            description = data.detailedDescription();
+        }
+
+        List<String> genres = new ArrayList<>();
+        if (data.genres() != null) {
+            genres = data.genres().stream()
+                    .map(SteamGameDetailsResponseDto.SteamGenreResponseDto::description)
+                    .collect(Collectors.toList());
+        }
+
+        return SteamAppResponse.newBuilder()
+                .setAppId(data.steamAppid())
+                .setName(data.name())
+                .setDescription(description)
+                .addAllGenres(genres)
+                .build();
+    }
+
+    public SteamAppResponse toSteamAppResponse(long appId, String name) {
+        return SteamAppResponse.newBuilder()
+                .setAppId((int) appId)
+                .setName(name != null ? name : "")
+                .setDescription("")
+                .addAllGenres(List.of())
+                .build();
+    }
+
+    public SimilarGamesResponse toSimilarGamesResponse(List<SteamAppResponse> games) {
+        if (games == null || games.isEmpty()) {
+            return SimilarGamesResponse.newBuilder().build();
+        }
+
+        SimilarGamesResponse.Builder builder = SimilarGamesResponse.newBuilder();
+        for (SteamAppResponse game : games) {
+            builder.addGames(game);
         }
 
         return builder.build();
