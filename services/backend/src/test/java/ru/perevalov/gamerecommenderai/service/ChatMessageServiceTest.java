@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -115,5 +116,30 @@ class ChatMessageServiceTest {
                 metaCaptor.capture()
         );
         assertThat(metaCaptor.getValue().get(MessageMetaFields.FIELD_TYPE).asText()).isEqualTo("reply");
+    }
+
+    @Test
+    void appendUserMessage_whenDuplicateInsert_thenReturnsExistingMessageId() {
+        UUID chatId = UUID.randomUUID();
+        UUID clientRequestId = UUID.randomUUID();
+        UUID existingMessageId = UUID.randomUUID();
+
+        ChatMessage existing = new ChatMessage();
+        existing.setId(existingMessageId);
+
+        when(chatMessageRepository.save(any(ChatMessage.class)))
+                .thenReturn(Mono.error(new DataIntegrityViolationException("duplicate key")));
+        when(chatMessageRepository.findLatestUserByChatAndClientRequestId(chatId, clientRequestId))
+                .thenReturn(Mono.just(existing));
+
+        ChatMessageService service = new ChatMessageService(
+                chatMessageRepository,
+                metaFactory,
+                chatMessageValidator
+        );
+
+        StepVerifier.create(service.appendUserMessage(chatId, "hello", clientRequestId, null, null))
+                .assertNext(id -> assertThat(id).isEqualTo(existingMessageId))
+                .verifyComplete();
     }
 }

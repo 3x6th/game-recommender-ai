@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -24,8 +25,8 @@ import ru.perevalov.gamerecommenderai.message.MessageMetaType;
 import ru.perevalov.gamerecommenderai.repository.ChatMessageRepository;
 
 /**
- * Сервис сохранения сообщений чата и получения истории.
- * Валидация входных данных делегирована {@link ChatMessageValidator}.
+ * Сервис для сохранения сообщений чата и чтения истории.
+ * Валидация сообщений и проверка meta-envelope делегированы {@link ChatMessageValidator}.
  */
 @Slf4j
 @Service
@@ -45,10 +46,10 @@ public class ChatMessageService {
     /**
      * Добавляет сообщение в чат после валидации.
      *
-     * @param chatId идентификатор чата
+     * @param chatId идентификатор целевого чата
      * @param role роль сообщения
      * @param content текст сообщения
-     * @param meta опциональные метаданные
+     * @param meta необязательный metadata envelope
      * @return идентификатор созданного сообщения
      */
     public Mono<UUID> append(UUID chatId, MessageRole role, String content, JsonNode meta) {
@@ -70,14 +71,17 @@ public class ChatMessageService {
     }
 
     /**
-     * Добавляет сообщение роли USER и формирует meta-конверт ответа.
+     * Добавляет USER-сообщение и формирует reply metadata envelope.
+     * Если база отклоняет вставку из-за дубликата уникального ключа
+     * {@code (chat_id, client_request_id)} для USER-сообщений, метод возвращает
+     * идентификатор уже существующего сообщения вместо ошибки, что делает retry race-safe.
      *
-     * @param chatId идентификатор чата
+     * @param chatId идентификатор целевого чата
      * @param text текст сообщения
-     * @param clientRequestId идентификатор клиентского запроса для идемпотентности/трекинга
-     * @param tags опциональные теги
-     * @param extra опциональная пользовательская нагрузка метаданных
-     * @return идентификатор созданного сообщения
+     * @param clientRequestId клиентский идентификатор запроса для идемпотентности и трассировки
+     * @param tags необязательные теги
+     * @param extra необязательная пользовательская metadata payload
+     * @return идентификатор созданного или уже существующего сообщения
      */
     public Mono<UUID> appendUserMessage(
             UUID chatId,
@@ -89,17 +93,28 @@ public class ChatMessageService {
         return Mono.defer(() -> {
             log.debug("Append USER message chatId={} clientRequestId={}", chatId, clientRequestId);
             ObjectNode meta = messageMetaFactory.reply(text, clientRequestId, tags, extra);
-            return append(chatId, MessageRole.USER, text, meta);
+
+            Mono<UUID> appendMono = append(chatId, MessageRole.USER, text, meta);
+
+            if (clientRequestId == null) {
+                return appendMono;
+            }
+
+            return appendMono.onErrorResume(DataIntegrityViolationException.class, ex ->
+                    findLatestUserMessage(chatId, clientRequestId)
+                            .map(ChatMessage::getId)
+                            .switchIfEmpty(Mono.error(ex))
+            );
         });
     }
 
     /**
-     * Добавляет сообщение роли ASSISTANT с meta-конвертом.
+     * Добавляет ASSISTANT-сообщение с metadata envelope.
      *
-     * @param chatId идентификатор чата
+     * @param chatId идентификатор целевого чата
      * @param content текст сообщения
      * @param type тип метаданных
-     * @param payload нагрузка метаданных
+     * @param payload payload метаданных
      * @return идентификатор созданного сообщения
      */
     public Mono<UUID> appendAssistantMessage(UUID chatId, String content, MessageMetaType type, Object payload) {
@@ -118,12 +133,12 @@ public class ChatMessageService {
     }
 
     /**
-     * Возвращает последнее сообщение пользователя по clientRequestId внутри чата.
-     * Если идентификаторы не заданы, возвращает пустой результат.
+     * Возвращает последнее USER-сообщение для конкретного чата и clientRequestId.
+     * Если один из идентификаторов отсутствует, возвращает пустой результат.
      *
-     * @param chatId идентификатор чата
-     * @param clientRequestId идентификатор клиентского запроса
-     * @return найденное сообщение пользователя или пустой результат
+     * @param chatId идентификатор целевого чата
+     * @param clientRequestId клиентский идентификатор запроса
+     * @return найденное USER-сообщение или пустой результат
      */
     public Mono<ChatMessage> findLatestUserMessage(UUID chatId, UUID clientRequestId) {
         return Mono.defer(() -> {
@@ -135,12 +150,12 @@ public class ChatMessageService {
     }
 
     /**
-     * Возвращает последнее сообщение пользователя по clientRequestId в рамках владельца.
-     * Если контекст или clientRequestId не заданы, возвращает пустой результат.
+     * Возвращает последнее USER-сообщение в рамках текущего owner scope,
+     * определяемого userId или guest sessionId.
      *
-     * @param ctx контекст запроса (user/session)
-     * @param clientRequestId идентификатор клиентского запроса
-     * @return найденное сообщение пользователя или пустой результат
+     * @param ctx owner-контекст запроса
+     * @param clientRequestId клиентский идентификатор запроса
+     * @return найденное USER-сообщение или пустой результат
      */
     public Mono<ChatMessage> findLatestUserMessage(RequestContext ctx, UUID clientRequestId) {
         return Mono.defer(() -> {
@@ -156,11 +171,10 @@ public class ChatMessageService {
     }
 
     /**
-     * Возвращает последнее сообщение ассистента по чату.
-     * Если chatId не задан, возвращает пустой результат.
+     * Возвращает последнее ASSISTANT-сообщение в чате.
      *
-     * @param chatId идентификатор чата
-     * @return найденное сообщение ассистента или пустой результат
+     * @param chatId идентификатор целевого чата
+     * @return последнее ASSISTANT-сообщение или пустой результат
      */
     public Mono<ChatMessage> findLastAssistantMessage(UUID chatId) {
         return Mono.defer(() -> chatId == null
@@ -169,9 +183,9 @@ public class ChatMessageService {
     }
 
     /**
-     * Возвращает последние сообщения в порядке {@code created_at DESC, id DESC}.
+     * Возвращает последние сообщения чата, упорядоченные по {@code created_at DESC, id DESC}.
      *
-     * @param chatId идентификатор чата
+     * @param chatId идентификатор целевого чата
      * @param limit запрошенный размер страницы
      * @return поток сообщений
      */
@@ -188,9 +202,10 @@ public class ChatMessageService {
     }
 
     /**
-     * Возвращает сообщения до указанного времени в порядке {@code created_at DESC, id DESC}.
+     * Возвращает сообщения чата, созданные до указанного момента времени,
+     * упорядоченные по {@code created_at DESC, id DESC}.
      *
-     * @param chatId идентификатор чата
+     * @param chatId идентификатор целевого чата
      * @param before эксклюзивная верхняя граница по времени
      * @param limit запрошенный размер страницы
      * @return поток сообщений
@@ -209,7 +224,7 @@ public class ChatMessageService {
     }
 
     /**
-     * Нормализует запрошенный размер страницы в пределах допустимых границ сервиса.
+     * Нормализует запрошенный размер страницы в пределах допустимых лимитов сервиса.
      *
      * @param limit запрошенный лимит
      * @return нормализованное значение лимита

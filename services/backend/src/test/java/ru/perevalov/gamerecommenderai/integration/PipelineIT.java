@@ -55,9 +55,9 @@ class PipelineIT extends IntegrationTestBase {
     private SteamService steamService;
 
     /**
-     * Проверяет happy path с сохранением пользовательского и assistant-сообщений.
+     * Проверяет happy-path, в котором сохраняются и USER-, и ASSISTANT-сообщения.
      *
-     * @throws Exception если JSON-ответ не удалось разобрать
+     * @throws Exception если не удалось распарсить JSON-ответ
      */
     @Test
     void pipeline_happyPath_persistsUserAndAssistant() throws Exception {
@@ -106,9 +106,9 @@ class PipelineIT extends IntegrationTestBase {
     }
 
     /**
-     * Проверяет soft-failure AI: сохраняется только пользовательское сообщение.
+     * Проверяет сценарий soft-failure AI, в котором сохраняется только USER-сообщение.
      *
-     * @throws Exception если JSON-ответ не удалось разобрать
+     * @throws Exception если не удалось распарсить JSON-ответ
      */
     @Test
     void pipeline_aiError_returnsSoftFailureAndPersistsOnlyUser() throws Exception {
@@ -155,9 +155,9 @@ class PipelineIT extends IntegrationTestBase {
     }
 
     /**
-     * Проверяет идемпотентность запроса по X-Client-Request-Id.
+     * Проверяет идемпотентность, когда {@code clientRequestId} передан в теле запроса.
      *
-     * @throws Exception если JSON-ответ не удалось разобрать
+     * @throws Exception если не удалось распарсить JSON-ответ
      */
     @Test
     void pipeline_idempotency_clientRequestId_doesNotDuplicateUserMessages() throws Exception {
@@ -171,10 +171,11 @@ class PipelineIT extends IntegrationTestBase {
                 .content("Same request")
                 .tags(new String[]{"Action"})
                 .steamId("76561198000000002")
+                .clientRequestId(clientRequestId)
                 .build();
 
-        JsonNode first = executePipeline(request, clientRequestId);
-        JsonNode second = executePipeline(request, clientRequestId);
+        JsonNode first = executePipeline(request, null);
+        JsonNode second = executePipeline(request, null);
 
         assertThat(first.path("assistantMessageId").asText()).isEqualTo(second.path("assistantMessageId").asText());
 
@@ -189,21 +190,35 @@ class PipelineIT extends IntegrationTestBase {
 
         assertThat(userCount).isEqualTo(1);
         assertThat(assistantCount).isEqualTo(1);
+
+        ChatMessage userMessage = messages.stream()
+                .filter(m -> m.getRole() == MessageRole.USER)
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(userMessage.getClientRequestId()).isEqualTo(UUID.fromString(clientRequestId));
+        assertThat(userMessage.getMeta().get("payload").get("clientRequestId").asText())
+                .isEqualTo(clientRequestId);
     }
 
     /**
-     * Выполняет POST-запрос к endpoint pipeline с указанным clientRequestId.
+     * Выполняет POST-запрос в pipeline с необязательным заголовком {@code X-Client-Request-Id}.
      *
-     * @param request запрос рекомендаций
-     * @param clientRequestId значение заголовка X-Client-Request-Id
-     * @return JSON-ответ сервиса
-     * @throws Exception если JSON-ответ не удалось разобрать
+     * @param request тело запроса
+     * @param clientRequestId необязательное значение заголовка
+     * @return распарсенный JSON-ответ
+     * @throws Exception если не удалось распарсить JSON-ответ
      */
     private JsonNode executePipeline(GameRecommendationRequest request, String clientRequestId) throws Exception {
-        byte[] responseBytes = webTestClient.post()
+        WebTestClient.RequestBodySpec spec = webTestClient.post()
                 .uri("/api/v1/games/proceed")
-                .contentType(MediaType.APPLICATION_JSON)
-                .header("X-Client-Request-Id", clientRequestId)
+                .contentType(MediaType.APPLICATION_JSON);
+
+        if (clientRequestId != null) {
+            spec = spec.header("X-Client-Request-Id", clientRequestId);
+        }
+
+        byte[] responseBytes = spec
                 .bodyValue(request)
                 .exchange()
                 .expectStatus().isOk()
@@ -235,5 +250,73 @@ class PipelineIT extends IntegrationTestBase {
                 .setMessage("ok")
                 .addRecommendations(rec)
                 .build();
+    }
+
+    @Test
+    void pipeline_idempotency_clientRequestIdFromHeader_isFallback() throws Exception {
+        when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
+                .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
+        when(grpcClient.getGameRecommendations(any()))
+                .thenReturn(Mono.just(successResponse()));
+
+        String clientRequestId = UUID.randomUUID().toString();
+        GameRecommendationRequest request = GameRecommendationRequest.builder()
+                .content("Header fallback request")
+                .tags(new String[]{"RPG"})
+                .steamId("76561198000000003")
+                .build();
+
+        JsonNode first = executePipeline(request, clientRequestId);
+        JsonNode second = executePipeline(request, clientRequestId);
+
+        UUID chatId = UUID.fromString(first.path("chatId").asText());
+        List<ChatMessage> messages = chatMessageRepository.findLastByChatId(chatId, 10)
+                .collectList()
+                .block();
+
+        assertThat(messages).isNotNull();
+        long userCount = messages.stream().filter(m -> m.getRole() == MessageRole.USER).count();
+
+        assertThat(userCount).isEqualTo(1);
+
+        ChatMessage userMessage = messages.stream()
+                .filter(m -> m.getRole() == MessageRole.USER)
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(userMessage.getClientRequestId()).isEqualTo(UUID.fromString(clientRequestId));
+        assertThat(userMessage.getMeta().get("payload").get("clientRequestId").asText())
+                .isEqualTo(clientRequestId);
+    }
+
+    @Test
+    void pipeline_whenClientRequestIdMissing_generatesItOnBackend() throws Exception {
+        when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
+                .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
+        when(grpcClient.getGameRecommendations(any()))
+                .thenReturn(Mono.just(successResponse()));
+
+        GameRecommendationRequest request = GameRecommendationRequest.builder()
+                .content("Generated request id")
+                .tags(new String[]{"Indie"})
+                .steamId("76561198000000004")
+                .build();
+
+        JsonNode response = executePipeline(request, null);
+
+        UUID chatId = UUID.fromString(response.get("chatId").asText());
+        List<ChatMessage> messages = chatMessageRepository.findLastByChatId(chatId, 10)
+                .collectList()
+                .block();
+
+        assertThat(messages).isNotNull();
+
+        ChatMessage userMessage = messages.stream()
+                .filter(m -> m.getRole() == MessageRole.USER)
+                .findFirst()
+                .orElseThrow();
+
+        assertThat(userMessage.getClientRequestId()).isNotNull();
+        assertThat(userMessage.getMeta().get("payload").get("clientRequestId").asText()).isNotBlank();
     }
 }

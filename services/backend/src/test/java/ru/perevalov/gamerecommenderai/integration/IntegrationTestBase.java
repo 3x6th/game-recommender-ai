@@ -10,7 +10,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * Базовый класс для интеграционных тестов с Testcontainers.
+ * Базовый класс для интеграционных тестов на Testcontainers.
  */
 @Testcontainers
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
@@ -49,8 +49,13 @@ public abstract class IntegrationTestBase {
         registry.add("spring.r2dbc.username", POSTGRE_SQL_CONTAINER::getUsername);
         registry.add("spring.r2dbc.password", POSTGRE_SQL_CONTAINER::getPassword);
 
-        // Disable scheduled jobs for integration tests (avoid flaky background calls)
+        // Отключаем scheduled job'ы в интеграционных тестах, чтобы не ловить фоновые побочные эффекты.
         registry.add("spring.task.scheduling.enabled", () -> "false");
+
+        // Ослабляем rate limit для интеграционных тестов, чтобы повторные запросы от одного тестового клиента
+        // не падали с 429 раньше, чем будет проверена бизнес-логика.
+        registry.add("performance.rate-limiter.role.limit.of-hour.GUEST_USER", () -> "1000");
+        registry.add("performance.rate-limiter.role.limit.of-hour.USER", () -> "1000");
 
         // Redis
         registry.add("redis.redis-uri", () -> String.format("redis://%s:%d",
