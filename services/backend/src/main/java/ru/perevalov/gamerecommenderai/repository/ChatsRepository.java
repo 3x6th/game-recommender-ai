@@ -1,20 +1,19 @@
 package ru.perevalov.gamerecommenderai.repository;
 
-import java.util.UUID;
-
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.r2dbc.repository.Modifying;
 import org.springframework.data.r2dbc.repository.Query;
 import org.springframework.data.repository.reactive.ReactiveCrudRepository;
 import org.springframework.stereotype.Repository;
-
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.entity.Chats;
 import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 
+import java.util.UUID;
+
 @Repository
-public interface ChatsRepository extends ReactiveCrudRepository<Chats, UUID> {
+public interface ChatsRepository extends ReactiveCrudRepository<Chats, UUID>, ChatsRepositoryCustom {
 
     Mono<Chats> findById(UUID id);
 
@@ -45,5 +44,7 @@ public interface ChatsRepository extends ReactiveCrudRepository<Chats, UUID> {
             """)
     Mono<Integer> bindGuestChatsToUser(String sessionId, UUID userId);
 
-    Flux<Chats> findAllByUserIdOrderByUpdatedAtDesc(UUID userId, Pageable pageable);
+    Mono<Long> countByUserId(UUID userId);
+
+    Mono<Long> countBySessionId(String sessionId);
 }

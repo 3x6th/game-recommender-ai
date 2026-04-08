@@ -16,8 +16,6 @@ import ru.perevalov.gamerecommenderai.entity.Chats;
 import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
-import ru.perevalov.gamerecommenderai.mapper.ChatMapper;
-import ru.perevalov.gamerecommenderai.repository.ChatMessageRepository;
 import ru.perevalov.gamerecommenderai.repository.ChatsRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -27,10 +25,7 @@ class ChatsServiceTest {
     private ChatsRepository chatsRepository;
 
     @Mock
-    private ChatMapper chatMapper;
-
-    @Mock
-    private  ChatMessageRepository chatMessageRepository;
+    private ChatPageService chatPageService;
 
     @Test
     void getOrCreateChatId_whenOwnedUserChat_thenReturnsSameId() {
@@ -44,7 +39,7 @@ class ChatsServiceTest {
 
         when(chatsRepository.findByIdAndUserId(chatId, userId)).thenReturn(Mono.just(chat));
 
-        ChatsService service = new ChatsService(chatsRepository, chatMapper,chatMessageRepository);
+        ChatsService service = new ChatsService(chatsRepository, chatPageService);
 
         StepVerifier.create(service.getOrCreateChatId(chatId, ctx))
                 .assertNext(id -> assertThat(id).isEqualTo(chatId))
@@ -61,7 +56,7 @@ class ChatsServiceTest {
 
         when(chatsRepository.findByIdAndUserId(chatId, userId)).thenReturn(Mono.empty());
 
-        ChatsService service = new ChatsService(chatsRepository, chatMapper,chatMessageRepository);
+        ChatsService service = new ChatsService(chatsRepository, chatPageService);
 
         StepVerifier.create(service.requireOwnership(chatId, ctx))
                 .expectErrorSatisfies(ex -> {

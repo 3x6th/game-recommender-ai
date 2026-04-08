@@ -228,3 +228,9 @@ app:
       default-limit: "${APP_GRPC_TOOLS_DEFAULT_LIMIT:20}"
       max-limit: "${APP_GRPC_TOOLS_MAX_LIMIT:100}"
       steam-fetch-timeout-seconds: "${APP_GRPC_TOOLS_STEAM_FETCH_TIMEOUT_SECONDS:3}"
+
+  chats:
+    pagination:
+      default-limit: "${CHATS_PAGINATION_DEFAULT_LIMIT:10}"
+      max-limit: "${CHATS_PAGINATION_MAX_LIMIT:100}"
+      min-limit: "${CHATS_PAGINATION_MIN_LIMIT:1}"

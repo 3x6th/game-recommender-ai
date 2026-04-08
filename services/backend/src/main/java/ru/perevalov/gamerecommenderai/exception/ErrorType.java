@@ -29,6 +29,8 @@ public enum ErrorType {
     INVALID_AUTHORIZATION_HEADER("Invalid Authorization header: %s", HttpStatus.UNAUTHORIZED),
     INVALID_MESSAGE_META("Invalid message meta: %s", HttpStatus.BAD_REQUEST),
     INVALID_REQUEST_CONTEXT("Invalid request context: %s", HttpStatus.BAD_REQUEST),
+    AUTHENTICATION_REQUIRED("Authentication required", HttpStatus.UNAUTHORIZED),
+    AUTHENTICATED_USER_NOT_FOUND("Authenticated user not found in the system", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_STEAM_ID_FORMAT("Invalid steamId format: '%s'.", HttpStatus.BAD_REQUEST),
     MISSING_AUTHORIZATION_HEADER("Missing authorization header. Expected JWT token.", HttpStatus.UNAUTHORIZED),
     OPENID_VALIDATION_FAILED_ENDPOINT("OpenID validation failed: opEndpoint '%s' differs from expected in openId" +
