@@ -49,4 +49,8 @@
         <sqlFile path="../sql/v1/010_AddOwnedGamesSnapshotToUserGameStats.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="11-add-user-message-idempotency-index" author="codex">
+        <sqlFile path="../sql/v1/011_AddUserMessageIdempotencyIndex.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>

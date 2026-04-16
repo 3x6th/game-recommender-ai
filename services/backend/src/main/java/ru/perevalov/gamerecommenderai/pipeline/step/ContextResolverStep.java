@@ -1,5 +1,7 @@
 package ru.perevalov.gamerecommenderai.pipeline.step;
 
+import java.util.UUID;
+
 import org.springframework.core.Ordered;
 import org.springframework.stereotype.Component;
 
@@ -16,7 +18,9 @@ import ru.perevalov.gamerecommenderai.service.RequestContext;
 import ru.perevalov.gamerecommenderai.service.UserService;
 
 /**
- * Шаг определения пользовательского контекста и базового разбора запроса.
+ * Определяет начальный контекст запроса для pipeline.
+ * Шаг валидирует пользовательский ввод, выбирает итоговый clientRequestId,
+ * извлекает теги и chatId, а также формирует пользовательский или гостевой контекст.
  */
 @Component
 @RequiredArgsConstructor
@@ -27,15 +31,16 @@ public class ContextResolverStep implements PipelineStep, Ordered {
     private final PipelineSupport support;
 
     /**
-     * Заполняет базовые поля контекста: clientRequestId, chatId, tags и userContext.
+     * Заполняет базовый контекст pipeline: {@code clientRequestId}, запрошенный chatId,
+     * извлечённые теги, идентичность запроса и owner-контекст для пользователя или гостевой сессии.
      *
-     * @param context контекст обработки
-     * @return обновленный контекст
+     * @param context текущий контекст pipeline
+     * @return обновлённый контекст pipeline
      */
     @Override
     public Mono<PipelineContext> handle(PipelineContext context) {
         validateContent(context);
-        context.setClientRequestId(support.parseUuid(context.getClientRequestIdHeader()));
+        context.setClientRequestId(resolveClientRequestId(context));
         context.setRequestedChatId(support.parseUuid(context.getRequest().getChatId()));
         context.setTags(support.extractTags(context.getRequest()));
 
@@ -64,9 +69,9 @@ public class ContextResolverStep implements PipelineStep, Ordered {
     }
 
     /**
-     * Возвращает порядок выполнения шага в pipeline.
+     * Возвращает порядок выполнения этого шага в pipeline.
      *
-     * @return порядок выполнения шага
+     * @return константа порядка выполнения шага
      */
     @Override
     public int getOrder() {
@@ -74,11 +79,32 @@ public class ContextResolverStep implements PipelineStep, Ordered {
     }
 
     /**
-     * Определяет steamId из запроса или контекста безопасности.
+     * Определяет итоговый clientRequestId с приоритетом:
+     * request body -> заголовок {@code X-Client-Request-Id} -> сгенерированный UUID.
      *
-     * @param context контекст обработки
-     * @param identity идентичность запроса
-     * @return steamId или {@code null}
+     * @param context текущий контекст pipeline
+     * @return итоговый clientRequestId для запроса
+     */
+    private UUID resolveClientRequestId(PipelineContext context) {
+        UUID fromBody = support.parseUuid(context.getRequest().getClientRequestId());
+        if (fromBody != null) {
+            return fromBody;
+        }
+
+        UUID fromHeader = support.parseUuid(context.getClientRequestIdHeader());
+        if (fromHeader != null) {
+            return fromHeader;
+        }
+
+        return UUID.randomUUID();
+    }
+
+    /**
+     * Определяет {@code steamId} сначала из тела запроса, затем из аутентифицированной identity.
+     *
+     * @param context текущий контекст pipeline
+     * @param identity определённая идентичность запроса
+     * @return steamId или {@code null}, если он отсутствует
      */
     private Long resolveSteamId(PipelineContext context, RequestIdentity identity) {
         Long fromRequest = support.parseLong(context.getRequest().getSteamId());
@@ -89,9 +115,9 @@ public class ContextResolverStep implements PipelineStep, Ordered {
     }
 
     /**
-     * Валидирует текст пользовательского сообщения.
+     * Валидирует текст пользовательского сообщения до передачи запроса дальше по pipeline.
      *
-     * @param context контекст обработки
+     * @param context текущий контекст pipeline
      */
     private void validateContent(PipelineContext context) {
         String content = context.getRequest() != null ? context.getRequest().getContent() : null;
