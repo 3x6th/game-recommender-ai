@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -94,6 +95,34 @@ public class GameService {
                                         });
                             });
                 });
+    }
+
+    /**
+     * Fuzzy-поиск игр по подстроке имени для gRPC SearchGames tool (PCAI-122).
+     * <p>
+     * Делегирует в {@link SteamAppRepository#searchByNameLike(String, String, int)},
+     * который использует trigram GIN-индекс на {@code LOWER(name)} (Liquibase 011).
+     * <p>
+     * В отличие от {@link #findGames(Flux)} этот метод предназначен для поиска по
+     * ILIKE-подстроке, а не по точному совпадению списка имён. В кэш Redis по
+     * этому пути не ходим, потому что там данные лежат под точным ключом-именем.
+     *
+     * @param query исходный пользовательский запрос
+     * @param limit максимум результатов (клампится вызывающей стороной через
+     *              {@code GrpcToolsProps.clampLimit})
+     * @return упорядоченный по trigram-сходству список найденных игр
+     */
+    public Mono<List<SteamAppEntity>> searchByQuery(String query, int limit) {
+        if (query == null || query.isBlank() || limit <= 0) {
+            return Mono.just(List.of());
+        }
+        String lowerQuery = query.trim().toLowerCase(Locale.ROOT);
+        String pattern = "%" + lowerQuery + "%";
+        return steamAppRepository.searchByNameLike(pattern, lowerQuery, limit)
+                                 .collectList()
+                                 .onErrorMap(e -> !(e instanceof GameRecommenderException),
+                                         e -> new GameRecommenderException(
+                                                 ErrorType.FETCH_STORE_GAMES_ERROR, e));
     }
 
     /**

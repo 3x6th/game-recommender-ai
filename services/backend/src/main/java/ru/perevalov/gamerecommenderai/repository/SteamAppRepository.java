@@ -15,4 +15,25 @@ public interface SteamAppRepository extends ReactiveCrudRepository<SteamAppEntit
 
     @Query("SELECT * FROM game_recommender.steam_apps WHERE LOWER(steam_apps.name) IN :names")
     Flux<SteamAppEntity> findByLowerNameIn(@Param("names") List<String> names);
+
+    /**
+     * Fuzzy-поиск по подстроке имени (case-insensitive). Использует trigram GIN-индекс
+     * {@code idx_steam_apps_name_trgm} (Liquibase 011), сортирует по trigram-сходству.
+     * <p>
+     * Параметр {@code pattern} должен быть уже приведён к нижнему регистру и обёрнут в
+     * {@code %...%} вызывающей стороной.
+     *
+     * @param pattern ILIKE-шаблон, например {@code %counter%}
+     * @param query   оригинальный lowercased запрос без процентов — для {@code similarity()}
+     * @param limit   максимальное количество возвращаемых записей
+     */
+    @Query("""
+            SELECT * FROM game_recommender.steam_apps
+            WHERE LOWER(name) LIKE :pattern
+            ORDER BY similarity(LOWER(name), :query) DESC, LENGTH(name) ASC
+            LIMIT :limit
+            """)
+    Flux<SteamAppEntity> searchByNameLike(@Param("pattern") String pattern,
+                                          @Param("query") String query,
+                                          @Param("limit") int limit);
 }

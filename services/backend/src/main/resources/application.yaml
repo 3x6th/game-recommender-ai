@@ -221,3 +221,10 @@ app:
     prompt:
       top-by-playtime-list-size: "${TOP_BY_PLAYTIME_LIST_SIZE:10}"
       all-games-list-size-limit: "${ALL_GAMES_LIST_SIZE_LIMIT:100}"
+
+  # gRPC Internal Tools API (PCAI-122): Python <-> Java reactive gRPC
+  grpc:
+    tools:
+      default-limit: "${APP_GRPC_TOOLS_DEFAULT_LIMIT:20}"
+      max-limit: "${APP_GRPC_TOOLS_MAX_LIMIT:100}"
+      steam-fetch-timeout-seconds: "${APP_GRPC_TOOLS_STEAM_FETCH_TIMEOUT_SECONDS:3}"

@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package gamerecommender;
+
+option go_package = "github.com/playcure/gamerecommender";
+option java_package = "ru.perevalov.gamerecommenderai.grpc";
+option java_multiple_files = true;
+
+service JavaToolsService {
+  rpc GetSteamAppDetails(SteamAppRequest) returns (SteamAppResponse);
+  rpc GetSimilarGames(SimilarGamesRequest) returns (SimilarGamesResponse);
+  // optional
+  rpc SearchGames(SearchGamesRequest) returns (SearchGamesResponse);
+}
+
+message SteamAppRequest {
+  int32 app_id = 1;
+}
+
+message SteamAppResponse {
+  int32 app_id = 1;
+  string name = 2;
+  string description = 3;
+  repeated string genres = 4;
+}
+
+message SimilarGamesRequest {
+  int32 app_id = 1;
+  // 0 = server-side default (см. app.grpc.tools.default-limit), максимум см. app.grpc.tools.max-limit
+  int32 limit = 2;
+}
+
+message SimilarGamesResponse {
+  repeated SteamAppResponse games = 1;
+}
+
+message SearchGamesRequest {
+  string query = 1;
+  // 0 = server-side default (см. app.grpc.tools.default-limit), максимум см. app.grpc.tools.max-limit
+  int32 limit = 2;
+}
+
+message SearchGamesResponse {
+  repeated SteamAppResponse games = 1;
+}
