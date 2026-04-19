@@ -49,8 +49,12 @@
         <sqlFile path="../sql/v1/010_AddOwnedGamesSnapshotToUserGameStats.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
-    <changeSet id="11-add-user-message-idempotency-index" author="codex">
+    <changeSet id="11-add-user-message-idempotency-index" author="Azat Ermolaev">
         <sqlFile path="../sql/v1/011_AddUserMessageIdempotencyIndex.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="12-add-pg-trgm-index-for-steam-apps" author="3x6th">
+        <sqlFile path="../sql/v1/012_AddPgTrgmIndexForSteamApps.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
 </databaseChangeLog>

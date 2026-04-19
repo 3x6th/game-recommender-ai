@@ -9,7 +9,7 @@ option java_multiple_files = true;
 service JavaToolsService {
   rpc GetSteamAppDetails(SteamAppRequest) returns (SteamAppResponse);
   rpc GetSimilarGames(SimilarGamesRequest) returns (SimilarGamesResponse);
-  // (опц)
+  // optional
   rpc SearchGames(SearchGamesRequest) returns (SearchGamesResponse);
 }
 
@@ -26,6 +26,7 @@ message SteamAppResponse {
 
 message SimilarGamesRequest {
   int32 app_id = 1;
+  // 0 = server-side default (см. app.grpc.tools.default-limit), максимум см. app.grpc.tools.max-limit
   int32 limit = 2;
 }
 
@@ -35,6 +36,7 @@ message SimilarGamesResponse {
 
 message SearchGamesRequest {
   string query = 1;
+  // 0 = server-side default (см. app.grpc.tools.default-limit), максимум см. app.grpc.tools.max-limit
   int32 limit = 2;
 }
 

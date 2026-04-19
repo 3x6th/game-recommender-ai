@@ -2,14 +2,16 @@ package ru.perevalov.gamerecommenderai.service;
 
 import io.grpc.Status;
 import io.grpc.StatusRuntimeException;
-import io.grpc.stub.StreamObserver;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.service.GrpcService;
 import org.springframework.beans.factory.annotation.Value;
-import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.util.context.Context;
 import ru.perevalov.gamerecommenderai.client.SteamStoreClient;
-import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
-import ru.perevalov.gamerecommenderai.grpc.JavaToolsServiceGrpc;
+import ru.perevalov.gamerecommenderai.config.GrpcToolsProps;
+import ru.perevalov.gamerecommenderai.exception.ErrorType;
+import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
+import ru.perevalov.gamerecommenderai.grpc.ReactorJavaToolsServiceGrpc;
 import ru.perevalov.gamerecommenderai.grpc.SearchGamesRequest;
 import ru.perevalov.gamerecommenderai.grpc.SearchGamesResponse;
 import ru.perevalov.gamerecommenderai.grpc.SimilarGamesRequest;
@@ -19,188 +21,164 @@ import ru.perevalov.gamerecommenderai.grpc.SteamAppResponse;
 import ru.perevalov.gamerecommenderai.interceptor.GrpcRequestIdServerInterceptor;
 import ru.perevalov.gamerecommenderai.mapper.GrpcMapper;
 
-import java.time.Duration;
-import java.util.List;
-import java.util.stream.Stream;
-
+/**
+ * Реактивный gRPC-сервер internal Tools API (PCAI-122): источник данных о Steam-играх
+ * для Python AI-агента (PCAI-129), который дёргает эти RPC как LangChain tools.
+ * <p>
+ * Публикуемые методы:
+ * <ul>
+ *   <li>{@code GetSteamAppDetails} — детали игры по appId из Steam Store API.</li>
+ *   <li>{@code SearchGames} — fuzzy-поиск по имени поверх {@code pg_trgm} индекса
+ *       (см. {@link ru.perevalov.gamerecommenderai.repository.SteamAppRepository#searchByNameLike}).</li>
+ *   <li>{@code GetSimilarGames} — зарезервирован, сейчас возвращает
+ *       {@link Status#UNIMPLEMENTED}, реализация вынесена в PCAI-135.</li>
+ * </ul>
+ * <p>
+ * Лимиты и таймауты — через {@link GrpcToolsProps} ({@code app.grpc.tools.*}).
+ * Маппинг DTO ↔ protobuf — в {@link GrpcMapper}. Ошибки сервиса транслируются
+ * в gRPC {@link Status} через {@link #mapToGrpcError}.
+ * <p>
+ * Propagation {@code requestId}: входящий {@code x-request-id} из gRPC metadata
+ * кладётся в {@link io.grpc.Context} интерсептором {@link GrpcRequestIdServerInterceptor},
+ * здесь он разово читается на входе в RPC и пробрасывается в Reactor Context
+ * через {@code .contextWrite(...)} — дальше {@code ReactorMdcConfiguration}
+ * (PR #45) синхронизирует его в MDC на каждом операторе.
+ *
+ * @see GrpcRequestIdServerInterceptor
+ * @see GrpcToolsProps
+ * @see GrpcMapper
+ */
 @GrpcService
 @Slf4j
-public class JavaToolsServiceImpl extends JavaToolsServiceGrpc.JavaToolsServiceImplBase {
+public class JavaToolsServiceImpl extends ReactorJavaToolsServiceGrpc.JavaToolsServiceImplBase {
+
+    private static final String REACTOR_CTX_REQUEST_ID_KEY = "requestId";
+
+    /**
+     * Jira-ссылка на задачу-блокер, под которую вынесли реализацию getSimilarGames —
+     * у Steam нет готового "similar games" эндпоинта, нужен отдельный дизайн
+     * источника жанров (см. описание PCAI-135).
+     */
+    private static final String SIMILAR_GAMES_TICKET = "PCAI-135";
 
     private final SteamStoreClient steamStoreClient;
-
     private final GameService gameService;
-
     private final GrpcMapper mapper;
+    private final GrpcToolsProps props;
 
-    @Value("${app.recommender.prompt.top-by-playtime-list-size:20}")
-    private int topByPlaytimeListSize;
+    private final String requestIdLoggingParam;
 
     public JavaToolsServiceImpl(SteamStoreClient steamStoreClient,
                                 GameService gameService,
-                                GrpcMapper mapper) {
+                                GrpcMapper mapper,
+                                GrpcToolsProps props,
+                                @Value("${requestid.logging.param}") String requestIdLoggingParam) {
         this.steamStoreClient = steamStoreClient;
         this.gameService = gameService;
         this.mapper = mapper;
+        this.props = props;
+        this.requestIdLoggingParam = requestIdLoggingParam;
     }
 
     @Override
-    public void getSteamAppDetails(SteamAppRequest request,
-                                   StreamObserver<SteamAppResponse> responseObserver) {
+    public Mono<SteamAppResponse> getSteamAppDetails(Mono<SteamAppRequest> requestMono) {
+        String requestId = currentRequestId();
 
-        int appId = request.getAppId();
-        String requestId = GrpcRequestIdServerInterceptor.REQUEST_ID_CONTEXT.get();
-
-        log.info("Получен запрос {} на предоставление деталей игры {}", requestId, appId);
-
-        steamStoreClient.fetchGameDetails(String.valueOf(appId))
-                .contextWrite(ctx -> ctx
-                        .put("requestId", requestId)
-                        .put("requestIdLoggingParam", requestId))
-                .map(mapper::toSteamAppResponse)
-                .blockOptional(Duration.ofSeconds(3))
-                .ifPresentOrElse(
-                        response -> {
-                            responseObserver.onNext(response);
-                            responseObserver.onCompleted();
-                        },
-                        () -> responseObserver.onError(new StatusRuntimeException(Status.NOT_FOUND))
-                );
+        return requestMono
+                .doOnNext(req -> log.info("gRPC GetSteamAppDetails[{}] appId={}", requestId, req.getAppId()))
+                .flatMap(req -> steamStoreClient.fetchGameDetails(String.valueOf(req.getAppId()))
+                                                .flatMap(dto -> Mono.justOrEmpty(mapper.toSteamAppResponse(dto))))
+                .switchIfEmpty(Mono.error(() -> Status.NOT_FOUND
+                        .withDescription("Steam app details not found or empty payload")
+                        .asRuntimeException()))
+                .onErrorResume(this::mapToGrpcError)
+                .contextWrite(requestContextOf(requestId));
     }
 
     @Override
-    public void getSimilarGames(SimilarGamesRequest request,
-                                StreamObserver<SimilarGamesResponse> responseObserver) {
+    public Mono<SimilarGamesResponse> getSimilarGames(Mono<SimilarGamesRequest> requestMono) {
+        String requestId = currentRequestId();
 
-        int appId = request.getAppId();
-        int limit = request.getLimit();
-        String requestId = GrpcRequestIdServerInterceptor.REQUEST_ID_CONTEXT.get();
-
-        int finalLimit = (limit > 0 && limit <= 100) ? limit : topByPlaytimeListSize;
-
-        log.info("Получен запрос {} на поиск игр подобных {} с лимитом {}", requestId, appId, finalLimit);
-
-        try {
-            SteamGameDetailsResponseDto sourceGame = steamStoreClient
-                    .fetchGameDetails(String.valueOf(appId))
-                    .contextWrite(ctx -> ctx.put("requestId", requestId)
-                            .put("requestIdLoggingParam", requestId))
-                    .blockOptional(Duration.ofSeconds(3))
-                    .orElse(null);
-
-            if (sourceGame == null || !sourceGame.success()) {
-                responseObserver.onError(new StatusRuntimeException(Status.NOT_FOUND));
-                return;
-            }
-
-            String sourceName = sourceGame.steamGameDataResponseDto().name();
-            String sourceDescription = sourceGame.steamGameDataResponseDto().shortDescription();
-            if (sourceDescription == null || sourceDescription.isEmpty()) {
-                sourceDescription = sourceGame.steamGameDataResponseDto().detailedDescription();
-            }
-            List<String> sourceGenres = getGenres(sourceGame);
-
-            log.info("Поиск похожих для игры: {}, жанры: {}", sourceName, sourceGenres);
-
-            List<SteamAppResponse> similarGames = findSimilarGames(
-                    sourceName,
-                    sourceDescription,
-                    sourceGenres,
-                    appId,
-                    finalLimit);
-
-            responseObserver.onNext(mapper.toSimilarGamesResponse(similarGames));
-            responseObserver.onCompleted();
-        } catch (Exception e) {
-            log.error("Ошибка при поиске похожих игр: {}", e.getMessage());
-            responseObserver.onError(e);
-        }
+        return requestMono
+                .doOnNext(req -> log.info("gRPC GetSimilarGames[{}] appId={} limit={} — not yet implemented, see {}",
+                        requestId, req.getAppId(), req.getLimit(), SIMILAR_GAMES_TICKET))
+                .<SimilarGamesResponse>flatMap(req -> Mono.error(Status.UNIMPLEMENTED
+                        .withDescription("getSimilarGames is not implemented yet — tracked in " + SIMILAR_GAMES_TICKET)
+                        .asRuntimeException()))
+                .contextWrite(requestContextOf(requestId));
     }
 
-    private List<String> getGenres(SteamGameDetailsResponseDto sourceGame) {
-        if (sourceGame == null || !sourceGame.success()
-                || sourceGame.steamGameDataResponseDto() == null) {
-            return List.of();
-        }
-
-        var data = sourceGame.steamGameDataResponseDto();
-
-        if (data.genres() == null) {
-            return List.of();
-        }
-
-        return data.genres()
-                .stream()
-                .map(SteamGameDetailsResponseDto.SteamGenreResponseDto::description)
-                .toList();
-    }
-
-    private List<SteamAppResponse> findSimilarGames(String sourceName,
-                                                    String sourceDescription,
-                                                    List<String> sourceGenres,
-                                                    int sourceAppId,
-                                                    int finalLimit) {
-
-        //TODO: Реализовать поиск по схожести названия
-        List<SteamAppResponse> byNameSimilar = List.of();
-
-        //TODO: Реализовать поиск по схожести описания
-        List<SteamAppResponse> byDescriptionSimilar = List.of();
-
-        //TODO: Реализовать поиск по одинаковым жанрам
-        List<SteamAppResponse> byGenresSimilar = List.of();
-
-        return Stream.concat(
-                        Stream.concat(byNameSimilar.stream(),
-                                byDescriptionSimilar.stream()),
-                        byGenresSimilar.stream())
-                .filter(game -> game.getAppId() != sourceAppId)
-                .distinct()
-                .limit(finalLimit)
-                .toList();
-    }
-
+    // TODO(PCAI-136): response cache в Redis (namespace grpc:search:<query>:<limit>)
+    //  с коротким TTL — у LLM-агента низкая энтропия запросов, одни и те же query
+    //  повторяются десятками раз. Индекс pg_trgm уже закрывает cache miss.
     @Override
-    public void searchGames(SearchGamesRequest request,
-                            StreamObserver<SearchGamesResponse> responseObserver) {
+    public Mono<SearchGamesResponse> searchGames(Mono<SearchGamesRequest> requestMono) {
+        String requestId = currentRequestId();
 
-        String query = request.getQuery();
-        int limit = request.getLimit();
-        String requestId = GrpcRequestIdServerInterceptor.REQUEST_ID_CONTEXT.get();
+        return requestMono
+                .flatMap(req -> {
+                    int limit = props.clampLimit(req.getLimit());
+                    String query = req.getQuery() == null ? "" : req.getQuery().trim();
+                    log.info("gRPC SearchGames[{}] query='{}' limit={}", requestId, query, limit);
 
-        int finalLimit = (limit > 0 && limit <= 100) ? limit : topByPlaytimeListSize;
+                    if (query.isBlank()) {
+                        return Mono.just(SearchGamesResponse.getDefaultInstance());
+                    }
 
-        log.info("Получен запрос {} на поиск игр по запросу '{}' с лимитом {}", requestId, query, finalLimit);
-
-        gameService.getAllGames()
-                .flatMap(allGamesMap -> {
-                    List<String> matchingNames = allGamesMap
-                            .keySet()
-                            .stream()
-                            .filter(name -> name.toLowerCase().contains(query.toLowerCase()))
-                            .limit(finalLimit)
-                            .toList();
-                    return gameService.findGames(Flux.fromIterable(matchingNames));
+                    return gameService.searchByQuery(query, limit)
+                                      .map(entities -> {
+                                          SearchGamesResponse.Builder builder = SearchGamesResponse.newBuilder();
+                                          for (var e : entities) {
+                                              builder.addGames(mapper.toSteamAppResponse(e.getAppid(), e.getName()));
+                                          }
+                                          return builder.build();
+                                      });
                 })
-                .flatMapMany(gameMap -> Flux.fromIterable(gameMap.entrySet()))
-                .flatMap(entry -> steamStoreClient
-                        .fetchGameDetails(String.valueOf(entry.getValue()))
-                        .map(mapper::toSteamAppResponse)
-                        .defaultIfEmpty(mapper.toSteamAppResponse(entry.getValue(), entry.getKey())))
-                .collectList()
-                .contextWrite(ctx -> ctx.put("requestId", requestId)
-                        .put("requestIdLoggingParam", requestId))
-                .blockOptional(Duration.ofSeconds(3))
-                .ifPresentOrElse(games -> {
-                            SearchGamesResponse response = SearchGamesResponse.newBuilder()
-                                    .addAllGames(games)
-                                    .build();
-                            responseObserver.onNext(response);
-                            responseObserver.onCompleted();
-                        },
-                        () -> responseObserver.onError(new StatusRuntimeException(Status.NOT_FOUND))
-                );
-
+                .onErrorResume(this::mapToGrpcError)
+                .contextWrite(requestContextOf(requestId));
     }
 
+    /**
+     * Возвращает активный {@code requestId} из {@link io.grpc.Context}.
+     * Читать можно только синхронно из RPC-метода reactor-grpc base-класса —
+     * на этом этапе gRPC-нить ещё «привязана» к {@link io.grpc.Context}, который
+     * выставил {@link GrpcRequestIdServerInterceptor}. После первого реактивного
+     * оператора этот контекст уже недоступен, поэтому ловим в локальную переменную
+     * и дальше работаем через Reactor Context.
+     */
+    private String currentRequestId() {
+        String requestId = GrpcRequestIdServerInterceptor.REQUEST_ID_CONTEXT.get();
+        return requestId == null ? GrpcRequestIdServerInterceptor.REQUEST_ID_FALLBACK : requestId;
+    }
+
+    private Context requestContextOf(String requestId) {
+        return Context.of(
+                REACTOR_CTX_REQUEST_ID_KEY, requestId,
+                requestIdLoggingParam, requestId);
+    }
+
+    /**
+     * Маппит внутренние исключения в осмысленный {@link StatusRuntimeException}:
+     * доменные ошибки Steam «не найдено» → {@link Status#NOT_FOUND},
+     * уже упакованные {@link StatusRuntimeException} пропускаются без изменений,
+     * остальное уходит как {@link Status#INTERNAL} с описанием (клиенту без stacktrace,
+     * stacktrace остаётся в логах).
+     */
+    private <T> Mono<T> mapToGrpcError(Throwable error) {
+        if (error instanceof StatusRuntimeException sre) {
+            return Mono.error(sre);
+        }
+        if (error instanceof GameRecommenderException ex
+                && (ex.getErrorType() == ErrorType.STEAM_APP_DETAILS_NOT_FOUND
+                || ex.getErrorType() == ErrorType.STEAM_DATA_IN_APP_DETAILS_NOT_FOUND)) {
+            log.warn("gRPC tools: Steam returned no data, mapping to NOT_FOUND: {}", ex.getMessage());
+            return Mono.error(Status.NOT_FOUND
+                    .withDescription(ex.getMessage())
+                    .asRuntimeException());
+        }
+        log.error("gRPC tools: unexpected error, mapping to INTERNAL", error);
+        return Mono.error(Status.INTERNAL
+                .withDescription(error.getClass().getSimpleName() + ": " + error.getMessage())
+                .asRuntimeException());
+    }
 }

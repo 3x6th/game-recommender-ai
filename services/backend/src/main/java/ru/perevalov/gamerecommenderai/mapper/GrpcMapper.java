@@ -11,9 +11,8 @@ import ru.perevalov.gamerecommenderai.grpc.SimilarGamesResponse;
 import ru.perevalov.gamerecommenderai.grpc.SteamAppResponse;
 import ru.perevalov.gamerecommenderai.grpc.SteamOwnedGamesResponseProto;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @Component
 public class GrpcMapper {
@@ -89,7 +88,7 @@ public class GrpcMapper {
         if (response.getGames() != null) {
             List<GameProto> gameProtos = response.getGames().stream()
                     .map(this::toProto)
-                    .collect(Collectors.toList());
+                    .toList();
             builder.addAllGames(gameProtos);
         }
 
@@ -113,35 +112,50 @@ public class GrpcMapper {
         return builder.build();
     }
 
-    public SteamAppResponse toSteamAppResponse(SteamGameDetailsResponseDto response) {
-        if (response == null || !response.success()) {
-            return SteamAppResponse.newBuilder().build();
+    /**
+     * Null-safe mapping ответа Steam Store в gRPC {@link SteamAppResponse}.
+     * <p>
+     * Когда Steam вернул {@code success=false} или пустое тело, возвращается
+     * {@link Optional#empty()} — вызывающая сторона сама решит, как трактовать
+     * (обычно {@code Status.NOT_FOUND}). Это лучше, чем молча отдавать пустой
+     * «валидный» билд, из-за которого клиент считал бы appId найденным.
+     *
+     * @param response ответ {@code SteamStoreClient.fetchGameDetails}; может быть {@code null}
+     * @return {@link Optional} с заполненным ответом или пустой, если маппить нечего
+     */
+    public Optional<SteamAppResponse> toSteamAppResponse(SteamGameDetailsResponseDto response) {
+        if (response == null || !response.success() || response.steamGameDataResponseDto() == null) {
+            return Optional.empty();
         }
         var data = response.steamGameDataResponseDto();
 
         String description = data.shortDescription();
-        if (description == null) {
+        if (description == null || description.isBlank()) {
             description = data.detailedDescription();
         }
 
-        List<String> genres = new ArrayList<>();
-        if (data.genres() != null) {
-            genres = data.genres().stream()
-                    .map(SteamGameDetailsResponseDto.SteamGenreResponseDto::description)
-                    .collect(Collectors.toList());
-        }
+        List<String> genres = data.genres() == null
+                ? List.of()
+                : data.genres().stream()
+                      .map(SteamGameDetailsResponseDto.SteamGenreResponseDto::description)
+                      .filter(g -> g != null && !g.isBlank())
+                      .toList();
 
-        return SteamAppResponse.newBuilder()
+        SteamAppResponse result = SteamAppResponse.newBuilder()
                 .setAppId(data.steamAppid())
-                .setName(data.name())
-                .setDescription(description)
+                .setName(Optional.ofNullable(data.name()).orElse(""))
+                .setDescription(Optional.ofNullable(description).orElse(""))
                 .addAllGenres(genres)
                 .build();
+        return Optional.of(result);
     }
 
+    /**
+     * Лёгкий маппинг для search-листингов (appId + name, без Steam Store call).
+     */
     public SteamAppResponse toSteamAppResponse(long appId, String name) {
         return SteamAppResponse.newBuilder()
-                .setAppId((int) appId)
+                .setAppId(Math.toIntExact(appId))
                 .setName(name != null ? name : "")
                 .setDescription("")
                 .addAllGenres(List.of())
@@ -149,16 +163,9 @@ public class GrpcMapper {
     }
 
     public SimilarGamesResponse toSimilarGamesResponse(List<SteamAppResponse> games) {
-        if (games == null || games.isEmpty()) {
-            return SimilarGamesResponse.newBuilder().build();
-        }
-
-        SimilarGamesResponse.Builder builder = SimilarGamesResponse.newBuilder();
-        for (SteamAppResponse game : games) {
-            builder.addGames(game);
-        }
-
-        return builder.build();
+        return SimilarGamesResponse.newBuilder()
+                .addAllGames(games == null ? List.of() : games)
+                .build();
     }
 
 }
