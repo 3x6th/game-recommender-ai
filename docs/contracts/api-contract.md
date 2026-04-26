@@ -266,7 +266,7 @@ This must be documented and consistent across services.
 
 To make Springdoc reflect this contract, update DTO models and schema annotations:
 - `ProceedResponse { chatId, messages[] }`
-- `ChatMessageDto { id, role, content, meta, createdAt }`
+- `ChatMessageDto { messageId, role, content, meta, createdAt }`
 - `MetaEnvelope { schemaVersion, type, payload }`
 - `meta.type` -> enum with explicit allowable values
 - Add OpenAPI examples for each type (`reply`, `cards`, `mixed`, `status`, `error`)

@@ -8,6 +8,7 @@ import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 import ru.perevalov.gamerecommenderai.repository.projection.ChatWithLastMessageProjection;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository

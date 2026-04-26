@@ -11,35 +11,41 @@ import ru.perevalov.gamerecommenderai.repository.ChatsRepository;
 
 import java.util.UUID;
 
+/**
+ * Сервис постраничной выборки чатов.
+ * <p>
+ * Стратегия «толерантного clamp»: невалидные {@code limit}/{@code offset} не приводят к 400, а
+ * молча ужимаются к ближайшей границе из конфигурации. Факт подмены контроллер видит по разнице
+ * между {@code requested} и {@link ChatPageResponse#getLimit()} / {@link ChatPageResponse#getOffset()}
+ * и сообщает клиенту через ответные заголовки {@code X-Pagination-Limit-Adjusted} /
+ * {@code X-Pagination-Offset-Adjusted}.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatPageService {
 
-    @Value("${app.chats.pagination.default-limit}")
+    @Value("${app.chats.pagination.default-limit:10}")
     private int paginationDefaultLimit;
 
-    @Value("${app.chats.pagination.max-limit}")
-    private int paginationMaxLimit;
-
-    @Value("${app.chats.pagination.min-limit}")
+    @Value("${app.chats.pagination.min-limit:1}")
     private int paginationMinLimit;
+
+    @Value("${app.chats.pagination.max-limit:100}")
+    private int paginationMaxLimit;
 
     private final ChatsRepository chatsRepository;
     private final ChatMapper chatMapper;
 
-    private static final int OFFSET_DEFAULT_VALUE = 0;
+    private static final int OFFSET_MIN_VALUE = 0;
 
     /**
      * Возвращает страницу чатов пользователя, отсортированных по {@code updated_at DESC}.
-     * <p>
-     * Значения {@code requestLimit} и {@code requestOffset} валидируются:
-     * {@code null} или значение вне допустимого диапазона ({@code app.chats.pagination.*})
-     * заменяются дефолтными. Отрицательный {@code requestOffset} заменяется {@code 0}.
      *
      * @param userId        идентификатор пользователя
-     * @param requestLimit  максимальное количество элементов на странице
-     * @param requestOffset смещение от начала выборки
+     * @param requestLimit  максимальное количество элементов на странице; {@code null} → дефолт,
+     *                      выходящее за {@code [min..max]} — clamp к границе
+     * @param requestOffset смещение от начала выборки; {@code null} или отрицательное → {@code 0}
      * @return {@link Mono} с {@link ChatPageResponse}, содержащим список чатов и {@code totalElements}
      * @implNote Запросы данных и счётчика выполняются независимо (две отдельные SQL-операции).
      * Это inherent limitation limit/offset пагинации: если между запросами
@@ -47,78 +53,53 @@ public class ChatPageService {
      * возвращённых элементов.
      */
     public Mono<ChatPageResponse> getChatPageByUserId(UUID userId, Integer requestLimit, Integer requestOffset) {
-        int validatedLimit = validateLimitAndAdjustIfNeeded(requestLimit);
-        int validatedOffset = validateOffsetAndAdjustIfNeeded(requestOffset);
-        return chatsRepository.findAllByUserIdOrderByUpdatedAtDesc(userId, validatedLimit, validatedOffset)
+        int limit = effectiveLimit(requestLimit);
+        int offset = effectiveOffset(requestOffset);
+        return chatsRepository.findAllByUserIdOrderByUpdatedAtDesc(userId, limit, offset)
                 .map(chatMapper::toDto)
                 .collectList()
                 .zipWith(chatsRepository.countByUserId(userId), (chatList, totalElements) ->
-                        new ChatPageResponse(
-                                chatList,
-                                validatedLimit,
-                                validatedOffset,
-                                totalElements
-                        )
-                );
+                        new ChatPageResponse(chatList, limit, offset, totalElements));
     }
 
     /**
      * Возвращает страницу чатов гостевой сессии, отсортированных по {@code updated_at DESC}.
-     * <p>
-     * Логика валидации параметров аналогична {@link #getChatPageByUserId}.
      *
      * @param sessionId     идентификатор гостевой сессии
-     * @param requestLimit  максимальное количество элементов на странице
-     * @param requestOffset смещение от начала выборки
+     * @param requestLimit  максимальное количество элементов на странице; {@code null} → дефолт,
+     *                      выходящее за {@code [min..max]} — clamp к границе
+     * @param requestOffset смещение от начала выборки; {@code null} или отрицательное → {@code 0}
      * @return {@link Mono} с {@link ChatPageResponse}, содержащим список чатов и {@code totalElements}
      */
     public Mono<ChatPageResponse> getChatPageBySessionId(String sessionId, Integer requestLimit, Integer requestOffset) {
-        int validatedLimit = validateLimitAndAdjustIfNeeded(requestLimit);
-        int validatedOffset = validateOffsetAndAdjustIfNeeded(requestOffset);
-        return chatsRepository.findAllBySessionIdOrderByUpdatedAtDesc(sessionId, validatedLimit, validatedOffset)
+        int limit = effectiveLimit(requestLimit);
+        int offset = effectiveOffset(requestOffset);
+        return chatsRepository.findAllBySessionIdOrderByUpdatedAtDesc(sessionId, limit, offset)
                 .map(chatMapper::toDto)
                 .collectList()
                 .zipWith(chatsRepository.countBySessionId(sessionId), (chatList, totalElements) ->
-                        new ChatPageResponse(
-                                chatList,
-                                validatedLimit,
-                                validatedOffset,
-                                totalElements
-                        )
-                );
+                        new ChatPageResponse(chatList, limit, offset, totalElements));
     }
 
-    private int validateLimitAndAdjustIfNeeded(Integer requestLimit) {
-        int limit;
+    private int effectiveLimit(Integer requestLimit) {
         if (requestLimit == null) {
-            limit = paginationDefaultLimit;
-        } else if (requestLimit < paginationMinLimit || requestLimit > paginationMaxLimit) {
-            log.warn(
-                    "Invalid chat pagination limit value: {}. Using default limit: {}",
-                    requestLimit,
-                    paginationDefaultLimit
-            );
-            limit = paginationDefaultLimit;
-        } else {
-            limit = requestLimit;
+            return paginationDefaultLimit;
         }
-        return limit;
+        if (requestLimit < paginationMinLimit) {
+            log.debug("limit={} below min={}, clamping to min", requestLimit, paginationMinLimit);
+            return paginationMinLimit;
+        }
+        if (requestLimit > paginationMaxLimit) {
+            log.debug("limit={} above max={}, clamping to max", requestLimit, paginationMaxLimit);
+            return paginationMaxLimit;
+        }
+        return requestLimit;
     }
 
-    private int validateOffsetAndAdjustIfNeeded(Integer requestOffset) {
-        int offset;
-        if (requestOffset == null) {
-            offset = OFFSET_DEFAULT_VALUE;
-        } else if (requestOffset < 0) {
-            log.warn(
-                    "Invalid chat pagination offset value: {}. Using default offset: {}",
-                    requestOffset,
-                    OFFSET_DEFAULT_VALUE
-            );
-            offset = OFFSET_DEFAULT_VALUE;
-        } else {
-            offset = requestOffset;
+    private int effectiveOffset(Integer requestOffset) {
+        if (requestOffset == null || requestOffset < OFFSET_MIN_VALUE) {
+            return OFFSET_MIN_VALUE;
         }
-        return offset;
+        return requestOffset;
     }
 }

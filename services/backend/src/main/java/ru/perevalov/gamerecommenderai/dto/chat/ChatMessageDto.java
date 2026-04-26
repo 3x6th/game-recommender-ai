@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 public class ChatMessageDto {
-    private UUID id;
+    private UUID messageId;
     private MessageRole role;
     private String content;
     private JsonNode meta;

@@ -13,5 +13,6 @@ public interface ChatMapper {
     @Mapping(source = "id", target = "chatId")
     ChatDto toDto(ChatWithLastMessageProjection projection);
 
+    @Mapping(source = "id", target = "messageId")
     ChatMessageDto toDto(ChatMessage entity);
 }
