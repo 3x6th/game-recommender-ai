@@ -94,21 +94,23 @@ class ChatMessageFlowIT extends IntegrationTestBase {
     }
 
     @Test
-    void чужойChatId_forGetOrCreate_createsNewChat() {
+    void чужойChatId_forGetOrCreate_failsWithChatNotFound() {
         RequestContext guestCtx = RequestContext.forGuest("session-guest-1", null);
         Mono<Void> flow = createUserAndGetId()
                 .map(userId -> RequestContext.forUser(userId, 123L, null))
                 .flatMap(userCtx -> chatsService.getOrCreateChatId(null, userCtx)
                         .flatMap(originalChatId ->
                                 chatsService.getOrCreateChatId(originalChatId, guestCtx)
-                                        .doOnNext(newChatId -> {
-                                            assertThat(newChatId).isNotNull();
-                                            assertThat(newChatId).isNotEqualTo(originalChatId);
-                                        })
                                         .then()
                         ));
 
-        StepVerifier.create(flow).verifyComplete();
+        StepVerifier.create(flow)
+                .expectErrorSatisfies(ex -> {
+                    assertThat(ex).isInstanceOf(GameRecommenderException.class);
+                    GameRecommenderException gre = (GameRecommenderException) ex;
+                    assertThat(gre.getErrorType()).isEqualTo(ErrorType.CHAT_NOT_FOUND);
+                })
+                .verify();
     }
 
     @Test

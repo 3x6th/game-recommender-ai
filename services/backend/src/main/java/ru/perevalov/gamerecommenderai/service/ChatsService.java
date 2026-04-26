@@ -27,7 +27,12 @@ public class ChatsService {
 
     /**
      * Возвращает существующий chat id при успешной проверке владения
-     * или создает новый чат для текущего контекста.
+     * или создает новый чат для текущего контекста, если chatId не передан.
+     * <p>
+     * Если {@code chatIdFromRequest} передан, но чат не принадлежит текущему контексту
+     * (другой {@code user_id} для USER или другой {@code session_id} для GUEST),
+     * метод завершается ошибкой {@link ErrorType#CHAT_NOT_FOUND}. Это исключает
+     * сценарий записи в чужой чат и не подтверждает существование чужих чатов.
      *
      * @param chatIdFromRequest chat id из запроса, может быть {@code null}
      * @param ctx вычисленный контекст запроса
@@ -43,9 +48,14 @@ public class ChatsService {
             }
 
             return findOwnedChat(chatIdFromRequest, ctx)
-                    .switchIfEmpty(createForContext(ctx)
-                            .doOnNext(chat -> log.warn("Ownership failed for chatId={}, created new chat id={}",
-                                    chatIdFromRequest, chat.getId())))
+                    .switchIfEmpty(Mono.defer(() -> {
+                        log.warn("Ownership failed for chatId={} userId={} sessionId={}",
+                                chatIdFromRequest,
+                                ctx != null ? ctx.userId() : null,
+                                ctx != null ? ctx.sessionId() : null);
+                        return Mono.error(new GameRecommenderException(
+                                ErrorType.CHAT_NOT_FOUND, chatIdFromRequest));
+                    }))
                     .map(Chats::getId);
         });
     }

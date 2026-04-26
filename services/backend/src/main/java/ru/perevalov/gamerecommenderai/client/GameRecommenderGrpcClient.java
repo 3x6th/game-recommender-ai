@@ -33,7 +33,6 @@ public class GameRecommenderGrpcClient {
     private final MeterRegistry meterRegistry;
     private final AiGrpcClientProps aiGrpcClientProps;
 
-    // Реактивная stub вместо блокирующей
     @GrpcClient("ai-service")
     private ReactorGameRecommenderServiceGrpc.ReactorGameRecommenderServiceStub gameRecommenderServiceStub;
 

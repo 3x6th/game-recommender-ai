@@ -11,6 +11,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import ru.perevalov.gamerecommenderai.constant.ChatLimits;
 import ru.perevalov.gamerecommenderai.entity.enums.MessageRole;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
@@ -24,8 +25,8 @@ import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 @RequiredArgsConstructor
 public class ChatMessageValidator {
 
-    private static final int MAX_CONTENT_LENGTH = 8000;
-    private static final int MAX_META_BYTES = 256 * 1024;
+    private static final int MAX_CONTENT_LENGTH = ChatLimits.MAX_CONTENT_LENGTH;
+    private static final int MAX_META_BYTES = ChatLimits.MAX_META_BYTES;
 
     private static final Set<MessageMetaType> ASSISTANT_ALLOWED_TYPES = EnumSet.of(
             MessageMetaType.REPLY,

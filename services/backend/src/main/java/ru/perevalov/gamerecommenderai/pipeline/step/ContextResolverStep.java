@@ -7,6 +7,8 @@ import org.springframework.stereotype.Component;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
+import ru.perevalov.gamerecommenderai.constant.ChatLimits;
+import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
 import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.pipeline.PipelineContext;
@@ -25,7 +27,6 @@ import ru.perevalov.gamerecommenderai.service.UserService;
 @Component
 @RequiredArgsConstructor
 public class ContextResolverStep implements PipelineStep, Ordered {
-    private static final int MAX_CONTENT_LENGTH = 2000;
 
     private final UserService userService;
     private final PipelineSupport support;
@@ -39,7 +40,7 @@ public class ContextResolverStep implements PipelineStep, Ordered {
      */
     @Override
     public Mono<PipelineContext> handle(PipelineContext context) {
-        validateContent(context);
+        validateRequest(context);
         context.setClientRequestId(resolveClientRequestId(context));
         context.setRequestedChatId(support.parseUuid(context.getRequest().getChatId()));
         context.setTags(support.extractTags(context.getRequest()));
@@ -115,19 +116,75 @@ public class ContextResolverStep implements PipelineStep, Ordered {
     }
 
     /**
-     * Валидирует текст пользовательского сообщения до передачи запроса дальше по pipeline.
+     * Валидирует пользовательский ввод до передачи запроса дальше по pipeline.
+     * <p>
+     * Применяется как первый барьер защиты:
+     * <ul>
+     *     <li>{@code content} обязателен и не должен быть пустым;</li>
+     *     <li>длина {@code content} ограничена {@link ChatLimits#MAX_CONTENT_LENGTH};</li>
+     *     <li>массив {@code tags} ограничен по количеству и длине каждого элемента,
+     *         чтобы запрос не разрастался произвольным «мусором».</li>
+     * </ul>
      *
      * @param context текущий контекст pipeline
      */
-    private void validateContent(PipelineContext context) {
-        String content = context.getRequest() != null ? context.getRequest().getContent() : null;
+    private void validateRequest(PipelineContext context) {
+        GameRecommendationRequest request = context.getRequest();
+        if (request == null) {
+            throw new GameRecommenderException(ErrorType.VALIDATION_ERROR, "request body is required");
+        }
+
+        String content = request.getContent();
         if (content == null || content.isBlank()) {
             throw new GameRecommenderException(ErrorType.VALIDATION_ERROR, "content is blank");
         }
-        if (content.length() > MAX_CONTENT_LENGTH) {
+        if (content.length() > ChatLimits.MAX_CONTENT_LENGTH) {
             throw new GameRecommenderException(
                     ErrorType.VALIDATION_ERROR,
-                    "content exceeds " + MAX_CONTENT_LENGTH + " characters");
+                    "content exceeds " + ChatLimits.MAX_CONTENT_LENGTH + " characters");
+        }
+
+        validateTags(request);
+        validateIdLength("chatId", request.getChatId());
+        validateIdLength("clientRequestId", request.getClientRequestId());
+        validateIdLength("steamId", request.getSteamId());
+    }
+
+    /**
+     * Валидирует массив тегов запроса по количеству и длине каждого тега.
+     *
+     * @param request запрос рекомендаций
+     */
+    private void validateTags(GameRecommendationRequest request) {
+        String[] tags = request.getTags();
+        if (tags == null) {
+            return;
+        }
+        if (tags.length > ChatLimits.MAX_TAGS) {
+            throw new GameRecommenderException(
+                    ErrorType.VALIDATION_ERROR,
+                    "tags count exceeds " + ChatLimits.MAX_TAGS);
+        }
+        for (String tag : tags) {
+            if (tag != null && tag.length() > ChatLimits.MAX_TAG_LENGTH) {
+                throw new GameRecommenderException(
+                        ErrorType.VALIDATION_ERROR,
+                        "tag length exceeds " + ChatLimits.MAX_TAG_LENGTH);
+            }
+        }
+    }
+
+    /**
+     * Защищает строковые идентификаторы от чрезмерной длины.
+     *
+     * @param fieldName название поля для сообщения об ошибке
+     * @param value     значение поля
+     */
+    private void validateIdLength(String fieldName, String value) {
+        if (value != null && value.length() > ChatLimits.MAX_ID_LENGTH) {
+            throw new GameRecommenderException(
+                    ErrorType.VALIDATION_ERROR,
+                    fieldName + " length exceeds " + ChatLimits.MAX_ID_LENGTH);
         }
     }
 }
