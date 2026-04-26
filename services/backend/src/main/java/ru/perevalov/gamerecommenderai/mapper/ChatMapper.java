@@ -1,15 +1,18 @@
 package ru.perevalov.gamerecommenderai.mapper;
 
 import org.mapstruct.Mapper;
-
-import ru.perevalov.gamerecommenderai.dto.chat.Chat;
-import ru.perevalov.gamerecommenderai.entity.Chats;
+import org.mapstruct.Mapping;
+import ru.perevalov.gamerecommenderai.dto.chat.ChatDto;
+import ru.perevalov.gamerecommenderai.dto.chat.ChatMessageDto;
+import ru.perevalov.gamerecommenderai.entity.ChatMessage;
+import ru.perevalov.gamerecommenderai.repository.projection.ChatWithLastMessageProjection;
 
 @Mapper(componentModel = "spring")
 public interface ChatMapper {
 
-    Chat toDto(Chats entity);
+    @Mapping(source = "id", target = "chatId")
+    ChatDto toDto(ChatWithLastMessageProjection projection);
 
-    ru.perevalov.gamerecommenderai.dto.chat.ChatMessage toDto(
-            ru.perevalov.gamerecommenderai.entity.ChatMessage entity);
+    @Mapping(source = "id", target = "messageId")
+    ChatMessageDto toDto(ChatMessage entity);
 }

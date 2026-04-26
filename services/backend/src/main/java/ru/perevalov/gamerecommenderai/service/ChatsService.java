@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
+import ru.perevalov.gamerecommenderai.dto.chat.ChatPageResponse;
 import ru.perevalov.gamerecommenderai.entity.Chats;
 import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 import ru.perevalov.gamerecommenderai.exception.ErrorType;
@@ -22,6 +23,7 @@ import ru.perevalov.gamerecommenderai.repository.ChatsRepository;
 public class ChatsService {
 
     private final ChatsRepository chatsRepository;
+    private final ChatPageService chatPageService;
 
     /**
      * Возвращает существующий chat id при успешной проверке владения
@@ -198,5 +200,29 @@ public class ChatsService {
 
         return Mono.error(new GameRecommenderException(
                 ErrorType.INVALID_REQUEST_CONTEXT, "request context has no userId or sessionId"));
+    }
+
+    /**
+     * Возвращает страницу чатов, принадлежащих текущему контексту запроса.
+     * <p>
+     * Для аутентифицированного пользователя выборка ведётся по {@code userId},
+     * для гостя — по {@code sessionId}.
+     *
+     * @param ctx    вычисленный контекст запроса; не должен быть {@code null}
+     * @param limit  максимальное количество элементов на странице
+     * @param offset смещение от начала выборки
+     * @return {@link Mono} с {@link ChatPageResponse}
+     */
+    public Mono<ChatPageResponse> getUserChats(RequestContext ctx, Integer limit, Integer offset) {
+        if (ctx == null) {
+            return Mono.error(new GameRecommenderException(ErrorType.INVALID_REQUEST_CONTEXT, "context is null"));
+        }
+        if (ctx.isUser()) {
+            return chatPageService.getChatPageByUserId(ctx.userId(), limit, offset);
+        }
+        if (ctx.isGuest()) {
+            return chatPageService.getChatPageBySessionId(ctx.sessionId(), limit, offset);
+        }
+        return Mono.error(new GameRecommenderException(ErrorType.INVALID_REQUEST_CONTEXT, "inconsistent context state"));
     }
 }

@@ -24,6 +24,9 @@ class ChatsServiceTest {
     @Mock
     private ChatsRepository chatsRepository;
 
+    @Mock
+    private ChatPageService chatPageService;
+
     @Test
     void getOrCreateChatId_whenOwnedUserChat_thenReturnsSameId() {
         UUID chatId = UUID.randomUUID();
@@ -36,7 +39,7 @@ class ChatsServiceTest {
 
         when(chatsRepository.findByIdAndUserId(chatId, userId)).thenReturn(Mono.just(chat));
 
-        ChatsService service = new ChatsService(chatsRepository);
+        ChatsService service = new ChatsService(chatsRepository, chatPageService);
 
         StepVerifier.create(service.getOrCreateChatId(chatId, ctx))
                 .assertNext(id -> assertThat(id).isEqualTo(chatId))
@@ -53,7 +56,7 @@ class ChatsServiceTest {
 
         when(chatsRepository.findByIdAndUserId(chatId, userId)).thenReturn(Mono.empty());
 
-        ChatsService service = new ChatsService(chatsRepository);
+        ChatsService service = new ChatsService(chatsRepository, chatPageService);
 
         StepVerifier.create(service.requireOwnership(chatId, ctx))
                 .expectErrorSatisfies(ex -> {
