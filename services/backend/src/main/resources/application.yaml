@@ -36,6 +36,8 @@ application:
 
 # gRPC Configuration
 grpc:
+  server:
+    port: "${GRPC_SERVER_PORT:9091}"
   ai-service:
     host: "${GRPC_AI_SERVICE_HOST:localhost}"
     port: "${GRPC_AI_SERVICE_PORT:9090}"

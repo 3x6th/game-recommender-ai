@@ -239,7 +239,7 @@ public class GameRecommenderService {
             RecommendationResponse grpcResponse,
             List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations) {
         return GameRecommendationResponse.builder()
-                .recommendation("Получено " + recommendations.size() + " рекомендаций")
+                .recommendation("Received " + recommendations.size() + " recommendations")
                 .reasoning(grpcResponse.getReasoning())
                 .success(true)
                 .recommendations(recommendations)
