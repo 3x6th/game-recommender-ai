@@ -50,9 +50,9 @@ public class ChatMessageService {
      * @param role роль сообщения
      * @param content текст сообщения
      * @param meta необязательный metadata envelope
-     * @return идентификатор созданного сообщения
+     * @return сохраненное сообщение
      */
-    public Mono<UUID> append(UUID chatId, MessageRole role, String content, JsonNode meta) {
+    public Mono<ChatMessage> append(UUID chatId, MessageRole role, String content, JsonNode meta) {
         return Mono.defer(() -> {
             chatMessageValidator.validateForAppend(chatId, role, content, meta);
 
@@ -65,8 +65,7 @@ public class ChatMessageService {
 
             return chatMessageRepository.save(message)
                     .doOnSuccess(saved -> log.info("Saved message id={} chatId={} role={}",
-                            saved.getId(), chatId, role))
-                    .map(ChatMessage::getId);
+                            saved.getId(), chatId, role));
         });
     }
 
@@ -74,16 +73,16 @@ public class ChatMessageService {
      * Добавляет USER-сообщение и формирует reply metadata envelope.
      * Если база отклоняет вставку из-за дубликата уникального ключа
      * {@code (chat_id, client_request_id)} для USER-сообщений, метод возвращает
-     * идентификатор уже существующего сообщения вместо ошибки, что делает retry race-safe.
+     * уже существующее сообщение вместо ошибки, что делает retry race-safe.
      *
      * @param chatId идентификатор целевого чата
      * @param text текст сообщения
      * @param clientRequestId клиентский идентификатор запроса для идемпотентности и трассировки
      * @param tags необязательные теги
      * @param extra необязательная пользовательская metadata payload
-     * @return идентификатор созданного или уже существующего сообщения
+     * @return сохраненное или уже существующее сообщение
      */
-    public Mono<UUID> appendUserMessage(
+    public Mono<ChatMessage> appendUserMessage(
             UUID chatId,
             String text,
             UUID clientRequestId,
@@ -94,7 +93,7 @@ public class ChatMessageService {
             log.debug("Append USER message chatId={} clientRequestId={}", chatId, clientRequestId);
             ObjectNode meta = messageMetaFactory.reply(text, clientRequestId, tags, extra);
 
-            Mono<UUID> appendMono = append(chatId, MessageRole.USER, text, meta);
+            Mono<ChatMessage> appendMono = append(chatId, MessageRole.USER, text, meta);
 
             if (clientRequestId == null) {
                 return appendMono;
@@ -102,7 +101,6 @@ public class ChatMessageService {
 
             return appendMono.onErrorResume(DataIntegrityViolationException.class, ex ->
                     findLatestUserMessage(chatId, clientRequestId)
-                            .map(ChatMessage::getId)
                             .switchIfEmpty(Mono.error(ex))
             );
         });
@@ -115,9 +113,9 @@ public class ChatMessageService {
      * @param content текст сообщения
      * @param type тип метаданных
      * @param payload payload метаданных
-     * @return идентификатор созданного сообщения
+     * @return сохраненное сообщение
      */
-    public Mono<UUID> appendAssistantMessage(UUID chatId, String content, MessageMetaType type, Object payload) {
+    public Mono<ChatMessage> appendAssistantMessage(UUID chatId, String content, MessageMetaType type, Object payload) {
         return Mono.defer(() -> {
             if (type == null) {
                 return Mono.error(new GameRecommenderException(

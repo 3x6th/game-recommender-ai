@@ -49,8 +49,9 @@ public class PersistAssistantStep implements PipelineStep, Ordered {
                 : new MessageMixedPayloadDto(assistantText, items, context.getResponseSnapshot());
 
         return chatMessageService.appendAssistantMessage(context.getChatId(), assistantText, type, payload)
-                .map(messageId -> {
-                    context.setAssistantMessageId(messageId);
+                .map(message -> {
+                    context.setAssistantMessageId(message.getId());
+                    context.getAssistantMessages().add(message);
                     return context;
                 });
     }

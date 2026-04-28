@@ -10,12 +10,15 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
-import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
+import ru.perevalov.gamerecommenderai.dto.chat.ProceedResponse;
 import ru.perevalov.gamerecommenderai.pipeline.PipelineContext;
 import ru.perevalov.gamerecommenderai.pipeline.PipelineOrchestrator;
 
 /**
  * Контроллер получения игровых рекомендаций.
+ *
+ * <p>Контракт ответа — {@link ProceedResponse}: {@code chatId + messages[]} с
+ * полным meta-envelope у каждого сообщения. См. {@code contracts/docs/api-contract.md} §1.
  */
 @Slf4j
 @RestController
@@ -32,17 +35,17 @@ public class GameRecommendationController {
      *
      * @param reqMono поток запроса клиента
      * @param clientRequestIdHeader идентификатор запроса клиента для идемпотентности
-     * @return HTTP-ответ с рекомендациями и идентификаторами чата и сообщения
+     * @return HTTP-ответ с chatId и сообщениями текущего хода
      */
     @PostMapping("/proceed")
-    public Mono<ResponseEntity<GameRecommendationResponse>> getRecommendations(
+    public Mono<ResponseEntity<ProceedResponse>> getRecommendations(
             @RequestBody Mono<GameRecommendationRequest> reqMono,
             @RequestHeader(value = CLIENT_REQUEST_ID_HEADER, required = false) String clientRequestIdHeader
     ) {
         return reqMono
                 .flatMap(req -> orchestrator.handle(new PipelineContext(req, clientRequestIdHeader)))
-                .doOnNext(resp -> log.info("Returning response with {} recommendations",
-                        resp.getRecommendations() != null ? resp.getRecommendations().size() : 0))
+                .doOnNext(resp -> log.info("Returning /proceed response with {} messages",
+                        resp.getMessages() != null ? resp.getMessages().size() : 0))
                 .map(ResponseEntity::ok);
     }
 }

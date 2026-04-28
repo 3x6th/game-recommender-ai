@@ -10,7 +10,7 @@ import org.springframework.stereotype.Service;
 
 import lombok.RequiredArgsConstructor;
 import reactor.core.publisher.Mono;
-import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
+import ru.perevalov.gamerecommenderai.dto.chat.ProceedResponse;
 import ru.perevalov.gamerecommenderai.pipeline.step.ResponseStep;
 
 /**
@@ -35,14 +35,14 @@ public class PipelineOrchestrator {
      * @param context контекст обработки
      * @return итоговый ответ recommendation pipeline
      */
-    public Mono<GameRecommendationResponse> handle(PipelineContext context) {
+    public Mono<ProceedResponse> handle(PipelineContext context) {
         Mono<PipelineContext> chain = Mono.just(context);
         for (PipelineStep step : steps) {
             chain = chain.flatMap(current -> shouldSkip(current, step)
                     ? Mono.just(current)
                     : step.handle(current));
         }
-        return chain.map(PipelineContext::getResponse);
+        return chain.map(PipelineContext::getProceedResponse);
     }
 
     /**

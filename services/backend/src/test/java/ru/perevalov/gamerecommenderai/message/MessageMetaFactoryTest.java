@@ -62,7 +62,13 @@ public class MessageMetaFactoryTest {
 
     @Test
     void cards_whenReasoningProvided_thenReasoningInPayload() {
-        MessageCardDto card = new MessageCardDto("steam:1", "Game", 0.5, null, null, null, null);
+        MessageCardDto card = MessageCardDto.builder()
+                .title("Game")
+                .genre("RPG")
+                .description("Story-driven RPG")
+                .whyRecommended("Подходит под запрос юзера")
+                .platforms(List.of("PC"))
+                .build();
         String reasoning = "Подобрал RPG с сильным нарративом, т.к. в библиотеке много часов в Disco Elysium";
 
         ObjectNode meta = factory.cards(List.of(card), reasoning);
@@ -104,13 +110,34 @@ public class MessageMetaFactoryTest {
 
     @Test
     void cards_whenItemsProvided_thenSerialized() {
-        MessageCardDto card = new MessageCardDto("steam:1", "Game", 0.5, null, null, null, null);
+        MessageCardDto card = MessageCardDto.builder()
+                .title("Forza Horizon 5")
+                .genre("Racing, Open World")
+                .description("Open-world racing in Mexico")
+                .whyRecommended("Short relaxing sessions")
+                .platforms(List.of("PC", "Xbox Series X/S"))
+                .rating(9.2)
+                .releaseYear("2021")
+                .matchScore(0.93)
+                .build();
         ObjectNode meta = factory.cards(List.of(card), null);
 
         JsonNode items = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS);
         Assertions.assertThat(items.isArray()).isTrue();
         Assertions.assertThat(items.size()).isEqualTo(1);
-        Assertions.assertThat(items.get(0).get(MessageMetaFields.CARD_GAME_ID).asText()).isEqualTo("steam:1");
+
+        JsonNode item = items.get(0);
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_TITLE).asText()).isEqualTo("Forza Horizon 5");
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_GENRE).asText()).isEqualTo("Racing, Open World");
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_DESCRIPTION).asText())
+                .isEqualTo("Open-world racing in Mexico");
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_WHY_RECOMMENDED).asText())
+                .isEqualTo("Short relaxing sessions");
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_PLATFORMS).isArray()).isTrue();
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_PLATFORMS).size()).isEqualTo(2);
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_RATING).asDouble()).isEqualTo(9.2);
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_RELEASE_YEAR).asText()).isEqualTo("2021");
+        Assertions.assertThat(item.get(MessageMetaFields.CARD_MATCH_SCORE).asDouble()).isEqualTo(0.93);
 
         JsonNode reasoning = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.REASONING);
         Assertions.assertThat(reasoning).isNull();

@@ -97,6 +97,7 @@ public class AiCallStep implements PipelineStep, Ordered {
                     }
                     context.setResponse(snapshot);
                     context.setAssistantMessageId(message.getId());
+                    context.getAssistantMessages().add(message);
                     return Mono.just(context);
                 });
     }

@@ -56,7 +56,13 @@ class ChatMessageValidatorTest {
 
     @Test
     void validateForAppend_whenCardsWithReasoning_thenOk() {
-        MessageCardDto card = new MessageCardDto("steam:1", "Game", null, null, null, null, null);
+        MessageCardDto card = MessageCardDto.builder()
+                .title("Game")
+                .genre("RPG")
+                .description("Story-driven RPG")
+                .whyRecommended("Подходит под запрос")
+                .platforms(List.of("PC"))
+                .build();
         String reasoning = "Тестовое объяснение, почему выбраны эти игры";
         ObjectNode meta = metaFactory.cards(List.of(card), reasoning);
 

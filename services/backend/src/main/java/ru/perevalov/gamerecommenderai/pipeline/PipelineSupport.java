@@ -79,6 +79,12 @@ public class PipelineSupport {
     /**
      * Строит карточки рекомендаций для meta-ответа ассистента.
      *
+     * <p>Отображение 1-в-1 с {@link GameRecommendation}: ничего не теряется,
+     * сериализуемая карточка содержит все поля, что вернула LLM. Это инвариант
+     * контракта (см. {@code contracts/docs/api-contract.md} §5) — история
+     * через {@code GET /chats/{id}/messages} обязана отдавать ту же карточку,
+     * что улетает в {@code POST /api/v1/games/proceed}.
+     *
      * @param items список рекомендаций
      * @return список карточек, который может быть пустым
      */
@@ -87,15 +93,15 @@ public class PipelineSupport {
             return Collections.emptyList();
         }
         return items.stream()
-                .map(item -> new MessageCardDto(
-                        null,
-                        item.getTitle(),
-                        item.getRating(),
-                        item.getWhyRecommended(),
-                        item.getGenre() != null ? List.of(item.getGenre()) : null,
-                        null,
-                        null
-                ))
+                .map(item -> MessageCardDto.builder()
+                        .title(item.getTitle())
+                        .genre(item.getGenre())
+                        .description(item.getDescription())
+                        .whyRecommended(item.getWhyRecommended())
+                        .platforms(item.getPlatforms())
+                        .rating(item.getRating())
+                        .releaseYear(item.getReleaseYear())
+                        .build())
                 .toList();
     }
 

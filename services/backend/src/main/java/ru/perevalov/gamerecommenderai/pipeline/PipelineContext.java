@@ -1,5 +1,6 @@
 package ru.perevalov.gamerecommenderai.pipeline;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -9,6 +10,8 @@ import lombok.Getter;
 import lombok.Setter;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
+import ru.perevalov.gamerecommenderai.dto.chat.ProceedResponse;
+import ru.perevalov.gamerecommenderai.entity.ChatMessage;
 import ru.perevalov.gamerecommenderai.security.RequestIdentity;
 import ru.perevalov.gamerecommenderai.service.RequestContext;
 
@@ -32,6 +35,21 @@ public class PipelineContext {
     private GameRecommendationResponse response;
     private String errorMessage;
     private JsonNode responseSnapshot;
+
+    /**
+     * Сохраненные за этот ход сообщения ассистента (entity со всеми полями:
+     * id, createdAt, meta-envelope). Будут отданы наружу как
+     * {@code ProceedResponse.messages[]} через {@code ChatMapper}.
+     * <p>
+     * USER-сообщение здесь не сохраняем: FE его и так знает, и эхо в ответе
+     * /proceed нам не нужно (см. {@code contracts/docs/api-contract.md} §1).
+     */
+    private List<ChatMessage> assistantMessages = new ArrayList<>();
+
+    /**
+     * Финальный ответ /proceed, собранный {@code ResponseStep}-ом.
+     */
+    private ProceedResponse proceedResponse;
 
     /**
      * Создает контекст обработки запроса.

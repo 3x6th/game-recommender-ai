@@ -35,8 +35,8 @@ public class PersistUserMessageStep implements PipelineStep, Ordered {
                         context.getClientRequestId(),
                         context.getTags(),
                         null)
-                .map(messageId -> {
-                    context.setUserMessageId(messageId);
+                .map(message -> {
+                    context.setUserMessageId(message.getId());
                     return context;
                 });
     }

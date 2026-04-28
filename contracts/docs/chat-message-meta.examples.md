@@ -1,11 +1,10 @@
 # Chat Message Meta Examples
 
 This document fixes the canonical shape of `chat_messages.meta` and provides examples.
-For REST API contract and pagination rules, see `docs/contracts/api-contract.md`.
+For REST API contract and pagination rules, see `./api-contract.md`.
 
-Note: PR #70 JSON Schema expects `meta.type` in `UPPER_SNAKE_CASE`. This document
-currently uses lowercase (`reply`, `cards`, `mixed`, `status`, `error`).
-This MUST be aligned before merging both PRs.
+`meta.type` is **lowercase** (`reply`, `cards`, `mixed`, `status`, `error`,
+`tool_call`, `tool_result`) — matches `MessageMetaType.wireName()` in code.
 
 ## Canonical Envelope
 
@@ -24,25 +23,43 @@ Every meta object MUST follow the same envelope:
 ```
 
 Rules:
-- `content` is the bubble text shown in chat UI (can be null)
+- `content` is the bubble text shown in chat UI (always present, used as FE fallback render)
 - `schemaVersion` is an integer and `>= 1`
 - `type` is a non-empty string
 - `payload` is required (can be `{}`); today usually object, but may be array/string later
 - `trace` is optional; if present it must be an object with optional string fields `requestId` and `runId`
+- `meta` is **required for every role**, including USER. USER messages are stored and
+  returned with `meta.type = "reply"` and `payload.text = content`. This keeps chat
+  history symmetric (one DTO, one (de)serializer for both sides of the conversation).
+
+## USER message (canonical)
+
+```json
+{
+  "messageId": "8e1c4a44-7b39-4f4a-9b23-9b1cda3a0a01",
+  "role": "USER",
+  "content": "Хочу что-то лайтовое и не шутер, гонки",
+  "meta": {
+    "schemaVersion": 1,
+    "type": "reply",
+    "payload": { "text": "Хочу что-то лайтовое и не шутер, гонки" }
+  },
+  "createdAt": "2026-04-26T18:53:00Z"
+}
+```
 
 ## Cards (Canonical Form)
 
 We use `meta.type = "cards"` for recommendation cards.
 
-Cards live in `meta.payload.items`.
+Cards live in `meta.payload.items`. Card field reference is in
+`./api-contract.md` (section 5). Steam-specific fields (`gameId`, `storeUrl`,
+`imageUrl`) are deferred to a separate ticket (*Steam mapping & enrichment*) and are
+**not** part of the current card contract.
 
-Minimal card fields (fixed contract for FE):
-- `gameId` — unique id. For Steam: `steam:<appId>`
-- `title` — display name
-- `score` — number `0..1` (float), optional. If upstream uses `0..100`, normalize on BE before storing/returning
-- `reason` — 1–2 sentences, optional
-- `tags` — array of strings, optional
-- `storeUrl` / `imageUrl` — optional
+Required card fields (fixed contract for FE): `title`, `genre`, `description`,
+`whyRecommended`, `platforms[]`. Optional: `rating`, `releaseYear`, `tags[]`,
+`matchScore`.
 
 Example:
 ```json
@@ -52,23 +69,37 @@ Example:
   "payload": {
     "items": [
       {
-        "gameId": "steam:123",
-        "title": "Disco-like RPG",
-        "score": 0.92,
-        "reason": "Сильный нарратив и выборы в диалогах",
-        "tags": ["RPG", "Story"]
+        "title": "Forza Horizon 5",
+        "genre": "Racing, Open World",
+        "description": "A vibrant open-world racing game set in Mexico, featuring a huge variety of cars and events.",
+        "whyRecommended": "Perfect for short 30-minute sessions. Non-shooter, visually stunning, relaxing yet exciting.",
+        "platforms": ["PC", "Xbox Series X/S"],
+        "rating": 9.2,
+        "releaseYear": "2021",
+        "tags": ["Open-world", "Casual", "Short sessions"],
+        "matchScore": 0.93
       }
     ]
   }
 }
 ```
 
-Minimal example (must be supported by FE):
+Minimal example (only required fields):
 ```json
 {
   "schemaVersion": 1,
   "type": "cards",
-  "payload": { "items": [ { "gameId": "steam:123", "title": "Game" } ] }
+  "payload": {
+    "items": [
+      {
+        "title": "Forza Horizon 5",
+        "genre": "Racing, Open World",
+        "description": "Open-world racing in Mexico.",
+        "whyRecommended": "Short, non-shooter, relaxing.",
+        "platforms": ["PC", "Xbox Series X/S"]
+      }
+    ]
+  }
 }
 ```
 
@@ -169,7 +200,13 @@ Mixed example (text + cards):
   "payload": {
     "text": "Вот что подходит",
     "items": [
-      { "gameId": "steam:123", "title": "Game" }
+      {
+        "title": "Forza Horizon 5",
+        "genre": "Racing, Open World",
+        "description": "Open-world racing in Mexico.",
+        "whyRecommended": "Short, non-shooter, relaxing.",
+        "platforms": ["PC", "Xbox Series X/S"]
+      }
     ]
   }
 }

@@ -82,7 +82,7 @@ class ChatMessageServiceTest {
         );
 
         StepVerifier.create(service.append(chatId, MessageRole.USER, "hi", meta))
-                .assertNext(id -> assertThat(id).isEqualTo(saved.getId()))
+                .assertNext(message -> assertThat(message.getId()).isEqualTo(saved.getId()))
                 .verifyComplete();
 
         ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
@@ -105,7 +105,7 @@ class ChatMessageServiceTest {
         );
 
         StepVerifier.create(service.appendUserMessage(UUID.randomUUID(), "hello", UUID.randomUUID(), null, null))
-                .assertNext(id -> assertThat(id).isEqualTo(saved.getId()))
+                .assertNext(message -> assertThat(message.getId()).isEqualTo(saved.getId()))
                 .verifyComplete();
 
         ArgumentCaptor<JsonNode> metaCaptor = ArgumentCaptor.forClass(JsonNode.class);
@@ -139,7 +139,7 @@ class ChatMessageServiceTest {
         );
 
         StepVerifier.create(service.appendUserMessage(chatId, "hello", clientRequestId, null, null))
-                .assertNext(id -> assertThat(id).isEqualTo(existingMessageId))
+                .assertNext(message -> assertThat(message.getId()).isEqualTo(existingMessageId))
                 .verifyComplete();
     }
 }

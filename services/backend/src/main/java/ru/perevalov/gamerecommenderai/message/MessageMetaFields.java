@@ -33,13 +33,15 @@ public final class MessageMetaFields {
     public static final String REPLY_TAGS = "tags";
     public static final String REPLY_EXTRA = "extra";
 
-    public static final String CARD_GAME_ID = "gameId";
     public static final String CARD_TITLE = "title";
-    public static final String CARD_SCORE = "score";
-    public static final String CARD_REASON = "reason";
+    public static final String CARD_GENRE = "genre";
+    public static final String CARD_DESCRIPTION = "description";
+    public static final String CARD_WHY_RECOMMENDED = "whyRecommended";
+    public static final String CARD_PLATFORMS = "platforms";
+    public static final String CARD_RATING = "rating";
+    public static final String CARD_RELEASE_YEAR = "releaseYear";
     public static final String CARD_TAGS = "tags";
-    public static final String CARD_STORE_URL = "storeUrl";
-    public static final String CARD_IMAGE_URL = "imageUrl";
+    public static final String CARD_MATCH_SCORE = "matchScore";
 
     private MessageMetaFields() {
     }
