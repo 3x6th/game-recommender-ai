@@ -11,13 +11,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import lombok.RequiredArgsConstructor;
-import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardsPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageErrorPayloadDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageItemDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageMetaDto;
-import ru.perevalov.gamerecommenderai.message.dto.MessageMixedPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageReplyPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageStatusPayloadDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageTextItemDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageToolCallPayloadDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageToolResultPayloadDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageTraceDto;
 
 /**
@@ -66,18 +68,23 @@ public class MessageMetaFactory {
     }
 
     /**
-     * Шорткат для CARDS meta: payload = { "items": [...] } без trace.
+     * Шорткат для CARDS meta: payload = { items: [...] } без trace.
+     *
+     * <p>{@code items[]} — полиморфный список ({@link MessageItemDto}):
+     * первый элемент обычно reasoning-блок, остальные — игровые карточки.
      */
-    public ObjectNode cards(List<MessageCardDto> items, String reasoning) {
-        return cards(items, reasoning, null);
+    public ObjectNode cards(List<? extends MessageItemDto> items) {
+        return cards(items, null);
     }
 
     /**
-     * Шорткат для CARDS meta: payload = { "items": [...] } с опциональным trace.
+     * Шорткат для CARDS meta: payload = { items: [...] } с опциональным trace.
      */
-    public ObjectNode cards(List<MessageCardDto> items, String reasoning, MessageTraceDto trace) {
-        List<MessageCardDto> safeItems = items != null ? items : Collections.emptyList();
-        MessageCardsPayloadDto payload = new MessageCardsPayloadDto(safeItems, reasoning);
+    public ObjectNode cards(List<? extends MessageItemDto> items, MessageTraceDto trace) {
+        List<MessageItemDto> safeItems = items != null
+                ? List.copyOf(items)
+                : Collections.emptyList();
+        MessageCardsPayloadDto payload = new MessageCardsPayloadDto(safeItems);
         return envelope(MessageMetaType.CARDS, payload, trace);
     }
 
@@ -98,26 +105,6 @@ public class MessageMetaFactory {
                 retryable
         );
         return envelope(MessageMetaType.ERROR, payload, trace);
-    }
-
-    /**
-     * Шорткат для MIXED meta: payload = { text, items, extra? } без trace.
-     */
-    public ObjectNode mixed(String text, List<MessageCardDto> items, JsonNode extra) {
-        return mixed(text, items, extra, null);
-    }
-
-    /**
-     * Шорткат для MIXED meta: payload = { text, items, extra? } с опциональным trace.
-     */
-    public ObjectNode mixed(String text, List<MessageCardDto> items, JsonNode extra, MessageTraceDto trace) {
-        List<MessageCardDto> safeItems = items != null ? items : Collections.emptyList();
-        MessageMixedPayloadDto payload = new MessageMixedPayloadDto(
-                text != null ? text : "",
-                safeItems,
-                extra
-        );
-        return envelope(MessageMetaType.MIXED, payload, trace);
     }
 
     /**
@@ -158,6 +145,71 @@ public class MessageMetaFactory {
                 extra
         );
         return envelope(MessageMetaType.REPLY, payload, trace);
+    }
+
+    /**
+     * Шорткат для TOOL_CALL meta: payload = { toolName, args, toolCallId } без trace.
+     */
+    public ObjectNode toolCall(String toolName, JsonNode args, String toolCallId) {
+        return toolCall(toolName, args, toolCallId, null);
+    }
+
+    /**
+     * Шорткат для TOOL_CALL meta: payload = { toolName, args, toolCallId } с опциональным trace.
+     *
+     * <p>Сериализуется как сообщение ассистента, инициирующее вызов инструмента.
+     * Парный {@code tool_result} с тем же {@code toolCallId} приходит сообщением
+     * с ролью {@code TOOL}.
+     */
+    public ObjectNode toolCall(String toolName, JsonNode args, String toolCallId, MessageTraceDto trace) {
+        MessageToolCallPayloadDto payload = MessageToolCallPayloadDto.builder()
+                .toolName(toolName != null ? toolName : "")
+                .args(args)
+                .toolCallId(toolCallId)
+                .build();
+        return envelope(MessageMetaType.TOOL_CALL, payload, trace);
+    }
+
+    /**
+     * Шорткат для TOOL_RESULT meta: payload = { toolName, toolCallId, result } без trace.
+     */
+    public ObjectNode toolResult(String toolName, String toolCallId, JsonNode result) {
+        return toolResult(toolName, toolCallId, result, null, null);
+    }
+
+    /**
+     * Шорткат для TOOL_RESULT meta: payload = { toolName, toolCallId, result?, error? }
+     * с опциональным trace.
+     *
+     * <p>Если инструмент упал — передаётся {@code error}, {@code result} остаётся
+     * {@code null}. Сериализуется как сообщение с ролью {@code TOOL}.
+     */
+    public ObjectNode toolResult(
+            String toolName,
+            String toolCallId,
+            JsonNode result,
+            String error,
+            MessageTraceDto trace
+    ) {
+        MessageToolResultPayloadDto payload = MessageToolResultPayloadDto.builder()
+                .toolName(toolName != null ? toolName : "")
+                .toolCallId(toolCallId)
+                .result(result)
+                .error(error)
+                .build();
+        return envelope(MessageMetaType.TOOL_RESULT, payload, trace);
+    }
+
+    /**
+     * Шорткат для item-блока {@code kind = "text"}.
+     *
+     * <p>Используется для нарративных текстовых блоков внутри составных
+     * ответов ({@code meta.type = cards}, items[] = [text, game, game, ...]).
+     */
+    public MessageTextItemDto textItem(String text) {
+        return MessageTextItemDto.builder()
+                .text(text != null ? text : "")
+                .build();
     }
 
     /**

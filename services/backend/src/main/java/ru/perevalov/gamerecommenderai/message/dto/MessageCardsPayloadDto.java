@@ -10,15 +10,22 @@ import lombok.NoArgsConstructor;
 import ru.perevalov.gamerecommenderai.message.MessageMetaFields;
 
 /**
- * Payload для meta.type = cards.
+ * Payload для {@code meta.type = cards}.
+ *
+ * <p>Содержит единственный полиморфный список {@code items[]} (см.
+ * {@link MessageItemDto}). Reasoning теперь живёт внутри списка как элемент
+ * {@code kind = "reasoning"}, а не отдельным полем рядом с items.
+ *
+ * <p>Поля {@code text}, {@code reasoning} и {@code extra}, существовавшие
+ * в старом mixed-payload, удалены — см. PCAI-141 follow-up
+ * («reasoning теперь карточка, а не дубль content»).
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class MessageCardsPayloadDto {
+
     @JsonProperty(MessageMetaFields.CARDS_ITEMS)
-    private List<MessageCardDto> items;
-    @JsonProperty(MessageMetaFields.REASONING)
-    private String reasoning;
+    private List<MessageItemDto> items;
 }

@@ -11,7 +11,6 @@ import lombok.RequiredArgsConstructor;
 public enum MessageMetaType {
     REPLY("reply"),
     CARDS("cards"),
-    MIXED("mixed"),
     STATUS("status"),
     ERROR("error"),
     TOOL_CALL("tool_call"),

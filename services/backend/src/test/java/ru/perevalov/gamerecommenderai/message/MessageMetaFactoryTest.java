@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageReasoningItemDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageTextItemDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageTraceDto;
 
 public class MessageMetaFactoryTest {
@@ -48,20 +50,20 @@ public class MessageMetaFactoryTest {
 
     @Test
     void cards_whenItemsNull_thenCreatesEmptyArray() {
-        ObjectNode meta = factory.cards(null, null);
+        ObjectNode meta = factory.cards(null);
 
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_TYPE).asText()).isEqualTo("cards");
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS).isArray())
                 .isTrue();
         Assertions.assertThat(meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS).size())
                 .isEqualTo(0);
-
-        JsonNode reasoning = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.REASONING);
-        Assertions.assertThat(reasoning).isNull();
     }
 
     @Test
-    void cards_whenReasoningProvided_thenReasoningInPayload() {
+    void cards_whenReasoningItemFirst_thenSerializedWithKindReasoning() {
+        MessageReasoningItemDto reasoning = MessageReasoningItemDto.builder()
+                .text("Подобрал RPG с нарративом")
+                .build();
         MessageCardDto card = MessageCardDto.builder()
                 .title("Game")
                 .genre("RPG")
@@ -69,13 +71,20 @@ public class MessageMetaFactoryTest {
                 .whyRecommended("Подходит под запрос юзера")
                 .platforms(List.of("PC"))
                 .build();
-        String reasoning = "Подобрал RPG с сильным нарративом, т.к. в библиотеке много часов в Disco Elysium";
 
-        ObjectNode meta = factory.cards(List.of(card), reasoning);
+        ObjectNode meta = factory.cards(List.of(reasoning, card));
 
-        JsonNode reasoningNode = meta.get(MessageMetaFields.FIELD_PAYLOAD)
-                .get(MessageMetaFields.REASONING);
-        Assertions.assertThat(reasoningNode.asText()).isEqualTo(reasoning);
+        JsonNode items = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS);
+        Assertions.assertThat(items.size()).isEqualTo(2);
+
+        Assertions.assertThat(items.get(0).get(MessageMetaFields.ITEM_KIND).asText())
+                .isEqualTo(MessageMetaFields.ITEM_KIND_REASONING);
+        Assertions.assertThat(items.get(0).get(MessageMetaFields.ITEM_TEXT).asText())
+                .isEqualTo("Подобрал RPG с нарративом");
+
+        Assertions.assertThat(items.get(1).get(MessageMetaFields.ITEM_KIND).asText())
+                .isEqualTo(MessageMetaFields.ITEM_KIND_GAME);
+        Assertions.assertThat(items.get(1).get(MessageMetaFields.CARD_TITLE).asText()).isEqualTo("Game");
     }
 
     @Test
@@ -90,22 +99,79 @@ public class MessageMetaFactoryTest {
     }
 
     @Test
-    void mixed_whenExtraNull_thenOmitsExtra() {
-        ObjectNode meta = factory.mixed("hello", null, null);
-
-        JsonNode payload = meta.get(MessageMetaFields.FIELD_PAYLOAD);
-        Assertions.assertThat(meta.get(MessageMetaFields.FIELD_TYPE).asText()).isEqualTo("mixed");
-        Assertions.assertThat(payload.get(MessageMetaFields.MIXED_TEXT).asText()).isEqualTo("hello");
-        Assertions.assertThat(payload.get(MessageMetaFields.MIXED_ITEMS).isArray()).isTrue();
-        Assertions.assertThat(payload.has(MessageMetaFields.MIXED_EXTRA)).isFalse();
-    }
-
-    @Test
     void trace_whenOnlyRequestId_thenContainsOnlyRequestId() {
         MessageTraceDto trace = factory.trace("req-2", null);
 
         Assertions.assertThat(trace.getRequestId()).isEqualTo("req-2");
         Assertions.assertThat(trace.getRunId()).isNull();
+    }
+
+    @Test
+    void cards_whenTextItemMixedWithGame_thenBothKindsSerialized() {
+        MessageTextItemDto text = MessageTextItemDto.builder()
+                .text("Вот что я нашёл по твоему запросу.")
+                .build();
+        MessageCardDto card = MessageCardDto.builder()
+                .title("Game")
+                .genre("RPG")
+                .description("desc")
+                .whyRecommended("why")
+                .platforms(List.of("PC"))
+                .build();
+
+        ObjectNode meta = factory.cards(List.of(text, card));
+
+        JsonNode items = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS);
+        Assertions.assertThat(items.size()).isEqualTo(2);
+        Assertions.assertThat(items.get(0).get(MessageMetaFields.ITEM_KIND).asText())
+                .isEqualTo(MessageMetaFields.ITEM_KIND_TEXT);
+        Assertions.assertThat(items.get(0).get(MessageMetaFields.ITEM_TEXT).asText())
+                .isEqualTo("Вот что я нашёл по твоему запросу.");
+        Assertions.assertThat(items.get(1).get(MessageMetaFields.ITEM_KIND).asText())
+                .isEqualTo(MessageMetaFields.ITEM_KIND_GAME);
+    }
+
+    @Test
+    void textItem_whenNullText_thenUsesEmpty() {
+        MessageTextItemDto item = factory.textItem(null);
+
+        Assertions.assertThat(item.getText()).isEqualTo("");
+    }
+
+    @Test
+    void toolCall_whenCalled_thenBuildsToolCallPayload() {
+        ObjectNode args = objectMapper.createObjectNode().put("query", "hades");
+
+        ObjectNode meta = factory.toolCall("steam_search", args, "call-42");
+
+        Assertions.assertThat(meta.get(MessageMetaFields.FIELD_TYPE).asText()).isEqualTo("tool_call");
+        JsonNode payload = meta.get(MessageMetaFields.FIELD_PAYLOAD);
+        Assertions.assertThat(payload.get(MessageMetaFields.TOOL_CALL_NAME).asText()).isEqualTo("steam_search");
+        Assertions.assertThat(payload.get(MessageMetaFields.TOOL_CALL_ID).asText()).isEqualTo("call-42");
+        Assertions.assertThat(payload.get(MessageMetaFields.TOOL_CALL_ARGS).get("query").asText()).isEqualTo("hades");
+    }
+
+    @Test
+    void toolResult_whenSuccess_thenResultSetAndErrorOmitted() {
+        JsonNode result = objectMapper.createObjectNode().put("count", 5);
+
+        ObjectNode meta = factory.toolResult("steam_search", "call-42", result);
+
+        Assertions.assertThat(meta.get(MessageMetaFields.FIELD_TYPE).asText()).isEqualTo("tool_result");
+        JsonNode payload = meta.get(MessageMetaFields.FIELD_PAYLOAD);
+        Assertions.assertThat(payload.get(MessageMetaFields.TOOL_RESULT_NAME).asText()).isEqualTo("steam_search");
+        Assertions.assertThat(payload.get(MessageMetaFields.TOOL_RESULT_CALL_ID).asText()).isEqualTo("call-42");
+        Assertions.assertThat(payload.get(MessageMetaFields.TOOL_RESULT_RESULT).get("count").asInt()).isEqualTo(5);
+        Assertions.assertThat(payload.has(MessageMetaFields.TOOL_RESULT_ERROR)).isFalse();
+    }
+
+    @Test
+    void toolResult_whenError_thenErrorSetAndResultOmitted() {
+        ObjectNode meta = factory.toolResult("steam_search", "call-42", null, "upstream timeout", null);
+
+        JsonNode payload = meta.get(MessageMetaFields.FIELD_PAYLOAD);
+        Assertions.assertThat(payload.get(MessageMetaFields.TOOL_RESULT_ERROR).asText()).isEqualTo("upstream timeout");
+        Assertions.assertThat(payload.has(MessageMetaFields.TOOL_RESULT_RESULT)).isFalse();
     }
 
     @Test
@@ -120,13 +186,15 @@ public class MessageMetaFactoryTest {
                 .releaseYear("2021")
                 .matchScore(0.93)
                 .build();
-        ObjectNode meta = factory.cards(List.of(card), null);
+        ObjectNode meta = factory.cards(List.of(card));
 
         JsonNode items = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.CARDS_ITEMS);
         Assertions.assertThat(items.isArray()).isTrue();
         Assertions.assertThat(items.size()).isEqualTo(1);
 
         JsonNode item = items.get(0);
+        Assertions.assertThat(item.get(MessageMetaFields.ITEM_KIND).asText())
+                .isEqualTo(MessageMetaFields.ITEM_KIND_GAME);
         Assertions.assertThat(item.get(MessageMetaFields.CARD_TITLE).asText()).isEqualTo("Forza Horizon 5");
         Assertions.assertThat(item.get(MessageMetaFields.CARD_GENRE).asText()).isEqualTo("Racing, Open World");
         Assertions.assertThat(item.get(MessageMetaFields.CARD_DESCRIPTION).asText())
@@ -138,8 +206,5 @@ public class MessageMetaFactoryTest {
         Assertions.assertThat(item.get(MessageMetaFields.CARD_RATING).asDouble()).isEqualTo(9.2);
         Assertions.assertThat(item.get(MessageMetaFields.CARD_RELEASE_YEAR).asText()).isEqualTo("2021");
         Assertions.assertThat(item.get(MessageMetaFields.CARD_MATCH_SCORE).asDouble()).isEqualTo(0.93);
-
-        JsonNode reasoning = meta.get(MessageMetaFields.FIELD_PAYLOAD).get(MessageMetaFields.REASONING);
-        Assertions.assertThat(reasoning).isNull();
     }
 }

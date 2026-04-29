@@ -61,4 +61,8 @@
         <sqlFile path="../sql/v1/013_BackfillChatMessageMetaEnvelope.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="14-migrate-chat-messages-to-polymorphic-items" author="Perevalov Nikita">
+        <sqlFile path="../sql/v1/014_MigrateChatMessagesToPolymorphicItems.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>

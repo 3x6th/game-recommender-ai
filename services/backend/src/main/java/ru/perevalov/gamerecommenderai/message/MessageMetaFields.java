@@ -6,8 +6,6 @@ package ru.perevalov.gamerecommenderai.message;
 public final class MessageMetaFields {
     public static final int SCHEMA_VERSION = 1;
 
-    public static final String REASONING = "reasoning";
-
     public static final String FIELD_SCHEMA_VERSION = "schemaVersion";
     public static final String FIELD_TYPE = "type";
     public static final String FIELD_PAYLOAD = "payload";
@@ -24,14 +22,25 @@ public final class MessageMetaFields {
     public static final String ERROR_MESSAGE = "message";
     public static final String ERROR_RETRYABLE = "retryable";
 
-    public static final String MIXED_TEXT = "text";
-    public static final String MIXED_ITEMS = "items";
-    public static final String MIXED_EXTRA = "extra";
-
     public static final String REPLY_TEXT = "text";
     public static final String REPLY_CLIENT_REQUEST_ID = "clientRequestId";
     public static final String REPLY_TAGS = "tags";
     public static final String REPLY_EXTRA = "extra";
+
+    public static final String ITEM_KIND = "kind";
+    public static final String ITEM_KIND_GAME = "game";
+    public static final String ITEM_KIND_REASONING = "reasoning";
+    public static final String ITEM_KIND_TEXT = "text";
+    public static final String ITEM_TEXT = "text";
+
+    public static final String TOOL_CALL_NAME = "toolName";
+    public static final String TOOL_CALL_ARGS = "args";
+    public static final String TOOL_CALL_ID = "toolCallId";
+
+    public static final String TOOL_RESULT_NAME = "toolName";
+    public static final String TOOL_RESULT_CALL_ID = "toolCallId";
+    public static final String TOOL_RESULT_RESULT = "result";
+    public static final String TOOL_RESULT_ERROR = "error";
 
     public static final String CARD_TITLE = "title";
     public static final String CARD_GENRE = "genre";

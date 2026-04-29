@@ -238,8 +238,11 @@ public class GameRecommenderService {
     private GameRecommendationResponse buildResponse(
             RecommendationResponse grpcResponse,
             List<ru.perevalov.gamerecommenderai.dto.GameRecommendation> recommendations) {
+        // recommendation = поле для будущего summary от LLM (если когда-нибудь
+        // начнёт отдавать). Хардкод "Received N recommendations" удалён —
+        // это был плейсхолдер, который оседал в content сообщения.
         return GameRecommendationResponse.builder()
-                .recommendation("Received " + recommendations.size() + " recommendations")
+                .recommendation(null)
                 .reasoning(grpcResponse.getReasoning())
                 .success(true)
                 .recommendations(recommendations)

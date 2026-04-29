@@ -1,5 +1,6 @@
 package ru.perevalov.gamerecommenderai.pipeline;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -7,16 +8,13 @@ import java.util.UUID;
 
 import org.springframework.stereotype.Component;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendation;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
-import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
-import ru.perevalov.gamerecommenderai.message.MessageMetaFields;
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageItemDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageReasoningItemDto;
 
 /**
  * Вспомогательные операции recommendation pipeline.
@@ -25,13 +23,9 @@ import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
 @Component
 @RequiredArgsConstructor
 public class PipelineSupport {
-    private final ObjectMapper objectMapper;
 
     /**
      * Безопасно парсит UUID из строки.
-     *
-     * @param raw исходная строка
-     * @return UUID или {@code null}, если значение пустое или некорректное
      */
     public UUID parseUuid(String raw) {
         if (raw == null || raw.isBlank()) {
@@ -47,9 +41,6 @@ public class PipelineSupport {
 
     /**
      * Безопасно парсит long из строки.
-     *
-     * @param raw исходная строка
-     * @return значение или {@code null}, если оно пустое или некорректное
      */
     public Long parseLong(String raw) {
         if (raw == null || raw.isBlank()) {
@@ -65,9 +56,6 @@ public class PipelineSupport {
 
     /**
      * Извлекает теги из запроса рекомендаций.
-     *
-     * @param request запрос рекомендаций
-     * @return список тегов или {@code null}
      */
     public List<String> extractTags(GameRecommendationRequest request) {
         if (request == null || request.getTags() == null) {
@@ -77,70 +65,43 @@ public class PipelineSupport {
     }
 
     /**
-     * Строит карточки рекомендаций для meta-ответа ассистента.
+     * Собирает полиморфный список {@code meta.payload.items[]}: reasoning-блок
+     * (если есть) первым элементом, далее игровые карточки.
      *
-     * <p>Отображение 1-в-1 с {@link GameRecommendation}: ничего не теряется,
-     * сериализуемая карточка содержит все поля, что вернула LLM. Это инвариант
-     * контракта (см. {@code contracts/docs/api-contract.md} §5) — история
-     * через {@code GET /chats/{id}/messages} обязана отдавать ту же карточку,
-     * что улетает в {@code POST /api/v1/games/proceed}.
-     *
-     * @param items список рекомендаций
-     * @return список карточек, который может быть пустым
+     * <p>Контракт см. {@code contracts/docs/api-contract.md} §5: {@code items[]}
+     * — единственное место, где живёт визуальное содержимое ответа ассистента.
+     * Маппинг {@link GameRecommendation} → {@link MessageCardDto} 1-в-1, без потерь.
      */
-    public List<MessageCardDto> buildCards(List<GameRecommendation> items) {
-        if (items == null || items.isEmpty()) {
+    public List<MessageItemDto> buildItems(
+            String reasoning,
+            List<GameRecommendation> recommendations
+    ) {
+        boolean hasReasoning = reasoning != null && !reasoning.isBlank();
+        boolean hasRecs = recommendations != null && !recommendations.isEmpty();
+        if (!hasReasoning && !hasRecs) {
             return Collections.emptyList();
         }
-        return items.stream()
-                .map(item -> MessageCardDto.builder()
-                        .title(item.getTitle())
-                        .genre(item.getGenre())
-                        .description(item.getDescription())
-                        .whyRecommended(item.getWhyRecommended())
-                        .platforms(item.getPlatforms())
-                        .rating(item.getRating())
-                        .releaseYear(item.getReleaseYear())
-                        .build())
-                .toList();
+
+        List<MessageItemDto> items = new ArrayList<>();
+        if (hasReasoning) {
+            items.add(MessageReasoningItemDto.builder()
+                    .text(reasoning)
+                    .build());
+        }
+        if (hasRecs) {
+            for (GameRecommendation rec : recommendations) {
+                items.add(MessageCardDto.builder()
+                        .title(rec.getTitle())
+                        .genre(rec.getGenre())
+                        .description(rec.getDescription())
+                        .whyRecommended(rec.getWhyRecommended())
+                        .platforms(rec.getPlatforms())
+                        .rating(rec.getRating())
+                        .releaseYear(rec.getReleaseYear())
+                        .build());
+            }
+        }
+        return items;
     }
 
-    /**
-     * Сериализует ответ рекомендаций в JSON-снапшот для meta.extra.
-     *
-     * @param response ответ сервиса рекомендаций
-     * @return JSON-снапшот ответа
-     */
-    public JsonNode buildResponseSnapshot(GameRecommendationResponse response) {
-        return objectMapper.valueToTree(response);
-    }
-
-    /**
-     * Извлекает снапшот ответа из meta.payload.extra.
-     *
-     * @param meta meta-объект сообщения
-     * @return восстановленный ответ или {@code null}
-     */
-    public GameRecommendationResponse extractSnapshot(JsonNode meta) {
-        if (meta == null || !meta.isObject()) {
-            return null;
-        }
-        JsonNode payload = meta.get(MessageMetaFields.FIELD_PAYLOAD);
-        if (payload == null || !payload.isObject()) {
-            return null;
-        }
-        JsonNode extra = payload.get(MessageMetaFields.MIXED_EXTRA);
-        if (extra == null || extra.isNull()) {
-            extra = payload.get(MessageMetaFields.REPLY_EXTRA);
-        }
-        if (extra == null || extra.isNull()) {
-            return null;
-        }
-        try {
-            return objectMapper.treeToValue(extra, GameRecommendationResponse.class);
-        } catch (Exception ex) {
-            log.warn("Failed to parse response snapshot from meta", ex);
-            return null;
-        }
-    }
 }

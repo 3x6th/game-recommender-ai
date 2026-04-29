@@ -7,20 +7,19 @@ after introducing the chat meta-envelope. It complements:
 
 ## 0) Reality Check (Current Code)
 
-State as of [PCAI-141](https://jira.ozero.dev/browse/PCAI-141):
+State as of [PCAI-141](https://jira.ozero.dev/browse/PCAI-141) follow-up:
 
-- Endpoint: `POST /api/v1/games/proceed` exists, but currently returns the legacy flat
-  DTO `GameRecommendationResponse` (`recommendation, reasoning, success, recommendations,
-  chatId, assistantMessageId, errorMessage`) — **without** `meta`.
-- Meta-envelope IS already built and persisted to DB (`PersistAssistantStep` →
-  `MessageMetaType.REPLY` / `MIXED`), so `GET /api/v1/chats/{chatId}/messages` already
-  returns `meta` correctly.
-- `ChatMessage` entity has fields: `chatId`, `role`, `content`, `meta (JsonNode)`,
-  `clientRequestId`.
-- Springdoc (WebFlux) auto-generates OpenAPI, but `meta.type` and examples must be
-  added manually.
-
-PCAI-141 covers aligning `/proceed` to the same envelope shape as `GET /chats/{id}/messages`.
+- Endpoint `POST /api/v1/games/proceed` отдаёт `ProceedResponse { chatId, messages[] }`.
+  Каждый `message` — стандартный `ChatMessageDto` (тот же, что `GET /chats/{id}/messages`).
+- `meta.type = mixed` упразднён. Ассистентский ответ всегда сериализуется как
+  `cards` с полиморфным `payload.items[]` (см. §4.2 / §5). Reasoning живёт
+  внутри `items[]` отдельным элементом `kind: "reasoning"`.
+- `meta.payload.text`, `meta.payload.reasoning`, `meta.payload.extra` удалены полностью.
+  Никакого fallback на легаси FE нет — стенд `MVP-Major-1.5` остаётся на старом
+  контракте, релиз 2 идёт на новом.
+- `ChatMessage` entity: `chatId`, `role`, `content`, `meta (jsonb)`, `clientRequestId`.
+  Для `cards`-сообщений `content` пустой — всё рисуется из `items[]`.
+- Springdoc (WebFlux) сам генерит OpenAPI; `meta.type` и примеры — через `@Schema`.
 
 ---
 
@@ -53,11 +52,11 @@ Each `message` MUST contain:
 
 ### `meta.type` Casing
 
-`meta.type` is **lowercase** (`reply`, `cards`, `mixed`, `status`, `error`, `tool_call`,
+`meta.type` is **lowercase** (`reply`, `cards`, `status`, `error`, `tool_call`,
 `tool_result`). This matches `MessageMetaType.wireName()` in code and is the canonical
 form across both `/proceed` and `GET /chats/{id}/messages`.
 
-### Example: assistant returns text + cards (`type = mixed`)
+### Example: assistant returns reasoning + cards (`type = cards`)
 
 ```json
 {
@@ -66,14 +65,18 @@ form across both `/proceed` and `GET /chats/{id}/messages`.
     {
       "messageId": "57563528-34a7-4a38-acaa-62a9e31389e3",
       "role": "ASSISTANT",
-      "content": "Под твой запрос подойдут расслабляющие гонки и медитативные симуляторы. Вот варианты:",
+      "content": "",
       "meta": {
         "schemaVersion": 1,
-        "type": "mixed",
+        "type": "cards",
         "payload": {
-          "text": "Под твой запрос подойдут расслабляющие гонки и медитативные симуляторы. Вот варианты:",
           "items": [
             {
+              "kind": "reasoning",
+              "text": "Пользователь хочет лайтовую игру без шутеров. Учитывая историю чата, я подобрал расслабляющие гонки."
+            },
+            {
+              "kind": "game",
               "title": "Forza Horizon 5",
               "genre": "Racing, Open World",
               "description": "A vibrant open-world racing game set in Mexico, featuring a huge variety of cars and events.",
@@ -96,6 +99,9 @@ form across both `/proceed` and `GET /chats/{id}/messages`.
   ]
 }
 ```
+
+`content` для `cards`-сообщений пустой — всё содержимое лежит в `payload.items[]`.
+FE рендерит элементы по полю `kind`.
 
 ### Example: AI failure (`type = error`)
 
@@ -147,14 +153,14 @@ A flux of `ChatMessageDto` items in `createdAt DESC` order:
   {
     "messageId": "2d1f2b2e-0b6f-46c1-8c2a-6a0b2b2eaa02",
     "role": "ASSISTANT",
-    "content": "Под твой запрос подойдут расслабляющие гонки и медитативные симуляторы. Вот варианты:",
+    "content": "",
     "meta": {
       "schemaVersion": 1,
-      "type": "mixed",
+      "type": "cards",
       "payload": {
-        "text": "...",
         "items": [
-          { "title": "Forza Horizon 5", "genre": "Racing, Open World", "rating": 9.2 }
+          { "kind": "reasoning", "text": "Пользователь хочет лайтовую игру. Подобрал расслабляющие гонки." },
+          { "kind": "game", "title": "Forza Horizon 5", "genre": "Racing, Open World", "rating": 9.2 }
         ]
       }
     },
@@ -214,7 +220,19 @@ envelope and the same `ChatMessageDto`.
 ```
 
 ### 4.2 cards
-Cards-only (content optional, cards are primary).
+Любой ответ ассистента, содержащий карточки, нарративный текст или общий reasoning.
+`content` всегда пустой — всё рендерится из `payload.items[]`.
+
+`items[]` — полиморфный массив с дискриминатором `kind`:
+- `kind: "reasoning"` — метакомментарий «почему именно этот набор» (LLM-уровень,
+  отличается от `whyRecommended` внутри игровой карточки). Обычно идёт первым.
+- `kind: "game"` — карточка игры (поля см. §5.2).
+- `kind: "text"` — нарративный текстовый блок ассистента (см. §5.3).
+  Используется в составных ответах после tool-цикла, когда агент пишет
+  «вот что я нашёл по твоему запросу: ...» + карточки в одном сообщении.
+
+FE рендерит сверху вниз. Незнакомые `kind` MUST игнорировать (forward-compat для
+будущих типов — см. §6 «Reserved future kinds»).
 
 ```json
 {
@@ -223,6 +241,11 @@ Cards-only (content optional, cards are primary).
   "payload": {
     "items": [
       {
+        "kind": "reasoning",
+        "text": "Пользователь хочет лайтовую игру без шутеров. Подобрал расслабляющие симуляции."
+      },
+      {
+        "kind": "game",
         "title": "Stardew Valley",
         "genre": "Simulation, RPG",
         "description": "Спокойная фермерская симуляция с лёгким сюжетом.",
@@ -238,19 +261,9 @@ Cards-only (content optional, cards are primary).
 }
 ```
 
-### 4.3 mixed
-Text + cards in a single message.
-
-```json
-{
-  "schemaVersion": 1,
-  "type": "mixed",
-  "payload": {
-    "text": "Вот что подходит:",
-    "items": []
-  }
-}
-```
+Hard-coded summaries вроде `"Received N recommendations"` MUST NOT попадать ни в
+`content`, ни внутрь `kind: "reasoning"` — последнее зарезервировано под живой
+вывод модели.
 
 ### 4.4 status
 Intermediate/system status (useful for streaming and progress).
@@ -281,17 +294,93 @@ Error message visible to the user.
 }
 ```
 
+### 4.6 tool_call
+
+Сообщение ассистента, инициирующее вызов инструмента (Steam-поиск, similar games,
+RAG и т.п.). Парный `tool_result` с тем же `toolCallId` приходит сообщением с
+ролью `TOOL`.
+
+`role = ASSISTANT`. `content` обычно пустой (это машинно-читаемый шаг агента).
+FE по умолчанию **может отрисовать как тонкий статус-чип** «Calling <toolName>…»
+или вовсе скрыть из видимой ленты — это деталь UX, контракт нейтрален.
+
+Контракт зафиксирован для следующего релиза (LangChain/tools), сейчас pipeline
+такие сообщения не генерит. Хранилище и валидатор уже совместимы.
+
+```json
+{
+  "schemaVersion": 1,
+  "type": "tool_call",
+  "payload": {
+    "toolName": "steam_search",
+    "args": { "query": "hades", "limit": 10 },
+    "toolCallId": "call_a84a"
+  }
+}
+```
+
+### 4.7 tool_result
+
+Ответ инструмента на парный `tool_call`. `role = TOOL`. `toolCallId` связывает
+результат с конкретным вызовом — нужен потому, что агент может запускать
+несколько вызовов параллельно.
+
+При ошибке инструмента — `result` отсутствует, `error` содержит человекочитаемое
+сообщение.
+
+```json
+{
+  "schemaVersion": 1,
+  "type": "tool_result",
+  "payload": {
+    "toolName": "steam_search",
+    "toolCallId": "call_a84a",
+    "result": {
+      "items": [{"appId": 1145360, "title": "Hades"}]
+    }
+  }
+}
+```
+
 ---
 
-## 5) Card Fields (Canonical)
+## 5) Polymorphic `items[]` (Canonical)
 
-The card object inside `meta.payload.items[]` has the following shape. There is exactly
-**one** card DTO (`MessageCardDto`) and it carries everything the LLM produces. No
-Steam-side enrichment / store linking is part of this contract — if/when we want store
-URLs or cover images, that's a separate change to this DTO, not a separate object.
+Все элементы внутри `meta.payload.items[]` обязаны иметь поле-дискриминатор `kind`.
+На уровне Java это `sealed interface MessageItemDto` с тремя реализациями
+(`MessageReasoningItemDto`, `MessageCardDto`, `MessageTextItemDto`). FE MUST ignore
+unknown `kind` values.
+
+### 5.1 `kind: "reasoning"`
+
+| Field   | Type   | Required | Notes                                       |
+|---------|--------|----------|---------------------------------------------|
+| `kind`  | string | yes      | Constant `"reasoning"`                      |
+| `text`  | string | yes      | Объяснение «почему именно этот набор игр»   |
+
+Reasoning-карточка обычно идёт первой в `items[]` и рендерится как блок-объяснение
+над списком игр. Может отсутствовать, если LLM ничего не вернул.
+
+### 5.3 `kind: "text"` (`MessageTextItemDto`)
+
+| Field   | Type   | Required | Notes                                                          |
+|---------|--------|----------|----------------------------------------------------------------|
+| `kind`  | string | yes      | Constant `"text"`                                              |
+| `text`  | string | yes      | Нарративный ответ ассистента (отвечает на вопрос пользователя) |
+
+Семантическая разница с `reasoning`: `reasoning` — метакомментарий про сам набор
+карточек, `text` — это собственно ответ агента. В составном ответе после tool-цикла
+типичный порядок: `[text, game, game, reasoning]` либо `[text]` без карточек.
+
+### 5.2 `kind: "game"` (`MessageCardDto`)
+
+Один канонический DTO для всех игровых карточек. Никакого Steam-обогащения
+(`storeUrl`, `imageUrl`, `gameId`) тут нет — если когда-нибудь понадобится,
+это отдельное расширение этого DTO, а не новая сущность.
 
 | Field            | Type            | Required | Notes                                              |
 |------------------|-----------------|----------|----------------------------------------------------|
+| `kind`           | string          | yes      | Constant `"game"`                                  |
 | `title`          | string          | yes      | Display name                                       |
 | `genre`          | string          | yes      | Comma-separated, e.g. `"Racing, Open World"`       |
 | `description`    | string          | yes      | What the game is                                   |
@@ -307,13 +396,40 @@ FE MUST ignore unknown fields. BE MUST omit `null`-valued optional fields
 
 ---
 
-## 6) FE Fallback Rule (Mandatory)
+## 6) Forward Compatibility
 
-If `meta.type` is unknown or unsupported:
-- FE MUST render `content` as plain text.
-- FE MAY log unsupported types in dev mode.
+- Незнакомые `meta.type` FE MUST gracefully скипать (можно показать заглушку
+  «обновите клиент»). Никакого fallback-чтения старых полей (`payload.text`,
+  `payload.reasoning`, `payload.extra`) не делается — этих полей в новом
+  контракте нет.
+- Незнакомые `items[].kind` FE MUST игнорировать. Это даёт нам возможность
+  безопасно добавлять новые виды элементов без поломки уже задеплоенного клиента.
 
-This ensures forward compatibility when BE adds new types.
+### 6.1 Reserved future kinds (roadmap)
+
+Зарезервированы для следующих релизов. Контракт каждого фиксируется тем тикетом,
+который вводит соответствующую LLM-логику. До этого момента BE не генерит эти
+kind'ы, FE безопасно игнорирует если случайно встретит.
+
+| `kind`                  | Назначение                                                  | Релиз            |
+|-------------------------|-------------------------------------------------------------|------------------|
+| `profile_review`        | Оценка профиля пользователя (топ-жанры, паттерны, инсайты)  | TBD              |
+| `clarifying_question`   | Уточняющий вопрос ассистента, когда нужно больше контекста  | TBD              |
+| `quick_replies`         | Быстрые ответы-кнопки для пользователя                      | TBD              |
+
+При добавлении: новый DTO в `message/dto/`, строчка в `MessageItemDto.@JsonSubTypes`,
+раздел в §5, FE `switch(kind)` ветка, пример в `chat-message-meta.examples.md`.
+
+### 6.2 Reserved future meta types
+
+| `meta.type`     | Назначение                                                      | Релиз                   |
+|-----------------|-----------------------------------------------------------------|-------------------------|
+| `tool_call`     | Машинный запуск инструмента ассистентом-агентом (см. §4.6)      | LangChain/tools релиз   |
+| `tool_result`   | Ответ инструмента на парный `tool_call` (см. §4.7)              | LangChain/tools релиз   |
+
+`MessageMetaType` enum их уже содержит, payload-DTO (`MessageToolCallPayloadDto`,
+`MessageToolResultPayloadDto`) и validator-allowlist расширены — pipeline начнёт
+их генерить, когда подключится LangChain-сторона.
 
 ---
 
@@ -321,11 +437,15 @@ This ensures forward compatibility when BE adds new types.
 
 When mapping from Python `RecommendationResponse` to HTTP `message.meta.type`:
 
-- gRPC has both text and game cards → `mixed`
-- only text → `reply`
-- only cards → `cards`
-- gRPC returns error/fallback → `error`
-- backend emits intermediate progress (future SSE) → `status`
+- gRPC возвращает reasoning и/или recommendations → `cards` с
+  полиморфным `items[]` (reasoning-блок + игровые карточки).
+- gRPC вернул только текст без карточек и без reasoning → `reply`
+  (`payload.text`).
+- gRPC вернул error/fallback → `error`.
+- Backend emits intermediate progress (future SSE) → `status`.
+- Внутренние шаги агента (LangChain tool-цикл) → `tool_call` от ассистента,
+  `tool_result` от роли `TOOL`. Эти сообщения сохраняются в чат-истории
+  для последующего использования агентом как контекст.
 
 This must be documented and consistent across services.
 
@@ -337,6 +457,10 @@ To make Springdoc reflect this contract, update DTO models and schema annotation
 - `ProceedResponse { chatId, messages[], userMessage? }`
 - `ChatMessageDto { messageId, role, content, meta, createdAt }`
 - `MetaEnvelope { schemaVersion, type, payload, trace? }`
-- `MessageCardDto { title, genre, description, whyRecommended, platforms, rating?, releaseYear?, tags?, matchScore? }`
-- `meta.type` → enum with explicit allowable values (lowercase wire form)
-- Add OpenAPI examples for each type (`reply`, `cards`, `mixed`, `status`, `error`)
+- `MessageItemDto` — polymorphic (Schema discriminator `kind`):
+  - `MessageReasoningItemDto { kind: "reasoning", text }`
+  - `MessageCardDto { kind: "game", title, genre, description, whyRecommended, platforms, rating?, releaseYear?, tags?, matchScore? }`
+  - `MessageTextItemDto { kind: "text", text }`
+- `meta.type` → enum with explicit allowable values (lowercase wire form):
+  `reply`, `cards`, `status`, `error`, `tool_call`, `tool_result`
+- Add OpenAPI examples for each type

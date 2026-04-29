@@ -87,21 +87,38 @@ class PipelineIT extends IntegrationTestBase {
         JsonNode proceedAssistant = proceedMessages.get(0);
         UUID assistantMessageId = UUID.fromString(proceedAssistant.path("messageId").asText());
 
-        // Карточки не должны быть пустыми: PCAI-141 кейс №1.
+        // content для cards-сообщений умышленно пустой: всё содержимое в items[].
+        String assistantContent = proceedAssistant.path("content").asText();
+        assertThat(assistantContent).isEmpty();
+        assertThat(assistantContent).doesNotContain("Received");
+        // Тип теперь всегда cards для ответа с reasoning + recommendations.
+        assertThat(proceedAssistant.path("meta").path("type").asText()).isEqualTo("cards");
+
         JsonNode items = proceedAssistant.path("meta").path("payload").path("items");
         assertThat(items.isArray()).isTrue();
-        assertThat(items.size()).isGreaterThan(0);
-        JsonNode firstCard = items.get(0);
-        assertThat(firstCard.path("title").asText()).isEqualTo("Example Game");
-        assertThat(firstCard.path("genre").asText()).isEqualTo("RPG");
-        assertThat(firstCard.path("description").asText()).isEqualTo("Example description");
-        assertThat(firstCard.path("whyRecommended").asText()).isEqualTo("Great story");
-        assertThat(firstCard.path("rating").asDouble()).isEqualTo(8.5);
-        assertThat(firstCard.path("releaseYear").asText()).isEqualTo("2020");
+        // Первый элемент — reasoning-карточка (PCAI-141 follow-up).
+        JsonNode reasoningItem = items.get(0);
+        assertThat(reasoningItem.path("kind").asText()).isEqualTo("reasoning");
+        assertThat(reasoningItem.path("text").asText())
+                .isEqualTo("Подобрал RPG исходя из истории чата и предпочтений по жанру.");
+
+        // Далее — игровые карточки.
+        JsonNode firstGame = items.get(1);
+        assertThat(firstGame.path("kind").asText()).isEqualTo("game");
+        assertThat(firstGame.path("title").asText()).isEqualTo("Example Game");
+        assertThat(firstGame.path("genre").asText()).isEqualTo("RPG");
+        assertThat(firstGame.path("description").asText()).isEqualTo("Example description");
+        assertThat(firstGame.path("whyRecommended").asText()).isEqualTo("Great story");
+        assertThat(firstGame.path("rating").asDouble()).isEqualTo(8.5);
+        assertThat(firstGame.path("releaseYear").asText()).isEqualTo("2020");
         // Стимовские поля не должны протекать в контракт (PCAI-148).
-        assertThat(firstCard.has("gameId")).isFalse();
-        assertThat(firstCard.has("storeUrl")).isFalse();
-        assertThat(firstCard.has("imageUrl")).isFalse();
+        assertThat(firstGame.has("gameId")).isFalse();
+        assertThat(firstGame.has("storeUrl")).isFalse();
+        assertThat(firstGame.has("imageUrl")).isFalse();
+        // Старые поля из mixed-payload удалены полностью.
+        assertThat(proceedAssistant.path("meta").path("payload").has("text")).isFalse();
+        assertThat(proceedAssistant.path("meta").path("payload").has("reasoning")).isFalse();
+        assertThat(proceedAssistant.path("meta").path("payload").has("extra")).isFalse();
 
         // GET /api/v1/chats/{chatId}/messages должен отдать ровно ту же запись.
         byte[] historyBytes = webTestClient.get()
@@ -167,9 +184,8 @@ class PipelineIT extends IntegrationTestBase {
         JsonNode assistantJson = messagesJson.get(0);
         assertThat(assistantJson.path("messageId").asText()).isNotBlank();
         assertThat(assistantJson.path("role").asText()).isEqualTo("ASSISTANT");
-        assertThat(assistantJson.path("content").asText()).isNotBlank();
         assertThat(assistantJson.path("meta").path("type").asText())
-                .isIn("reply", "mixed", "cards");
+                .isIn("reply", "cards");
         assertThat(assistantJson.path("createdAt").asText()).isNotBlank();
 
         UUID chatId = UUID.fromString(response.path("chatId").asText());
@@ -182,7 +198,7 @@ class PipelineIT extends IntegrationTestBase {
         assertThat(messages.get(0).getRole()).isEqualTo(MessageRole.ASSISTANT);
         assertThat(messages.get(1).getRole()).isEqualTo(MessageRole.USER);
         assertThat(messages.get(1).getContent()).isEqualTo("Recommend me an RPG");
-        assertThat(messages.get(0).getContent()).isNotBlank();
+        // assistant content для cards теперь пустой — содержимое в meta.payload.items[].
         assertThat(messages.get(0).getCreatedAt()).isNotNull();
         assertThat(messages.get(1).getCreatedAt()).isNotNull();
     }
@@ -339,6 +355,7 @@ class PipelineIT extends IntegrationTestBase {
         return RecommendationResponse.newBuilder()
                 .setSuccess(true)
                 .setMessage("ok")
+                .setReasoning("Подобрал RPG исходя из истории чата и предпочтений по жанру.")
                 .addRecommendations(rec)
                 .build();
     }

@@ -13,26 +13,29 @@ import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.pipeline.PipelineContext;
 import ru.perevalov.gamerecommenderai.pipeline.PipelineStep;
 import ru.perevalov.gamerecommenderai.pipeline.PipelineStepOrder;
-import ru.perevalov.gamerecommenderai.pipeline.PipelineSupport;
 import ru.perevalov.gamerecommenderai.service.ChatMessageService;
 import ru.perevalov.gamerecommenderai.service.GameRecommenderService;
 
 /**
- * Шаг вызова AI и повторного использования ответа при идемпотентности.
+ * Шаг вызова AI и переиспользования сохранённого ответа при идемпотентном дубле.
+ *
+ * <p>При дубле (ChatResolverStep пометил {@code duplicate=true}) находим
+ * последнее ASSISTANT-сообщение в чате и кладём его entity в
+ * {@code context.assistantMessages}. {@code PersistAssistantStep} увидит
+ * выставленный {@code assistantMessageId} и пропустит запись, а
+ * {@code ResponseStep} соберёт {@code ProceedResponse} из готовой записи.
+ *
+ * <p>Раньше тут жил {@code extractSnapshot()} — сериализованный
+ * {@link GameRecommendationResponse} лежал внутри {@code meta.payload.extra}.
+ * Этот костыль удалён: сохранённого сообщения вместе с {@code meta} достаточно,
+ * legacy DTO нам больше не нужен в pipeline после persist.
  */
 @Component
 @RequiredArgsConstructor
 public class AiCallStep implements PipelineStep, Ordered {
     private final GameRecommenderService gameRecommenderService;
     private final ChatMessageService chatMessageService;
-    private final PipelineSupport support;
 
-    /**
-     * Вызывает AI или переиспользует предыдущий ответ при повторном запросе.
-     *
-     * @param context контекст обработки
-     * @return обновленный контекст
-     */
     @Override
     public Mono<PipelineContext> handle(PipelineContext context) {
         if (context.isDuplicate()) {
@@ -42,29 +45,17 @@ public class AiCallStep implements PipelineStep, Ordered {
         return callAi(context);
     }
 
-    /**
-     * Возвращает порядок выполнения шага в pipeline.
-     *
-     * @return порядок выполнения шага
-     */
     @Override
     public int getOrder() {
         return PipelineStepOrder.AI_CALL;
     }
 
-    /**
-     * Запрашивает рекомендации у AI и сохраняет снапшот ответа.
-     *
-     * @param context контекст обработки
-     * @return обновленный контекст
-     */
     private Mono<PipelineContext> callAi(PipelineContext context) {
         return gameRecommenderService.getGameRecommendationsWithContext(
                         context.getRequest(),
                         context.getChatId().toString())
                 .map(response -> {
                     context.setResponse(response);
-                    context.setResponseSnapshot(support.buildResponseSnapshot(response));
                     return context;
                 })
                 .onErrorResume(GameRecommenderException.class, ex -> {
@@ -83,22 +74,15 @@ public class AiCallStep implements PipelineStep, Ordered {
     }
 
     /**
-     * Пытается переиспользовать ранее сохраненный ответ ассистента.
-     *
-     * @param context контекст обработки
-     * @return обновленный контекст либо пустой поток, если переиспользование невозможно
+     * При дубле кладёт сохранённое ASSISTANT-сообщение в контекст и помечает,
+     * что persist-шаг пропускать (через {@code assistantMessageId}).
      */
     private Mono<PipelineContext> findReusableAssistant(PipelineContext context) {
         return chatMessageService.findLastAssistantMessage(context.getChatId())
-                .flatMap(message -> {
-                    GameRecommendationResponse snapshot = support.extractSnapshot(message.getMeta());
-                    if (snapshot == null) {
-                        return Mono.empty();
-                    }
-                    context.setResponse(snapshot);
+                .map(message -> {
                     context.setAssistantMessageId(message.getId());
                     context.getAssistantMessages().add(message);
-                    return Mono.just(context);
+                    return context;
                 });
     }
 }

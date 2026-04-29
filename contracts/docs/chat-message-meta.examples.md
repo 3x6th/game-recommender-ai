@@ -3,8 +3,10 @@
 This document fixes the canonical shape of `chat_messages.meta` and provides examples.
 For REST API contract and pagination rules, see `./api-contract.md`.
 
-`meta.type` is **lowercase** (`reply`, `cards`, `mixed`, `status`, `error`,
-`tool_call`, `tool_result`) — matches `MessageMetaType.wireName()` in code.
+`meta.type` is **lowercase** (`reply`, `cards`, `status`, `error`, `tool_call`,
+`tool_result`) — matches `MessageMetaType.wireName()` in code. `mixed` was retired
+together with `payload.text` / `payload.reasoning` / `payload.extra`: see PCAI-141
+follow-up.
 
 ## Canonical Envelope
 
@@ -13,7 +15,7 @@ Every meta object MUST follow the same envelope:
 ```json
 {
   "schemaVersion": 1,
-  "type": "reply|cards|status|error|mixed|...",
+  "type": "reply|cards|status|error|...",
   "payload": {},
   "trace": {
     "requestId": "optional",
@@ -23,14 +25,16 @@ Every meta object MUST follow the same envelope:
 ```
 
 Rules:
-- `content` is the bubble text shown in chat UI (always present, used as FE fallback render)
-- `schemaVersion` is an integer and `>= 1`
-- `type` is a non-empty string
-- `payload` is required (can be `{}`); today usually object, but may be array/string later
-- `trace` is optional; if present it must be an object with optional string fields `requestId` and `runId`
-- `meta` is **required for every role**, including USER. USER messages are stored and
-  returned with `meta.type = "reply"` and `payload.text = content`. This keeps chat
-  history symmetric (one DTO, one (de)serializer for both sides of the conversation).
+- `content` is the bubble text shown in chat UI. For `cards` it is intentionally empty
+  — the bubble is rendered fully from `payload.items[]`.
+- `schemaVersion` is an integer and `>= 1`.
+- `type` is a non-empty string.
+- `payload` is required (can be `{}`); usually an object.
+- `trace` is optional; if present it must be an object with optional string fields
+  `requestId` and `runId`.
+- `meta` is **required for every role**, including USER. USER messages are stored
+  with `meta.type = "reply"` and `payload.text = content`. This keeps chat history
+  symmetric (one DTO, one (de)serializer for both sides of the conversation).
 
 ## USER message (canonical)
 
@@ -50,18 +54,22 @@ Rules:
 
 ## Cards (Canonical Form)
 
-We use `meta.type = "cards"` for recommendation cards.
+`meta.type = "cards"` — основной тип ответа ассистента. `content` пустой —
+всё содержимое в `payload.items[]`. `items[]` — полиморфный массив с
+дискриминатором `kind`:
 
-Cards live in `meta.payload.items`. Card field reference is in
-`./api-contract.md` (section 5). Steam-specific fields (`gameId`, `storeUrl`,
-`imageUrl`) are deferred to a separate ticket (*Steam mapping & enrichment*) and are
-**not** part of the current card contract.
+- `kind: "reasoning"` — метакомментарий «почему именно этот набор» (поля: `text`).
+- `kind: "game"` — карточка игры (поля: `title`, `genre`, `description`,
+  `whyRecommended`, `platforms[]`, опц. `rating`, `releaseYear`, `tags`,
+  `matchScore`). Полная таблица — `./api-contract.md` §5.2.
+- `kind: "text"` — нарративный текстовый блок ассистента (поля: `text`).
+  Используется в составных ответах после tool-цикла. Полная таблица — §5.3.
 
-Required card fields (fixed contract for FE): `title`, `genre`, `description`,
-`whyRecommended`, `platforms[]`. Optional: `rating`, `releaseYear`, `tags[]`,
-`matchScore`.
+Steam-обогащение (`gameId`, `storeUrl`, `imageUrl`) НЕ входит в контракт; вернётся
+отдельным тикетом расширением этого DTO.
 
-Example:
+Полный пример (reasoning + одна игра):
+
 ```json
 {
   "schemaVersion": 1,
@@ -69,6 +77,11 @@ Example:
   "payload": {
     "items": [
       {
+        "kind": "reasoning",
+        "text": "Пользователь хочет лайтовую игру без шутеров. Учитывая историю чата, подобрал расслабляющие гонки и медитативные симуляторы."
+      },
+      {
+        "kind": "game",
         "title": "Forza Horizon 5",
         "genre": "Racing, Open World",
         "description": "A vibrant open-world racing game set in Mexico, featuring a huge variety of cars and events.",
@@ -84,7 +97,8 @@ Example:
 }
 ```
 
-Minimal example (only required fields):
+Минимальный пример (только обязательные поля карточки, без reasoning):
+
 ```json
 {
   "schemaVersion": 1,
@@ -92,6 +106,7 @@ Minimal example (only required fields):
   "payload": {
     "items": [
       {
+        "kind": "game",
         "title": "Forza Horizon 5",
         "genre": "Racing, Open World",
         "description": "Open-world racing in Mexico.",
@@ -103,41 +118,58 @@ Minimal example (only required fields):
 }
 ```
 
+Составной пример с `kind: "text"` (типичный финальный ответ агента после tool-цикла —
+сначала нарратив, потом карточки, опционально reasoning в конце):
+
+```json
+{
+  "schemaVersion": 1,
+  "type": "cards",
+  "payload": {
+    "items": [
+      {
+        "kind": "text",
+        "text": "Нашёл два варианта в твоей библиотеке Steam, которые подходят под лайтовое настроение."
+      },
+      {
+        "kind": "game",
+        "title": "Stardew Valley",
+        "genre": "Simulation, RPG",
+        "description": "Спокойная фермерская симуляция.",
+        "whyRecommended": "Короткие сессии, нет стресса.",
+        "platforms": ["PC"]
+      },
+      {
+        "kind": "reasoning",
+        "text": "Опирался на профиль (180 часов в Disco Elysium, паттерн короткие вечерние сессии)."
+      }
+    ]
+  }
+}
+```
+
 ## Status
 
-We use `meta.type = "status"` for progress updates.
+`meta.type = "status"` — прогресс-индикатор.
 
 `payload.state` is a string. Minimal allowed states:
 - `thinking`
 - `searching`
 - `analyzing`
 
-Example:
-```json
-{
-  "schemaVersion": 1,
-  "type": "status",
-  "payload": {
-    "state": "thinking"
-  }
-}
-```
-
-Minimal example:
 ```json
 {"schemaVersion":1,"type":"status","payload":{"state":"thinking"}}
 ```
 
 ## Error
 
-We use `meta.type = "error"` for failures.
+`meta.type = "error"` — ошибка, видимая пользователю.
 
-`payload` fields:
+`payload`:
 - `code` — machine-readable code
 - `message` — debug/log message
 - `retryable` — `true` if user can retry
 
-Example:
 ```json
 {
   "schemaVersion": 1,
@@ -150,27 +182,75 @@ Example:
 }
 ```
 
-Minimal example:
+## Tool call (assistant initiates a tool)
+
+`meta.type = "tool_call"`, `role = ASSISTANT`. Машинно-читаемый шаг агента,
+парный `tool_result` приходит сообщением с ролью `TOOL` и тем же `toolCallId`.
+
+Контракт зафиксирован, pipeline сейчас не генерит — включится с LangChain-релизом.
+
 ```json
-{"schemaVersion":1,"type":"error","payload":{"code":"AI_TIMEOUT","message":"Upstream timeout","retryable":true}}
+{
+  "messageId": "...",
+  "role": "ASSISTANT",
+  "content": "",
+  "meta": {
+    "schemaVersion": 1,
+    "type": "tool_call",
+    "payload": {
+      "toolName": "steam_search",
+      "args": { "query": "hades", "limit": 10 },
+      "toolCallId": "call_a84a"
+    }
+  },
+  "createdAt": "2026-04-26T18:53:00Z"
+}
 ```
 
-## Frontend Rendering Rules (Short)
+## Tool result (tool answers the call)
 
-- if `meta.type == "cards"` → render cards from `payload.items`
-- if `meta.type == "status"` → show indicator using `payload.state`
-- if `meta.type == "error"` → show error + retry when `retryable=true`
-- else → fallback to `content`
-- FE MUST ignore unknown fields, and unknown types must not break rendering
+`meta.type = "tool_result"`, `role = TOOL`. `toolCallId` связывает результат с
+конкретным `tool_call`. При ошибке инструмента — `result` отсутствует, `error`
+содержит человекочитаемое сообщение.
 
-## Limits
+Успешный ответ:
 
-- recommended `meta` size limit: `<= 256KB`
-- recommended `content` size limit: `<= 8k` chars
+```json
+{
+  "messageId": "...",
+  "role": "TOOL",
+  "content": "",
+  "meta": {
+    "schemaVersion": 1,
+    "type": "tool_result",
+    "payload": {
+      "toolName": "steam_search",
+      "toolCallId": "call_a84a",
+      "result": {
+        "items": [{"appId": 1145360, "title": "Hades"}]
+      }
+    }
+  },
+  "createdAt": "2026-04-26T18:53:01Z"
+}
+```
 
-## Optional: Reply / Mixed (for completeness)
+Ошибка инструмента:
 
-Reply example (with optional fields, пояснение ниже):
+```json
+{
+  "schemaVersion": 1,
+  "type": "tool_result",
+  "payload": {
+    "toolName": "steam_search",
+    "toolCallId": "call_a84a",
+    "error": "upstream timeout after 5s"
+  }
+}
+```
+
+## Reply (text-only)
+
 ```json
 {
   "content": "Hello!",
@@ -187,27 +267,29 @@ Reply example (with optional fields, пояснение ниже):
 }
 ```
 
-Пояснение:
-- `clientRequestId` — опциональный id запроса клиента (дедупликация/трейс)
-- `tags` — опциональные выбранные пользователем теги
-- `extra` — опциональные метаданные для клиента
+Пояснение опциональных полей `payload`:
+- `clientRequestId` — id запроса клиента (дедупликация/трейс).
+- `tags` — выбранные пользователем теги.
+- `extra` — клиентские метаданные.
 
-Mixed example (text + cards):
-```json
-{
-  "schemaVersion": 1,
-  "type": "mixed",
-  "payload": {
-    "text": "Вот что подходит",
-    "items": [
-      {
-        "title": "Forza Horizon 5",
-        "genre": "Racing, Open World",
-        "description": "Open-world racing in Mexico.",
-        "whyRecommended": "Short, non-shooter, relaxing.",
-        "platforms": ["PC", "Xbox Series X/S"]
-      }
-    ]
-  }
-}
-```
+## Frontend Rendering Rules (Short)
+
+- `meta.type == "cards"` → проходим `payload.items[]`, рендерим элементы по `kind`:
+  - `reasoning` — блок-объяснение «Why these games»;
+  - `game` — карточка игры;
+  - `text` — нарративный текст ассистента (как обычный chat-bubble);
+  - незнакомый `kind` — игнорируем.
+- `meta.type == "status"` → индикатор по `payload.state`.
+- `meta.type == "error"` → ошибка с retry, если `retryable=true`.
+- `meta.type == "reply"` → рендерим `content` как обычный текст.
+- `meta.type == "tool_call"` → можно отрисовать тонкий чип «Calling <toolName>…»,
+  можно скрыть из видимой ленты — деталь UX, контракт нейтрален.
+- `meta.type == "tool_result"` → по умолчанию **скрываем** из ленты (это
+  машинный шаг агента, нужный для контекста, не для пользователя). Можно
+  показать в дев-режиме как сворачиваемый debug-блок.
+- Незнакомый `meta.type` → можно показать заглушку «обновите клиент».
+
+## Limits
+
+- recommended `meta` size limit: `<= 256KB`.
+- recommended `content` size limit: `<= 8k` chars.

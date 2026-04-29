@@ -4,8 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import com.fasterxml.jackson.databind.JsonNode;
-
 import lombok.Getter;
 import lombok.Setter;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
@@ -34,7 +32,6 @@ public class PipelineContext {
     private UUID assistantMessageId;
     private GameRecommendationResponse response;
     private String errorMessage;
-    private JsonNode responseSnapshot;
 
     /**
      * Сохраненные за этот ход сообщения ассистента (entity со всеми полями:

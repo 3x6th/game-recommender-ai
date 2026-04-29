@@ -25,7 +25,7 @@ import ru.perevalov.gamerecommenderai.message.MessageMetaFields;
 @NoArgsConstructor
 @AllArgsConstructor
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class MessageCardDto {
+public final class MessageCardDto implements MessageItemDto {
 
     /** Display name. */
     @JsonProperty(MessageMetaFields.CARD_TITLE)

@@ -23,14 +23,43 @@ class ChatMessageValidatorTest {
     private final ChatMessageValidator validator = new ChatMessageValidator(metaValidator, objectMapper);
 
     @Test
-    void validateForAppend_whenAssistantUnknownType_thenFails() {
+    void validateForAppend_whenAssistantTypeNotAllowed_thenFails() {
         ObjectNode meta = objectMapper.createObjectNode();
         meta.put(MessageMetaFields.FIELD_SCHEMA_VERSION, MessageMetaFields.SCHEMA_VERSION);
-        meta.put(MessageMetaFields.FIELD_TYPE, "tool_call");
-        meta.set(MessageMetaFields.FIELD_PAYLOAD, objectMapper.createObjectNode());
+        meta.put(MessageMetaFields.FIELD_TYPE, "tool_result");
+        meta.set(MessageMetaFields.FIELD_PAYLOAD, objectMapper.createObjectNode().put("toolName", "x"));
 
         assertThatThrownBy(() ->
                 validator.validateForAppend(UUID.randomUUID(), MessageRole.ASSISTANT, "hi", meta)
+        ).isInstanceOf(GameRecommenderException.class)
+                .extracting(ex -> ((GameRecommenderException) ex).getErrorType())
+                .isEqualTo(ErrorType.INVALID_CHAT_MESSAGE);
+    }
+
+    @Test
+    void validateForAppend_whenAssistantToolCall_thenOk() {
+        ObjectNode meta = metaFactory.toolCall("steam_search", objectMapper.createObjectNode().put("q", "hades"), "call-1");
+
+        validator.validateForAppend(UUID.randomUUID(), MessageRole.ASSISTANT, "", meta);
+    }
+
+    @Test
+    void validateForAppend_whenToolRoleToolResult_thenOk() {
+        ObjectNode meta = metaFactory.toolResult(
+                "steam_search",
+                "call-1",
+                objectMapper.createObjectNode().put("count", 5)
+        );
+
+        validator.validateForAppend(UUID.randomUUID(), MessageRole.TOOL, "", meta);
+    }
+
+    @Test
+    void validateForAppend_whenToolRoleNonToolType_thenFails() {
+        ObjectNode meta = metaFactory.reply("hi");
+
+        assertThatThrownBy(() ->
+                validator.validateForAppend(UUID.randomUUID(), MessageRole.TOOL, "hi", meta)
         ).isInstanceOf(GameRecommenderException.class)
                 .extracting(ex -> ((GameRecommenderException) ex).getErrorType())
                 .isEqualTo(ErrorType.INVALID_CHAT_MESSAGE);
@@ -63,8 +92,7 @@ class ChatMessageValidatorTest {
                 .whyRecommended("Подходит под запрос")
                 .platforms(List.of("PC"))
                 .build();
-        String reasoning = "Тестовое объяснение, почему выбраны эти игры";
-        ObjectNode meta = metaFactory.cards(List.of(card), reasoning);
+        ObjectNode meta = metaFactory.cards(List.of(card));
 
         validator.validateForAppend(UUID.randomUUID(), MessageRole.ASSISTANT, "Вот рекомендации", meta);
     }

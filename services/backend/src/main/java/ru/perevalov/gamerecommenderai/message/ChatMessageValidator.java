@@ -31,9 +31,13 @@ public class ChatMessageValidator {
     private static final Set<MessageMetaType> ASSISTANT_ALLOWED_TYPES = EnumSet.of(
             MessageMetaType.REPLY,
             MessageMetaType.CARDS,
-            MessageMetaType.MIXED,
             MessageMetaType.STATUS,
-            MessageMetaType.ERROR
+            MessageMetaType.ERROR,
+            MessageMetaType.TOOL_CALL
+    );
+
+    private static final Set<MessageMetaType> TOOL_ALLOWED_TYPES = EnumSet.of(
+            MessageMetaType.TOOL_RESULT
     );
 
     private final MessageMetaValidator messageMetaValidator;
@@ -101,13 +105,19 @@ public class ChatMessageValidator {
     }
 
     private void validateRoleMetaType(MessageRole role, JsonNode meta) {
-        if (role != MessageRole.ASSISTANT) {
+        MessageMetaType type = getMetaType(meta);
+        if (role == MessageRole.ASSISTANT) {
+            if (type == null || !ASSISTANT_ALLOWED_TYPES.contains(type)) {
+                throw new GameRecommenderException(
+                        ErrorType.INVALID_CHAT_MESSAGE, "assistant meta.type is invalid");
+            }
             return;
         }
-        MessageMetaType type = getMetaType(meta);
-        if (type == null || !ASSISTANT_ALLOWED_TYPES.contains(type)) {
-            throw new GameRecommenderException(
-                    ErrorType.INVALID_CHAT_MESSAGE, "assistant meta.type is invalid");
+        if (role == MessageRole.TOOL) {
+            if (type == null || !TOOL_ALLOWED_TYPES.contains(type)) {
+                throw new GameRecommenderException(
+                        ErrorType.INVALID_CHAT_MESSAGE, "tool meta.type is invalid");
+            }
         }
     }
 

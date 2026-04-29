@@ -26,7 +26,7 @@ public class MessageMetaValidatorTest {
                 .whyRecommended("Подходит под запрос")
                 .platforms(List.of("PC"))
                 .build();
-        ObjectNode meta = factory.cards(List.of(card), null);
+        ObjectNode meta = factory.cards(List.of(card));
 
         MessageMetaValidationResult result = validator.validate(meta);
 
