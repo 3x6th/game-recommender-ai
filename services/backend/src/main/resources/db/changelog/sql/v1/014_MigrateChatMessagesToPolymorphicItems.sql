@@ -5,6 +5,11 @@
 --   { text, items, reasoning?, extra? }
 -- Теперь — type=cards и payload = { items: [{kind:"reasoning",text:...}, {kind:"game",...}] }.
 -- Поля text/reasoning/extra и сам тип mixed удаляются.
+--
+-- ВАЖНО: jsonb-оператор `?` (key existence) НЕ используется напрямую — JDBC
+-- интерпретирует его как параметр-плейсхолдер и Liquibase падает на
+-- "syntax error at or near $1". Везде используется эквивалентная функция
+-- jsonb_exists(jsonb, text).
 
 -- 1) Конвертим mixed-сообщения: собираем новые items из reasoning + старого items[].
 UPDATE game_recommender.chat_messages
@@ -64,7 +69,7 @@ SET meta = jsonb_set(
                     (
                         SELECT jsonb_agg(
                             CASE
-                                WHEN elem ? 'kind' THEN elem
+                                WHEN jsonb_exists(elem, 'kind') THEN elem
                                 ELSE elem || jsonb_build_object('kind', 'game')
                             END
                         )
@@ -79,11 +84,11 @@ SET meta = jsonb_set(
     )
 WHERE meta->>'type' = 'cards'
   AND (
-        meta->'payload' ? 'reasoning'
+        jsonb_exists(meta->'payload', 'reasoning')
         OR EXISTS (
             SELECT 1
             FROM jsonb_array_elements(meta->'payload'->'items') AS elem
-            WHERE NOT (elem ? 'kind')
+            WHERE NOT jsonb_exists(elem, 'kind')
         )
       );
 
