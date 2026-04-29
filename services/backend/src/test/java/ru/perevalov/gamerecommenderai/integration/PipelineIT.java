@@ -7,6 +7,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -30,6 +32,8 @@ import ru.perevalov.gamerecommenderai.entity.enums.MessageRole;
 import ru.perevalov.gamerecommenderai.grpc.GameRecommendation;
 import ru.perevalov.gamerecommenderai.grpc.RecommendationResponse;
 import ru.perevalov.gamerecommenderai.repository.ChatMessageRepository;
+import ru.perevalov.gamerecommenderai.security.jwt.JwtUtil;
+import ru.perevalov.gamerecommenderai.security.model.UserRole;
 import ru.perevalov.gamerecommenderai.service.SteamService;
 
 /**
@@ -47,6 +51,9 @@ class PipelineIT extends IntegrationTestBase {
 
     @Autowired
     private ChatMessageRepository chatMessageRepository;
+
+    @Autowired
+    private JwtUtil jwtUtil;
 
     @MockBean
     private GameRecommenderGrpcClient grpcClient;
@@ -66,6 +73,7 @@ class PipelineIT extends IntegrationTestBase {
      */
     @Test
     void pipeline_happyPath_proceedAndHistory_returnSameMessage() throws Exception {
+        long steamId = 76561198000000010L;
         when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
                 .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
         when(grpcClient.getGameRecommendations(any()))
@@ -74,7 +82,7 @@ class PipelineIT extends IntegrationTestBase {
         GameRecommendationRequest request = GameRecommendationRequest.builder()
                 .content("Recommend me an open-world game")
                 .tags(new String[]{"Open World"})
-                .steamId("76561198000000010")
+                .steamId(String.valueOf(steamId))
                 .build();
 
         JsonNode proceedResponse = executePipeline(request, null);
@@ -126,6 +134,7 @@ class PipelineIT extends IntegrationTestBase {
                         .queryParam("before", java.time.LocalDateTime.now().plusYears(1))
                         .queryParam("limit", 10)
                         .build(chatId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + userAccessToken(steamId))
                 .exchange()
                 .expectStatus().isOk()
                 .expectBody()
@@ -335,6 +344,15 @@ class PipelineIT extends IntegrationTestBase {
 
         assertThat(responseBytes).isNotNull();
         return objectMapper.readTree(new String(responseBytes, StandardCharsets.UTF_8));
+    }
+
+    private String userAccessToken(long steamId) {
+        return jwtUtil.createAccessToken(
+                UUID.randomUUID().toString(),
+                Duration.ofMinutes(15),
+                UserRole.USER,
+                steamId
+        );
     }
 
     /**

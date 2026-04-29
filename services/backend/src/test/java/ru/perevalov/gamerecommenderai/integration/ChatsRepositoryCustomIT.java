@@ -94,6 +94,28 @@ class ChatsRepositoryCustomIT extends IntegrationTestBase {
     }
 
     @Test
+    void findAllByUserIdOrderByUpdatedAtDesc_skipsAssistantCardsWhenPickingPreview() {
+        // PCAI-154: ASSISTANT cards-сообщения имеют content='' (контракт §4.2),
+        // поэтому превью должно браться по последнему USER-сообщению, а не
+        // просто по самому свежему (иначе FE показывает заглушку «New conversation»).
+        UUID userId = createUser();
+        OffsetDateTime now = OffsetDateTime.now(ZoneOffset.UTC).withNano(0);
+        UUID chatId = saveUserChat(userId, now);
+
+        insertMessage(chatId, MessageRole.USER, "что-нибудь лайтовое", now.minusMinutes(3));
+        insertMessage(chatId, MessageRole.ASSISTANT, "", now.minusMinutes(2));
+        insertMessage(chatId, MessageRole.USER, "только не шутер", now.minusMinutes(1));
+        insertMessage(chatId, MessageRole.ASSISTANT, "", now);
+
+        StepVerifier.create(chatsRepository.findAllByUserIdOrderByUpdatedAtDesc(userId, 10, 0).collectList())
+                .assertNext(rows -> {
+                    assertThat(rows).hasSize(1);
+                    assertThat(rows.get(0).getLastMessagePreview()).isEqualTo("только не шутер");
+                })
+                .verifyComplete();
+    }
+
+    @Test
     void findAllByUserIdOrderByUpdatedAtDesc_returnsEmptyForUnknownUser() {
         UUID unknown = UUID.randomUUID();
         StepVerifier.create(chatsRepository.findAllByUserIdOrderByUpdatedAtDesc(unknown, 10, 0).collectList())
@@ -154,6 +176,14 @@ class ChatsRepositoryCustomIT extends IntegrationTestBase {
     }
 
     private void insertMessage(UUID chatId, String content, OffsetDateTime createdAt) {
+        insertMessage(chatId, MessageRole.USER, content, createdAt);
+    }
+
+    private void insertMessage(UUID chatId, MessageRole role, String content, OffsetDateTime createdAt) {
+        String meta = role == MessageRole.USER
+                ? "{\"schemaVersion\":1,\"type\":\"reply\",\"payload\":{\"text\":\"" + content + "\"}}"
+                : "{\"schemaVersion\":1,\"type\":\"cards\",\"payload\":{\"items\":[]}}";
+
         Long inserted = databaseClient.sql("""
                         INSERT INTO game_recommender.chat_messages
                             (id, chat_id, role, content, meta, client_request_id, created_at, updated_at)
@@ -162,9 +192,9 @@ class ChatsRepositoryCustomIT extends IntegrationTestBase {
                         """)
                 .bind("id", UUID.randomUUID())
                 .bind("chatId", chatId)
-                .bind("role", MessageRole.USER.name())
+                .bind("role", role.name())
                 .bind("content", content)
-                .bind("meta", "{\"schemaVersion\":1,\"type\":\"reply\",\"payload\":{\"text\":\"" + content + "\"}}")
+                .bind("meta", meta)
                 .bind("createdAt", createdAt)
                 .fetch()
                 .rowsUpdated()

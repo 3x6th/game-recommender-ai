@@ -22,7 +22,8 @@ public class ChatsRepositoryCustomImpl implements ChatsRepositoryCustom {
             FROM game_recommender.chats c
             LEFT JOIN LATERAL (
                 SELECT content FROM game_recommender.chat_messages
-                WHERE chat_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1
+                WHERE chat_id = c.id AND role = 'USER' AND content <> ''
+                ORDER BY created_at DESC, id DESC LIMIT 1
             ) m ON true
             WHERE c.user_id = :userId
             ORDER BY c.updated_at DESC
@@ -34,7 +35,8 @@ public class ChatsRepositoryCustomImpl implements ChatsRepositoryCustom {
             FROM game_recommender.chats c
             LEFT JOIN LATERAL (
                 SELECT content FROM game_recommender.chat_messages
-                WHERE chat_id = c.id ORDER BY created_at DESC, id DESC LIMIT 1
+                WHERE chat_id = c.id AND role = 'USER' AND content <> ''
+                ORDER BY created_at DESC, id DESC LIMIT 1
             ) m ON true
             WHERE c.session_id = :sessionId
             ORDER BY c.updated_at DESC
