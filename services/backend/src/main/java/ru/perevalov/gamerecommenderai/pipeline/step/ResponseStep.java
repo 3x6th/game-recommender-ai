@@ -1,6 +1,6 @@
 package ru.perevalov.gamerecommenderai.pipeline.step;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -80,7 +80,7 @@ public class ResponseStep implements PipelineStep, Ordered {
                 MessageRole.ASSISTANT,
                 context.getErrorMessage(),
                 (JsonNode) meta,
-                LocalDateTime.now()
+                Instant.now()
         );
     }
 }

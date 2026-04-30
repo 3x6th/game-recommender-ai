@@ -16,6 +16,7 @@ import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 import ru.perevalov.gamerecommenderai.mapper.ChatMapper;
 import ru.perevalov.gamerecommenderai.repository.ChatsRepository;
 import ru.perevalov.gamerecommenderai.repository.projection.ChatWithLastMessageProjection;
+import ru.perevalov.gamerecommenderai.util.TimeHelper;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -142,8 +143,12 @@ class ChatPageServiceTest {
     void getChatPageByUserId_whenRepositoryReturnsRows_thenMapsAndZipsTotalElements() {
         UUID userId = UUID.randomUUID();
         ChatWithLastMessageProjection projection = stubProjection();
-        ChatDto dto = new ChatDto(projection.getId(), projection.getStatus(),
-                projection.getUpdatedAt(), projection.getLastMessagePreview());
+        ChatDto dto = new ChatDto(
+                projection.getId(),
+                projection.getStatus(),
+                TimeHelper.toSystemTimezoneInstant(projection.getUpdatedAt()),
+                projection.getLastMessagePreview()
+        );
 
         when(chatsRepository.findAllByUserIdOrderByUpdatedAtDesc(eq(userId), anyInt(), anyLong()))
                 .thenReturn(Flux.just(projection));

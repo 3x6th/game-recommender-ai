@@ -16,10 +16,9 @@ import ru.perevalov.gamerecommenderai.service.ChatMessageService;
 import ru.perevalov.gamerecommenderai.service.ChatsService;
 import ru.perevalov.gamerecommenderai.service.RequestContextResolver;
 
-import java.time.LocalDateTime;
 import java.util.UUID;
 
-import static ru.perevalov.gamerecommenderai.util.TimeHelper.toSystemTimezoneInstant;
+import static ru.perevalov.gamerecommenderai.util.TimeHelper.parseClientCursorInstant;
 
 /**
  * Контроллер для работы с историей чатов пользователя.
@@ -74,12 +73,12 @@ public class ChatsController {
     @GetMapping("/{chatId}/messages")
     public Flux<ChatMessageDto> getChatMessages(
             @PathVariable UUID chatId,
-            @RequestParam LocalDateTime before,
+            @RequestParam String before,
             @RequestParam(required = false) Integer limit
     ) {
         return requestContextResolver.resolve()
                 .flatMap(ctx -> chatsService.requireOwnership(chatId, ctx))
-                .flatMapMany(chat -> chatMessageService.listBefore(chatId, toSystemTimezoneInstant(before), limit))
+                .flatMapMany(chat -> chatMessageService.listBefore(chatId, parseClientCursorInstant(before), limit))
                 .map(chatMapper::toDto);
     }
 

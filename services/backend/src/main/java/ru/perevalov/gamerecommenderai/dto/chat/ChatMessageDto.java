@@ -6,7 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import ru.perevalov.gamerecommenderai.entity.enums.MessageRole;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -17,5 +17,5 @@ public class ChatMessageDto {
     private MessageRole role;
     private String content;
     private JsonNode meta;
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 }

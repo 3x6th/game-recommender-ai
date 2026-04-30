@@ -5,7 +5,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import ru.perevalov.gamerecommenderai.entity.enums.ChatStatus;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.UUID;
 
 @Data
@@ -14,6 +14,6 @@ import java.util.UUID;
 public class ChatDto {
     private UUID chatId;
     private ChatStatus status;
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
     private String lastMessagePreview;
 }
