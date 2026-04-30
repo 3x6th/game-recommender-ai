@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import org.mockito.Mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -106,7 +107,7 @@ class SteamOpenIdResponseHandlerTest {
 
         verify(tokenService, times(1)).linkSteamIdToToken(eq("refresh-token"), eq(steamId), any());
         verify(chatsService, times(1)).bindGuestChatsToUser("session-id", user.getId());
-        verify(steamUserDataService, times(1)).syncUserData(user);
+        verify(steamUserDataService, timeout(1000).times(1)).syncUserData(user);
     }
 
     @Test
@@ -216,7 +217,7 @@ class SteamOpenIdResponseHandlerTest {
         verify(tokenService, never()).linkSteamIdToToken(any(), anyLong(), any());
         verify(tokenService, times(1)).issueUserTokens(eq("session-id"), eq(steamId), any());
         verify(chatsService, times(1)).bindGuestChatsToUser("session-id", user.getId());
-        verify(steamUserDataService, times(1)).syncUserData(user);
+        verify(steamUserDataService, timeout(1000).times(1)).syncUserData(user);
     }
 
     @Test
@@ -252,6 +253,6 @@ class SteamOpenIdResponseHandlerTest {
         verify(tokenService, never()).linkSteamIdToToken(any(), anyLong(), any());
         verify(tokenService, times(1)).issueUserTokens(anyString(), eq(steamId), any());
         verify(chatsService, times(1)).bindGuestChatsToUser(anyString(), eq(user.getId()));
-        verify(steamUserDataService, times(1)).syncUserData(user);
+        verify(steamUserDataService, timeout(1000).times(1)).syncUserData(user);
     }
 }
