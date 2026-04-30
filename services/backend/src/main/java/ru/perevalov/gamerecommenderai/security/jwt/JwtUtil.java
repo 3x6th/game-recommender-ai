@@ -34,6 +34,14 @@ public class JwtUtil {
         return createToken(sessionId, ttl, role, steamId, TokenType.REFRESH, jwtRefreshSecret);
     }
 
+    public String createSteamAuthStateToken(String sessionId, Duration ttl) {
+        return createToken(sessionId, ttl, UserRole.GUEST, null, TokenType.STEAM_AUTH_STATE, jwtAccessSecret);
+    }
+
+    public DecodedJWT decodeSteamAuthStateToken(String token) {
+        return decodeToken(token, jwtAccessSecret);
+    }
+
     private String createToken(String sessionId,
                                Duration ttl,
                                UserRole role,

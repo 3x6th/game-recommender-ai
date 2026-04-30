@@ -5,9 +5,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.server.reactive.ServerHttpRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +26,9 @@ import ru.perevalov.gamerecommenderai.security.openid.OpenIdValue;
 import ru.perevalov.gamerecommenderai.security.steam.SteamOpenIdResponseHandler;
 
 import java.net.URI;
+import java.util.Optional;
+
+import static ru.perevalov.gamerecommenderai.security.steam.SteamOpenIdResponseHandler.STATE_QUERY_PARAM;
 
 @Slf4j
 @RestController
@@ -60,13 +65,14 @@ public class AuthController {
      * OpenId query-параметрами и отправляет запрос в аутентификационный провайдер.
      */
     @GetMapping("/steam")
-    public Mono<ResponseEntity<Void>> redirectToSteamForAuthorization() {
-        MultiValueMap<String, String> queryParams = queryParamMultiValueMapGenerator();
+    public Mono<ResponseEntity<Void>> redirectToSteamForAuthorization(ServerWebExchange exchange) {
+        MultiValueMap<String, String> queryParams = queryParamMultiValueMapGenerator(exchange);
 
         URI uri = UriComponentsBuilder
                 .fromUriString(steamOpenIdLoginUrl)
                 .queryParams(queryParams)
-                .build(true)
+                .build()
+                .encode()
                 .toUri();
 
         return Mono.just(ResponseEntity.status(HttpStatus.FOUND)
@@ -96,8 +102,18 @@ public class AuthController {
     }
 
 
-    private MultiValueMap<String, String> queryParamMultiValueMapGenerator() {
-        String returnTo = applicationUrl + "/api/v1/auth/steam/return";
+    private MultiValueMap<String, String> queryParamMultiValueMapGenerator(ServerWebExchange exchange) {
+        String externalBaseUrl = resolveExternalBaseUrl(exchange);
+        String returnTo = externalBaseUrl + "/api/v1/auth/steam/return";
+        Optional<String> stateToken = tokenService.createSteamAuthStateToken(exchange);
+        if (stateToken.isPresent()) {
+            returnTo = UriComponentsBuilder
+                    .fromUriString(returnTo)
+                    .queryParam(STATE_QUERY_PARAM, stateToken.get())
+                    .build()
+                    .toUriString();
+        }
+
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
 
         params.add(OpenIdParam.NS.getKey(), OpenIdValue.NS.getValue());
@@ -105,9 +121,40 @@ public class AuthController {
         params.add(OpenIdParam.CLAIMED_ID.getKey(), OpenIdValue.IDENTIFIER_SELECT.getValue());
         params.add(OpenIdParam.IDENTITY.getKey(), OpenIdValue.IDENTIFIER_SELECT.getValue());
         params.add(OpenIdParam.RETURN_TO.getKey(), returnTo);
-        params.add(OpenIdParam.REALM.getKey(), applicationUrl);
+        params.add(OpenIdParam.REALM.getKey(), externalBaseUrl);
 
         return params;
+    }
+
+    private String resolveExternalBaseUrl(ServerWebExchange exchange) {
+        ServerHttpRequest request = exchange.getRequest();
+        HttpHeaders headers = request.getHeaders();
+
+        String forwardedHost = firstForwardedValue(headers.getFirst("X-Forwarded-Host"));
+        String host = StringUtils.hasText(forwardedHost)
+                ? forwardedHost
+                : firstForwardedValue(headers.getFirst(HttpHeaders.HOST));
+
+        if (StringUtils.hasText(host)) {
+            String forwardedProto = firstForwardedValue(headers.getFirst("X-Forwarded-Proto"));
+            String scheme = StringUtils.hasText(forwardedProto) ? forwardedProto : request.getURI().getScheme();
+            if (!StringUtils.hasText(scheme)) {
+                scheme = "https";
+            }
+            return scheme + "://" + host;
+        }
+
+        if (applicationUrl == null || applicationUrl.isBlank()) {
+            return "";
+        }
+        return applicationUrl.endsWith("/") ? applicationUrl.substring(0, applicationUrl.length() - 1) : applicationUrl;
+    }
+
+    private String firstForwardedValue(String value) {
+        if (!StringUtils.hasText(value)) {
+            return null;
+        }
+        return value.split(",")[0].trim();
     }
 
     private ru.perevalov.gamerecommenderai.dto.OpenIdResponse buildOpenIdResponse(ServerWebExchange exchange) {

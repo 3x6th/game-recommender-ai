@@ -7,7 +7,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public enum TokenType {
     ACCESS("access"),
-    REFRESH("refresh");
+    REFRESH("refresh"),
+    STEAM_AUTH_STATE("steam_auth_state");
 
     private final String value;
 }
