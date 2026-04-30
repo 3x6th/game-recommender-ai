@@ -50,6 +50,8 @@ services:
         condition: service_started
       redis:
         condition: service_started
+    env_file:
+      - .env
     environment:
       - JAVA_OPTS=${JAVA_OPTS}
       - APPLICATION_BASE_URL=${APPLICATION_BASE_URL}
