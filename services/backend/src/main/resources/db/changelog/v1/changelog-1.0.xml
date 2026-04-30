@@ -29,4 +29,40 @@
         <sqlFile path="../sql/v1/005_DropRefreshTokensTable.sql" relativeToChangelogFile="true"/>
     </changeSet>
 
+    <changeSet id="6-create-chat-tables" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/006_CreateChatTables.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="7-create-chat-indexes" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/007_CreateChatIndexes.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="8-drop-api-logs-table" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/008_DropApiLogsTable.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="9-add-updated-at-to-chat-messages" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/009_AddUpdatedAtToChatMessages.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="10-add-owned-games-snapshot-to-user-game-stats" author="Ekaterina Katyshevtseva">
+        <sqlFile path="../sql/v1/010_AddOwnedGamesSnapshotToUserGameStats.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="11-add-user-message-idempotency-index" author="Azat Ermolaev">
+        <sqlFile path="../sql/v1/011_AddUserMessageIdempotencyIndex.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="12-add-pg-trgm-index-for-steam-apps" author="3x6th">
+        <sqlFile path="../sql/v1/012_AddPgTrgmIndexForSteamApps.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="13-backfill-chat-message-meta-envelope" author="Perevalov Nikita">
+        <sqlFile path="../sql/v1/013_BackfillChatMessageMetaEnvelope.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
+    <changeSet id="14-migrate-chat-messages-to-polymorphic-items" author="Perevalov Nikita">
+        <sqlFile path="../sql/v1/014_MigrateChatMessagesToPolymorphicItems.sql" relativeToChangelogFile="true"/>
+    </changeSet>
+
 </databaseChangeLog>

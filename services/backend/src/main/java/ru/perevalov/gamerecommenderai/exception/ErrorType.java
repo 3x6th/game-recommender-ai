@@ -1,12 +1,11 @@
 package ru.perevalov.gamerecommenderai.exception;
 
-import lombok.Getter;
 import org.springframework.http.HttpStatus;
 
+import lombok.Getter;
+
 /**
- * Enumeration of error types used in API responses.
- * Each error type provides a human-readable description
- * and an associated HTTP status code to represent the error condition.
+ * Перечисление типов ошибок, используемых в API-ответах приложения.
  */
 @Getter
 public enum ErrorType {
@@ -19,13 +18,20 @@ public enum ErrorType {
     AI_SERVICE_UNAVAILABLE("AI service is temporarily unavailable. Please try later.", HttpStatus.INTERNAL_SERVER_ERROR),
     API_RATE_LIMIT_EXCEEDED("Rate limit exceeded. Please try later.", HttpStatus.TOO_MANY_REQUESTS),
     AUTH_REFRESH_TOKEN_INVALID("Refresh token invalid", HttpStatus.UNAUTHORIZED),
+    CHAT_NOT_FOUND("Chat not found. chatId=%s", HttpStatus.NOT_FOUND),
     CHATTING_WITH_AI_ERROR("Error chatting with AI via gRPC service: Failed to chat with AI service. ", HttpStatus.SERVICE_UNAVAILABLE),
     DATABASE_BATCH_INSERT_ERROR("Failed to insert Steam apps batch into database", HttpStatus.INTERNAL_SERVER_ERROR),
     DEFAULT_INTERNAL_SERVER_ERROR("An internal error occurred. Please try again later.", HttpStatus.INTERNAL_SERVER_ERROR),
     FETCH_STORE_GAMES_ERROR("Error occurred during fetch and store games execution", HttpStatus.INTERNAL_SERVER_ERROR),
     GRPC_AI_ERROR("Error from AI service: %s", HttpStatus.INTERNAL_SERVER_ERROR),
     GRPC_COMMUNICATION_ERROR("Error communicating with gRPC service with exception: %s", HttpStatus.INTERNAL_SERVER_ERROR),
+    INVALID_CHAT_MESSAGE("Invalid chat message: %s", HttpStatus.BAD_REQUEST),
     INVALID_AUTHORIZATION_HEADER("Invalid Authorization header: %s", HttpStatus.UNAUTHORIZED),
+    INVALID_MESSAGE_META("Invalid message meta: %s", HttpStatus.BAD_REQUEST),
+    INVALID_REQUEST_CONTEXT("Invalid request context: %s", HttpStatus.BAD_REQUEST),
+    AUTHENTICATION_REQUIRED("Authentication required", HttpStatus.UNAUTHORIZED),
+    AUTHENTICATED_USER_NOT_FOUND("Authenticated user not found in the system", HttpStatus.UNAUTHORIZED),
+    INVALID_STEAM_ID_FORMAT("Invalid steamId format: '%s'.", HttpStatus.BAD_REQUEST),
     MISSING_AUTHORIZATION_HEADER("Missing authorization header. Expected JWT token.", HttpStatus.UNAUTHORIZED),
     OPENID_VALIDATION_FAILED_ENDPOINT("OpenID validation failed: opEndpoint '%s' differs from expected in openId" +
             " authorization flow through Steam.", HttpStatus.UNAUTHORIZED),
@@ -48,11 +54,19 @@ public enum ErrorType {
     STEAM_STORE_API_FETCH_APP_DETAILS_ERROR("Failed to fetch app details from Steam Store API with appIds=%s", HttpStatus.SERVICE_UNAVAILABLE),
     USER_GAME_STATS_SAVE_ERROR("Failed to save user game stats. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
     USER_STEAM_PROFILE_SAVE_ERROR("Failed to save Steam profile. steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
-    USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND);
+    USER_NOT_FOUND("User with steam id %s was not found in system.", HttpStatus.NOT_FOUND),
+    USER_GAME_STATS_VALIDATION_ERROR("User game stats validation failed: %s for steamId=%s", HttpStatus.INTERNAL_SERVER_ERROR),
+    VALIDATION_ERROR("Validation error: %s", HttpStatus.BAD_REQUEST);
 
     private final String description;
     private final HttpStatus status;
 
+    /**
+     * Создает описание ошибки и связанный с ней HTTP-статус.
+     *
+     * @param description шаблон описания ошибки
+     * @param status HTTP-статус ошибки
+     */
     ErrorType(String description, HttpStatus status) {
         this.description = description;
         this.status = status;

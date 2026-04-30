@@ -107,30 +107,39 @@ class DeepSeekService(BaseAIService):
         self,
         content: str,
         max_recommendations: int,
-    ) -> List[Dict[str, Any]] | None:
+    ) -> tuple[List[Dict[str, Any]], str] | tuple[None, None]:
+        """
+        Parse JSON response from LLM content.
+
+        Returns:
+            Tuple of (recommendations_list, reasoning_string)
+            or (None, None) if parsing fails
+        """
         json_str = self._extract_json_string(content)
         if not json_str:
-            return None
+            return None, None
 
         logger.info(f"Extracted JSON string: {json_str[:200]}...")
         parsed_response = self._loads_json_with_repair(json_str)
         if not parsed_response:
-            return None
+            return None, None
 
         recommendations = parsed_response.get('recommendations')
         if isinstance(recommendations, list):
-            return recommendations[:max_recommendations]
+            recommendations = recommendations[:max_recommendations]
+            reasoning = parsed_response.get('reasoning', '')
+            return recommendations, reasoning
 
         logger.warning(
             "JSON parsed but no 'recommendations' list found. Keys: %s",
             list(parsed_response.keys()),
         )
-        return None
+        return None, None
     
     async def get_recommendations(
-        self, 
-        preferences: str, 
-        genres: List[str] = None, 
+        self,
+        preferences: str,
+        genres: List[str] = None,
         platforms: List[str] = None,
         max_recommendations: int = 5
     ) -> List[Dict[str, Any]]:
@@ -157,6 +166,7 @@ class DeepSeekService(BaseAIService):
 
             IMPORTANT: You must respond with ONLY valid JSON in this exact format, no additional text:
             {{
+                "reasoning": "A brief explanation (2-4 sentences) of why these particular games were chosen, based on what criteria (preferences, genres, platforms)",
                 "recommendations": [
                     {{
                         "title": "Game Title",
@@ -176,7 +186,7 @@ class DeepSeekService(BaseAIService):
             
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(prompt)
-            
+
             if response and 'recommendations' in response:
                 self._record_success()
                 return response['recommendations'][:max_recommendations]
@@ -214,13 +224,65 @@ class DeepSeekService(BaseAIService):
             logger.error(f"Error getting recommendations from DeepSeek: {e}")
             return self._get_mock_recommendations(max_recommendations)
 
+    def _format_library_data(self, steam_library_json: Dict[str, Any]) -> str:
+        recently_played = steam_library_json.get("recentlyPlayed") or []
+        top_by_playtime = steam_library_json.get("topByPlaytime") or []
+        all_games_played = steam_library_json.get("allGamesPlayed") or []
+
+        lines = []
+
+        if recently_played:
+            lines.append("Recently played (last 2 weeks) — DO NOT recommend these games:")
+            for g in recently_played:
+                recent_hours = g.get("recentPlaytimeHours") or 0
+                suffix = f" ({recent_hours} hours in last 2 weeks)" if recent_hours else ""
+                lines.append(f'    - {g.get("name", "Unknown")}{suffix}')
+        else:
+            lines.append("Recently played (last 2 weeks): none")
+
+        if top_by_playtime:
+            lines.append("\nTop played games (use as taste reference):")
+            for g in top_by_playtime:
+                total_hours = g.get("playtimeHours") or 0
+                suffix = f" ({total_hours} hours)" if total_hours else ""
+                lines.append(f'    - {g.get("name", "Unknown")}{suffix}')
+
+        if all_games_played:
+            lines.append("\nFull library (all games ever played — for full context):")
+            for g in all_games_played:
+                total_hours = g.get("playtimeHours") or 0
+                suffix = f" ({total_hours} hours)" if total_hours else ""
+                lines.append(f'    - {g.get("name", "Unknown")}{suffix}')
+
+        return "\n".join(lines)
+
+    def _build_library_prompt_block(self, steam_library: str | None) -> str:
+
+        if not steam_library:
+            logger.info("Steam library is null, skipping library sections in prompt")
+            return ""
+
+        steam_library_json = json.loads(steam_library)
+        if not isinstance(steam_library_json, dict):
+            logger.info("Steam library is malformed, skipping library sections in prompt")
+            return ""
+
+        logger.info("Steam library data available, adding to prompt")
+        return (
+            f"\n  {self._format_library_data(steam_library_json)}"
+            "\n"
+            "\n  STRICT RULES — follow these without exception:"
+            "\n   - NEVER recommend a game from Recently played (last 2 weeks)"
+            "\n   - Pay attention to hidden gems — games with low playtime from unusual genres"
+        )
+
     async def get_recommendations_with_steam_library(
             self,
             user_message: str,
             selected_tags: List[str],
-            steam_library: Dict[str, Any],
+            steam_library: str | None,
             max_recommendations: int = 5
-    ) -> List[Dict[str, Any]]:
+    ) -> tuple[List[Dict[str, Any]], str]:
         """Get recommendations based on user preferences and Steam library"""
         try:
             if not self.api_key or not self.client:
@@ -231,19 +293,7 @@ class DeepSeekService(BaseAIService):
                 logger.warning("Circuit breaker is open, returning mock data")
                 return self._get_mock_recommendations(max_recommendations)
 
-            # Process Steam library data
-            played_games = []
-            if steam_library and hasattr(steam_library, 'response') and steam_library.response.games:
-                for game in steam_library.response.games:
-                    played_games.append({
-                        'name': game.name,
-                        'playtime': game.playtimeForever,
-                        'recent_playtime': game.playtime2weeks
-                    })
-
-            # Sort games by playtime to identify favorites
-            played_games.sort(key=lambda x: x['playtime'], reverse=True)
-            favorite_games = played_games[:5] if played_games else []
+            library_prompt_block = self._build_library_prompt_block(steam_library)
 
             # Prepare prompt with Steam library context
             prompt = f"""
@@ -252,9 +302,7 @@ class DeepSeekService(BaseAIService):
             User Message: {user_message}
             Selected Tags/Genres: {', '.join(selected_tags) if selected_tags else 'Any'}
 
-            Steam Library Analysis:
-            - Top played games: {', '.join(f"{game['name']} ({game['playtime']} hours)" for game in favorite_games)}
-            - Total games owned: {len(played_games)}
+            {library_prompt_block}
 
             IMPORTANT: Recommend games that:
             1. Match user's preferences from their message
@@ -264,10 +312,11 @@ class DeepSeekService(BaseAIService):
 
             RESPOND WITH ONLY valid JSON in this exact format:
             {{
+                "reasoning": "A brief explanation (2-4 sentences) of why these particular games were chosen, with a link to the Steam library: which games/genres/patterns influenced the choice",
                 "recommendations": [
                     {{
                         "title": "Game Title",
-                        "genre": "Game Genre", 
+                        "genre": "Game Genre",
                         "description": "Brief description",
                         "why_recommended": "Explain why this game matches their preferences and play history",
                         "platforms": ["PC", "PS5", "Xbox"],
@@ -283,18 +332,20 @@ class DeepSeekService(BaseAIService):
 
             # Process response (using existing response handling logic)
             if response and 'recommendations' in response:
+                recommendations = response['recommendations'][:max_recommendations]
+                reasoning = response.get('reasoning', '')
                 self._record_success()
-                return response['recommendations'][:max_recommendations]
+                return recommendations, reasoning
             elif response and 'choices' in response and len(response['choices']) > 0:
                 # Try to parse content from chat response
                 content = response['choices'][0]['message']['content']
                 logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
 
-                json_recommendations = self._parse_recommendations_from_content(content, max_recommendations)
-                if json_recommendations is not None:
+                recommendations, reasoning = self._parse_recommendations_from_content(content, max_recommendations)
+                if recommendations is not None:
                     self._record_success()
                     logger.info("Successfully parsed JSON recommendations from chat response")
-                    return json_recommendations
+                    return recommendations, reasoning
 
                 logger.warning("Failed to parse JSON recommendations from chat response; falling back to text extraction")
                 logger.warning(f"Raw content: {content[:500]}...")
@@ -426,7 +477,7 @@ class DeepSeekService(BaseAIService):
                 "release_year": "2020"
             }
         ]
-        
+
         return recommendations[:max_recommendations]
     
     def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> List[Dict[str, Any]]:
@@ -505,7 +556,7 @@ class DeepSeekService(BaseAIService):
             
             logger.info(f"Extracted {len(recommendations)} recommendations from text")
             return recommendations[:max_recommendations]
-            
+
         except Exception as e:
             logger.error(f"Error extracting recommendations from text: {e}")
             return []

@@ -69,8 +69,8 @@ services:
       - SPRING_REDIS_HOST=${SPRING_REDIS_HOST}
       - SPRING_REDIS_PORT=${SPRING_REDIS_PORT}
       - STEAM_API_KEY=${STEAM_API_KEY}
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     networks: [ playcure ]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
@@ -130,7 +130,7 @@ services:
       PGADMIN_CONFIG_PROXY_X_PROTO_COUNT: "1"
       PGADMIN_CONFIG_PROXY_X_PREFIX_COUNT: "1"
       PGADMIN_CONFIG_ENHANCED_COOKIE_PROTECTION: "False"
-    ports:
+    expose:
       - "80"
     volumes:
       - pgadmin_data:/var/lib/pgadmin
@@ -139,6 +139,29 @@ services:
       game_recommender_ai_db:
         condition: service_healthy
 
+  prometheus:
+    image: prom/prometheus
+    container_name: GR_prometheus
+    expose:
+      - "9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    networks: [ playcure ]
+
+  grafana:
+    image: grafana/grafana
+    container_name: GR_grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+    expose:
+      - "3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks: [ playcure ]
+    depends_on:
+      - prometheus
+
 networks:
   playcure:
     driver: bridge
@@ -146,6 +169,7 @@ networks:
 volumes:
   game_recommender_ai_data:
   pgadmin_data:
+  grafana-data:
   # Optional: persist data if needed
   # backend-data:
   # ai-service-data:

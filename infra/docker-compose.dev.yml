@@ -12,6 +12,18 @@ services:
     ports:
       - "127.0.0.1:5433:5432"
 
+  backend:
+    ports:
+      - "127.0.0.1:8080:8080"
+
   pgadmin:
     ports:
       - "127.0.0.1:80:80"
+
+  prometheus:
+    ports:
+      - "127.0.0.1:9999:9090"
+
+  grafana:
+    ports:
+      - "127.0.0.1:3000:3000"

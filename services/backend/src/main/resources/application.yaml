@@ -36,6 +36,8 @@ application:
 
 # gRPC Configuration
 grpc:
+  server:
+    port: "${GRPC_SERVER_PORT:9091}"
   ai-service:
     host: "${GRPC_AI_SERVICE_HOST:localhost}"
     port: "${GRPC_AI_SERVICE_PORT:9090}"
@@ -44,6 +46,19 @@ grpc:
       address: "${GRPC_CLIENT_AI_SERVICE_ADDRESS:${grpc.ai-service.host}:${grpc.ai-service.port}}"
       negotiationType: "${GRPC_CLIENT_AI_SERVICE_NEGOTIATION_TYPE:plaintext}"
       maxInboundMessageSize: "${GRPC_CLIENT_AI_SERVICE_MAX_INBOUND_MESSAGE_SIZE:1048576}"
+  ai-client:
+    deadlineSeconds: "${GRPC_AI_CLIENT_DEADLINE_SECONDS:60}"
+    retryMaxAttempts: "${GRPC_AI_CLIENT_RETRY_MAX_ATTEMPTS:1}"
+    retryBackoffMs: "${GRPC_AI_CLIENT_RETRY_BACKOFF_MS:250}"
+  ai-circuit-breaker:
+    name: "${GRPC_AI_CB_NAME:grpcAi}"
+    slidingWindowSize: "${GRPC_AI_CB_SLIDING_WINDOW_SIZE:10}"
+    minimumNumberOfCalls: "${GRPC_AI_CB_MINIMUM_NUMBER_OF_CALLS:10}"
+    failureRateThreshold: "${GRPC_AI_CB_FAILURE_RATE_THRESHOLD:50.0}"
+    waitDurationOpenSeconds: "${GRPC_AI_CB_WAIT_DURATION_OPEN_SECONDS:30}"
+    permittedCallsInHalfOpen: "${GRPC_AI_CB_PERMITTED_CALLS_IN_HALF_OPEN:2}"
+    slowCallDurationThreshold: "${GRPC_AI_CB_SLOW_CALL_DURATION_THRESHOLD:45}"
+    slowCallRateThreshold: "${GRPC_AI_CB_SLOW_CALL_RATE_THRESHOLD:50}"
 
 # Security and token
 security:
@@ -200,3 +215,24 @@ app:
   batch:
     size: "${APP_BATCH_SIZE:10000}"
     concurrency: "${APP_BATCH_CONCURRENCY:8}"
+
+  recommender:
+    defaults:
+      language: "${RECO_DEFAULT_LANGUAGE:english}"
+      max-results: "${RECO_DEFAULT_MAX_RESULTS:5}"
+    prompt:
+      top-by-playtime-list-size: "${TOP_BY_PLAYTIME_LIST_SIZE:10}"
+      all-games-list-size-limit: "${ALL_GAMES_LIST_SIZE_LIMIT:100}"
+
+  # gRPC Internal Tools API (PCAI-122): Python <-> Java reactive gRPC
+  grpc:
+    tools:
+      default-limit: "${APP_GRPC_TOOLS_DEFAULT_LIMIT:20}"
+      max-limit: "${APP_GRPC_TOOLS_MAX_LIMIT:100}"
+      steam-fetch-timeout-seconds: "${APP_GRPC_TOOLS_STEAM_FETCH_TIMEOUT_SECONDS:3}"
+
+  chats:
+    pagination:
+      default-limit: "${CHATS_PAGINATION_DEFAULT_LIMIT:10}"
+      max-limit: "${CHATS_PAGINATION_MAX_LIMIT:100}"
+      min-limit: "${CHATS_PAGINATION_MIN_LIMIT:1}"

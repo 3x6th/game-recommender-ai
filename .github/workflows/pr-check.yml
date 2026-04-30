@@ -18,6 +18,20 @@ concurrency:
 jobs:
   java-build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17.4
+        env:
+          POSTGRES_DB: game_recommender_ai_db
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d game_recommender_ai_db"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: ./services/backend
@@ -30,6 +44,20 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
+
+      - name: Validate Liquibase changelog
+        run: >
+          mvn -B -ntp liquibase:validate
+          -Dliquibase.url=jdbc:postgresql://localhost:5432/game_recommender_ai_db
+          -Dliquibase.username=postgres
+          -Dliquibase.password=postgres
+
+      - name: Apply Liquibase migrations (CI database)
+        run: >
+          mvn -B -ntp liquibase:update
+          -Dliquibase.url=jdbc:postgresql://localhost:5432/game_recommender_ai_db
+          -Dliquibase.username=postgres
+          -Dliquibase.password=postgres
 
       - name: Build & test (verify)
         run: mvn -B -ntp clean verify -DskipTests=false

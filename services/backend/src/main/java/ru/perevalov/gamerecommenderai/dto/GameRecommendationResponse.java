@@ -13,6 +13,10 @@ import java.util.List;
 @AllArgsConstructor
 public class GameRecommendationResponse {
     private String recommendation;
+    private String reasoning;
     private boolean success;
     private List<GameRecommendation> recommendations;
-} 
+    private String chatId;
+    private String assistantMessageId;
+    private String errorMessage;
+}
