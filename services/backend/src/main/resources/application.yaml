@@ -71,6 +71,8 @@ tokens:
     ttl-in-minutes: "${ACCESS_TOKEN_TTL_MINUTES:15}"
   refresh-token:
     ttl-in-days: "${REFRESH_TOKEN_TTL_DAYS:3}"
+  steam-auth-state-token:
+    ttl-in-minutes: "${STEAM_AUTH_STATE_TTL_MINUTES:10}"
 
 # Rate limiting
 performance:
