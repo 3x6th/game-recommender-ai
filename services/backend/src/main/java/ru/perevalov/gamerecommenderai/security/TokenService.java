@@ -3,10 +3,12 @@ package ru.perevalov.gamerecommenderai.security;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.util.StringUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
@@ -31,6 +33,8 @@ public class TokenService {
     private long accessTtl;
     @Value("${tokens.refresh-token.ttl-in-days}")
     private long refreshTtl;
+    @Value("${tokens.steam-auth-state-token.ttl-in-minutes:10}")
+    private long steamAuthStateTtl;
 
     private Duration getAccessTtl() {
         return Duration.ofMinutes(accessTtl);
@@ -38,6 +42,10 @@ public class TokenService {
 
     private Duration getRefreshTtl() {
         return Duration.ofDays(refreshTtl);
+    }
+
+    private Duration getSteamAuthStateTtl() {
+        return Duration.ofMinutes(steamAuthStateTtl);
     }
 
     public Mono<PreAuthResponse> preAuthorize(ServerWebExchange exchange) {
@@ -101,7 +109,64 @@ public class TokenService {
         });
     }
 
-        /**
+    public Mono<AccessTokenResponse> issueUserTokens(String sessionId,
+                                                     Long steamId,
+                                                     ServerWebExchange exchange) {
+        return Mono.fromSupplier(() -> {
+            String resolvedSessionId = StringUtils.hasText(sessionId) ? sessionId : UUID.randomUUID().toString();
+
+            log.info("Issuing user tokens for steamId={} session {}", steamId, resolvedSessionId);
+
+            String accessToken = jwtUtil.createAccessToken(resolvedSessionId, getAccessTtl(), UserRole.USER, steamId);
+            String refreshToken = jwtUtil.createRefreshToken(resolvedSessionId, getRefreshTtl(), UserRole.USER, steamId);
+
+            cookieService.insertRefreshTokenInCookie(refreshToken, exchange);
+
+            return AccessTokenResponse.builder()
+                    .accessToken(accessToken)
+                    .accessExpiresIn(getAccessTtl().toSeconds())
+                    .build();
+        });
+    }
+
+    public Optional<String> createSteamAuthStateToken(ServerWebExchange exchange) {
+        String refreshToken = cookieService.extractRefreshTokenFromCookies(exchange);
+        if (!StringUtils.hasText(refreshToken)) {
+            return Optional.empty();
+        }
+
+        try {
+            DecodedJWT decoded = decodeAndValidateRefreshToken(refreshToken);
+            String sessionId = decoded.getSubject();
+            if (!StringUtils.hasText(sessionId)) {
+                return Optional.empty();
+            }
+            return Optional.of(jwtUtil.createSteamAuthStateToken(sessionId, getSteamAuthStateTtl()));
+        } catch (Exception ex) {
+            log.warn("Failed to create Steam auth state token from refresh token", ex);
+            return Optional.empty();
+        }
+    }
+
+    public Optional<String> extractSessionIdFromSteamAuthStateToken(String stateToken) {
+        if (!StringUtils.hasText(stateToken)) {
+            return Optional.empty();
+        }
+
+        try {
+            DecodedJWT decoded = jwtUtil.decodeSteamAuthStateToken(stateToken);
+            jwtUtil.validateTokenExpiration(decoded);
+            if (!isTokenType(decoded, TokenType.STEAM_AUTH_STATE)) {
+                return Optional.empty();
+            }
+            return Optional.ofNullable(decoded.getSubject()).filter(StringUtils::hasText);
+        } catch (Exception ex) {
+            log.warn("Failed to extract sessionId from Steam auth state token", ex);
+            return Optional.empty();
+        }
+    }
+
+    /**
      * Извлекает sessionId из refresh токена после валидации.
      *
      * @param refreshToken refresh токен
@@ -160,4 +225,3 @@ public class TokenService {
         }
     }
 }
-
