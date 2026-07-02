@@ -21,6 +21,23 @@ State as of [PCAI-141](https://jira.ozero.dev/browse/PCAI-141) follow-up:
   Для `cards`-сообщений `content` пустой — всё рисуется из `items[]`.
 - Springdoc (WebFlux) сам генерит OpenAPI; `meta.type` и примеры — через `@Schema`.
 
+### Current user profile
+
+`GET /api/v1/users/me` returns public Steam profile data for the authenticated user.
+The user is resolved from the verified access token; the endpoint does not accept an
+arbitrary Steam ID.
+
+```json
+{
+  "steamId": "76561198000000000",
+  "avatarUrl": "https://avatars.steamstatic.com/example_full.jpg",
+  "profileUrl": "https://steamcommunity.com/profiles/76561198000000000/"
+}
+```
+
+`avatarUrl` and `profileUrl` are nullable when Steam profile data is unavailable.
+Guest and anonymous requests receive the standard authentication error response.
+
 ---
 
 ## 1) POST `/api/v1/games/proceed` Response Contract
