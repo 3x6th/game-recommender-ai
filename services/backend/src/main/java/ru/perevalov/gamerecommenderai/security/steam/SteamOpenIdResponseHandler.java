@@ -66,8 +66,9 @@ public class SteamOpenIdResponseHandler {
 
                         return tokenService.linkSteamIdToToken(refreshToken, steamId, exchange)
                                 .flatMap(tokens -> bindGuestChats(sessionId, user.getId())
+                                        .then(steamUserDataService.syncSteamProfile(user))
                                         .thenReturn(tokens))
-                                .doOnNext(tokens -> syncUserData(user));
+                                .doOnNext(tokens -> syncUserGameStats(user));
                     }
 
                     String sessionId = stateSessionId;
@@ -83,8 +84,10 @@ public class SteamOpenIdResponseHandler {
 
                     String callbackSessionId = sessionId;
                     return tokenService.issueUserTokens(callbackSessionId, steamId, exchange)
-                            .flatMap(tokens -> bindGuestChats(callbackSessionId, user.getId()).thenReturn(tokens))
-                            .doOnNext(tokens -> syncUserData(user));
+                            .flatMap(tokens -> bindGuestChats(callbackSessionId, user.getId())
+                                    .then(steamUserDataService.syncSteamProfile(user))
+                                    .thenReturn(tokens))
+                            .doOnNext(tokens -> syncUserGameStats(user));
                 })
                 .doOnSuccess(resp -> meterRegistry.counter("steam_auth_success").increment())
                 .doOnError(err -> meterRegistry
@@ -148,12 +151,12 @@ public class SteamOpenIdResponseHandler {
         }
     }
 
-    private void syncUserData(User user) {
-        Mono.defer(() -> steamUserDataService.syncUserData(user))
+    private void syncUserGameStats(User user) {
+        Mono.defer(() -> steamUserDataService.syncUserGameStats(user))
                 .subscribeOn(Schedulers.boundedElastic())
                 .subscribe(
                         unused -> { },
-                        err -> log.error("User data sync failed for user={}", user.getId(), err)
+                        err -> log.error("User game stats sync failed for user={}", user.getId(), err)
                 );
     }
 

@@ -43,16 +43,21 @@ public class SteamUserDataService {
             return Mono.empty();
         }
 
+        return Mono.whenDelayError(syncSteamProfile(user), syncUserGameStats(user)).then();
+    }
+
+    /**
+     * Fetches and stores only the lightweight Steam profile summary.
+     * Errors are logged and swallowed so Steam availability never breaks login.
+     */
+    public Mono<Void> syncSteamProfile(User user) {
+        if (user == null || user.getSteamId() == null) {
+            return Mono.empty();
+        }
+
         Long steamId = user.getSteamId();
         UUID userId = user.getId();
 
-        Mono<Void> profile = syncSteamProfile(steamId, userId);
-        Mono<Void> stats = syncUserGameStats(steamId, userId);
-
-        return Mono.whenDelayError(profile, stats).then();
-    }
-
-    private Mono<Void> syncSteamProfile(Long steamId, UUID userId) {
         return steamService.getPlayerSummaries(String.valueOf(steamId))
                 .flatMap(resp -> {
                     SteamPlayerResponse.Player player = firstPlayerOrNull(resp);
@@ -84,7 +89,17 @@ public class SteamUserDataService {
                 });
     }
 
-    private Mono<Void> syncUserGameStats(Long steamId, UUID userId) {
+    /**
+     * Fetches and stores the user's Steam library independently of profile sync.
+     */
+    public Mono<Void> syncUserGameStats(User user) {
+        if (user == null || user.getSteamId() == null) {
+            return Mono.empty();
+        }
+
+        Long steamId = user.getSteamId();
+        UUID userId = user.getId();
+
         return steamService.getOwnedGames(String.valueOf(steamId), true, true)
                 .map(resp -> buildStats(steamId, userId, resp))
                 .doOnNext(userGameStatsValidator::validate)
@@ -200,4 +215,3 @@ public class SteamUserDataService {
         return players.getFirst();
     }
 }
-
