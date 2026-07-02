@@ -19,6 +19,7 @@ import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.message.MessageMetaType;
 import ru.perevalov.gamerecommenderai.message.dto.MessageErrorPayloadDto;
 import ru.perevalov.gamerecommenderai.service.ChatMessageService;
+import ru.perevalov.gamerecommenderai.service.AiChatHistoryService;
 import ru.perevalov.gamerecommenderai.service.ChatsService;
 import ru.perevalov.gamerecommenderai.service.RequestContext;
 
@@ -29,6 +30,9 @@ class ChatMessageFlowIT extends IntegrationTestBase {
 
     @Autowired
     private ChatMessageService chatMessageService;
+
+    @Autowired
+    private AiChatHistoryService aiChatHistoryService;
 
     @Autowired
     private DatabaseClient databaseClient;
@@ -89,6 +93,37 @@ class ChatMessageFlowIT extends IntegrationTestBase {
                     assertThat(list.get(0).getMeta().get("payload").get("retryable").asBoolean()).isTrue();
                     assertThat(list.get(1).getRole()).isEqualTo(MessageRole.USER);
                     assertThat(list.get(1).getContent()).isEqualTo("need help");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void aiHistory_includesBothSidesAndExcludesCurrentUserMessage() {
+        UUID clientRequestId = UUID.randomUUID();
+        Mono<List<ru.perevalov.gamerecommenderai.dto.AiChatHistoryMessage>> flow = createUserAndGetId()
+                .map(userId -> RequestContext.forUser(userId, 123L, null))
+                .flatMap(ctx -> chatsService.getOrCreateChatId(null, ctx)
+                        .flatMap(chatId -> chatMessageService
+                                .appendUserMessage(chatId, "Recommend space games", clientRequestId, null, null)
+                                .then(chatMessageService.appendAssistantMessage(
+                                        chatId,
+                                        "Try Outer Wilds and No Man's Sky",
+                                        MessageMetaType.REPLY,
+                                        null))
+                                .then(chatMessageService.appendUserMessage(
+                                        chatId,
+                                        "Only co-op among those",
+                                        UUID.randomUUID(),
+                                        null,
+                                        null))
+                                .flatMap(current -> aiChatHistoryService.load(chatId, current.getId()))));
+
+        StepVerifier.create(flow)
+                .assertNext(history -> {
+                    assertThat(history).hasSize(2);
+                    assertThat(history.get(0).text()).isEqualTo("Recommend space games");
+                    assertThat(history.get(1).text()).isEqualTo("Try Outer Wilds and No Man's Sky");
+                    assertThat(history).noneMatch(message -> message.text().contains("Only co-op"));
                 })
                 .verifyComplete();
     }

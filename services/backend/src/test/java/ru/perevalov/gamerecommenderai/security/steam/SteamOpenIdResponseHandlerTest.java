@@ -2,6 +2,7 @@ package ru.perevalov.gamerecommenderai.security.steam;
 
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,7 +69,8 @@ class SteamOpenIdResponseHandlerTest {
                 chatsService,
                 meterRegistry
         );
-        lenient().when(steamUserDataService.syncUserData(any())).thenReturn(Mono.empty());
+        lenient().when(steamUserDataService.syncSteamProfile(any())).thenReturn(Mono.empty());
+        lenient().when(steamUserDataService.syncUserGameStats(any())).thenReturn(Mono.empty());
     }
 
     @Test
@@ -107,7 +109,45 @@ class SteamOpenIdResponseHandlerTest {
 
         verify(tokenService, times(1)).linkSteamIdToToken(eq("refresh-token"), eq(steamId), any());
         verify(chatsService, times(1)).bindGuestChatsToUser("session-id", user.getId());
-        verify(steamUserDataService, timeout(1000).times(1)).syncUserData(user);
+        verify(steamUserDataService, times(1)).syncSteamProfile(user);
+        verify(steamUserDataService, timeout(1000).times(1)).syncUserGameStats(user);
+    }
+
+    @Test
+    void givenProfileSync_whenHandle_thenWaitsForProfileBeforeReturningTokens() {
+        OpenIdResponse openIdResponse = OpenIdResponse.builder()
+                .claimedId("https://steamcommunity.com/id/76561198000000000")
+                .build();
+        long steamId = 76561198000000000L;
+        User user = new User(steamId, UserRole.USER);
+        user.setId(UUID.randomUUID());
+        AtomicBoolean profileSynced = new AtomicBoolean(false);
+
+        when(steamOpenIdService.verifyResponse(openIdResponse)).thenReturn(Mono.empty());
+        when(steamOpenIdService.extractSteamIdFromClaimedId(openIdResponse.getClaimedId())).thenReturn(steamId);
+        when(userService.createIfNotExists(steamId)).thenReturn(Mono.just(user));
+        when(cookieService.extractRefreshTokenFromCookies(any())).thenReturn("refresh-token");
+        when(tokenService.extractSessionIdFromRefreshToken("refresh-token")).thenReturn("session-id");
+        when(chatsService.bindGuestChatsToUser("session-id", user.getId())).thenReturn(Mono.just(0));
+        when(steamUserDataService.syncSteamProfile(user))
+                .thenReturn(Mono.fromRunnable(() -> profileSynced.set(true)));
+
+        AccessTokenResponse tokenResponse = AccessTokenResponse.builder()
+                .accessToken("access-token")
+                .accessExpiresIn(900)
+                .build();
+        when(tokenService.linkSteamIdToToken(eq("refresh-token"), eq(steamId), any()))
+                .thenReturn(Mono.just(tokenResponse));
+
+        MockServerWebExchange exchange = MockServerWebExchange.from(
+                MockServerHttpRequest.get("/api/v1/auth/steam/return").build());
+
+        StepVerifier.create(handler.handleReactively(openIdResponse, exchange))
+                .assertNext(response -> {
+                    Assertions.assertThat(response.getAccessToken()).isEqualTo("access-token");
+                    Assertions.assertThat(profileSynced).isTrue();
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -217,7 +257,8 @@ class SteamOpenIdResponseHandlerTest {
         verify(tokenService, never()).linkSteamIdToToken(any(), anyLong(), any());
         verify(tokenService, times(1)).issueUserTokens(eq("session-id"), eq(steamId), any());
         verify(chatsService, times(1)).bindGuestChatsToUser("session-id", user.getId());
-        verify(steamUserDataService, timeout(1000).times(1)).syncUserData(user);
+        verify(steamUserDataService, times(1)).syncSteamProfile(user);
+        verify(steamUserDataService, timeout(1000).times(1)).syncUserGameStats(user);
     }
 
     @Test
@@ -253,6 +294,7 @@ class SteamOpenIdResponseHandlerTest {
         verify(tokenService, never()).linkSteamIdToToken(any(), anyLong(), any());
         verify(tokenService, times(1)).issueUserTokens(anyString(), eq(steamId), any());
         verify(chatsService, times(1)).bindGuestChatsToUser(anyString(), eq(user.getId()));
-        verify(steamUserDataService, timeout(1000).times(1)).syncUserData(user);
+        verify(steamUserDataService, times(1)).syncSteamProfile(user);
+        verify(steamUserDataService, timeout(1000).times(1)).syncUserGameStats(user);
     }
 }

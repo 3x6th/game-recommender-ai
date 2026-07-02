@@ -23,6 +23,24 @@ This document defines the cross-service contract between Java backend and Python
 | `requestId` | `string` | ✅ | Request identifier for tracing. |
 | `chatId` | `string` | ❌ | Chat identifier (if chat context exists). |
 | `agentId` | `string` | ❌ | AI agent/model/prompt-profile identifier. |
+| `history` | `ChatHistoryMessageProto[]` | ✅ | Bounded USER/ASSISTANT history, oldest first. Does not contain the current `message`. |
+
+`history` contains both user requests and AI answers. Card responses are converted
+by Java into compact semantic text containing reasoning and recommended game titles,
+so follow-up requests such as “only co-op among those” can resolve their references.
+Service messages (`error`, `status`, `tool_call`, `tool_result`) are excluded.
+
+Example conversation context:
+
+```json
+{
+  "message": "Only co-op among those",
+  "history": [
+    { "role": "USER", "text": "Recommend space games" },
+    { "role": "ASSISTANT", "text": "Recommended games: Outer Wilds; No Man's Sky" }
+  ]
+}
+```
 
 ### JSON Schema
 
@@ -54,6 +72,18 @@ This document defines the cross-service contract between Java backend and Python
 ---
 
 ## 2) Python → Java: `RecommendationResponse`
+
+The runtime transport is protobuf (`contracts/proto/reco.proto`):
+
+- `message` contains a real conversational reply, never a generated-count placeholder;
+- `reasoning` contains recommendation rationale;
+- `recommendations[]` contains validated cards;
+- a text-only model answer is valid and is mapped to REST `meta.type = reply`;
+- text plus cards is mapped to `meta.type = cards` with a leading `kind = text` item.
+
+Python validates model JSON with Pydantic. Invalid output gets one LLM repair call.
+If repair still fails, plain natural-language output is returned as `reply`, while
+malformed JSON becomes a controlled retryable error. Silent production mocks are disabled.
 
 Python returns `RecommendationResponse` with top-level fields:
 

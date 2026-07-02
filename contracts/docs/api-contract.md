@@ -21,6 +21,23 @@ State as of [PCAI-141](https://jira.ozero.dev/browse/PCAI-141) follow-up:
   Для `cards`-сообщений `content` пустой — всё рисуется из `items[]`.
 - Springdoc (WebFlux) сам генерит OpenAPI; `meta.type` и примеры — через `@Schema`.
 
+### Current user profile
+
+`GET /api/v1/users/me` returns public Steam profile data for the authenticated user.
+The user is resolved from the verified access token; the endpoint does not accept an
+arbitrary Steam ID.
+
+```json
+{
+  "steamId": "76561198000000000",
+  "avatarUrl": "https://avatars.steamstatic.com/example_full.jpg",
+  "profileUrl": "https://steamcommunity.com/profiles/76561198000000000/"
+}
+```
+
+`avatarUrl` and `profileUrl` are nullable when Steam profile data is unavailable.
+Guest and anonymous requests receive the standard authentication error response.
+
 ---
 
 ## 1) POST `/api/v1/games/proceed` Response Contract
@@ -438,10 +455,12 @@ kind'ы, FE безопасно игнорирует если случайно в
 When mapping from Python `RecommendationResponse` to HTTP `message.meta.type`:
 
 - gRPC возвращает reasoning и/или recommendations → `cards` с
-  полиморфным `items[]` (reasoning-блок + игровые карточки).
+  полиморфным `items[]` (опциональный text/reply, reasoning-блок + игровые карточки).
 - gRPC вернул только текст без карточек и без reasoning → `reply`
   (`payload.text`).
-- gRPC вернул error/fallback → `error`.
+- gRPC вернул ошибку провайдера или невалидный JSON после одного repair-retry → `error`.
+- Sample/mock fallback разрешён только при `AI_MOCK_FALLBACK_ENABLED=true` и
+  обязательно содержит видимый пользователю текст о sample-данных.
 - Backend emits intermediate progress (future SSE) → `status`.
 - Внутренние шаги агента (LangChain tool-цикл) → `tool_call` от ассистента,
   `tool_result` от роли `TOOL`. Эти сообщения сохраняются в чат-истории
