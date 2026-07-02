@@ -15,6 +15,7 @@ import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageItemDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageReasoningItemDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageTextItemDto;
 
 /**
  * Вспомогательные операции recommendation pipeline.
@@ -66,7 +67,7 @@ public class PipelineSupport {
 
     /**
      * Собирает полиморфный список {@code meta.payload.items[]}: reasoning-блок
-     * (если есть) первым элементом, далее игровые карточки.
+     * (если есть), далее игровые карточки.
      *
      * <p>Контракт см. {@code contracts/docs/api-contract.md} §5: {@code items[]}
      * — единственное место, где живёт визуальное содержимое ответа ассистента.
@@ -76,13 +77,30 @@ public class PipelineSupport {
             String reasoning,
             List<GameRecommendation> recommendations
     ) {
+        return buildItems(null, reasoning, recommendations);
+    }
+
+    /**
+     * Builds a mixed cards payload: conversational reply, reasoning, then games.
+     */
+    public List<MessageItemDto> buildItems(
+            String reply,
+            String reasoning,
+            List<GameRecommendation> recommendations
+    ) {
+        boolean hasReply = reply != null && !reply.isBlank();
         boolean hasReasoning = reasoning != null && !reasoning.isBlank();
         boolean hasRecs = recommendations != null && !recommendations.isEmpty();
-        if (!hasReasoning && !hasRecs) {
+        if (!hasReply && !hasReasoning && !hasRecs) {
             return Collections.emptyList();
         }
 
         List<MessageItemDto> items = new ArrayList<>();
+        if (hasReply) {
+            items.add(MessageTextItemDto.builder()
+                    .text(reply)
+                    .build());
+        }
         if (hasReasoning) {
             items.add(MessageReasoningItemDto.builder()
                     .text(reasoning)

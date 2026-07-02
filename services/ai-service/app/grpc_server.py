@@ -2,9 +2,7 @@
 gRPC server implementation for the Game Recommender Service.
 """
 
-import asyncio
 import logging
-from typing import List
 
 import grpc
 from grpc import ServicerContext
@@ -14,8 +12,8 @@ from pathlib import Path
 
 # Add proto directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "proto"))
-import reco_pb2
-import reco_pb2_grpc
+import reco_pb2  # noqa: E402
+import reco_pb2_grpc  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +47,7 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             logger.info("Received chat history: message_count=%d", len(history))
 
             # Get recommendations, reasoning from service registry with Steam library context
-            recommendations, reasoning = await self.service_registry.get_recommendations_with_steam_library(
+            result = await self.service_registry.get_recommendations_with_steam_library(
                 user_message=request.userMessage,
                 selected_tags=list(request.selectedTags),
                 steam_library=request.profileSummary,
@@ -59,7 +57,7 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
 
             # Convert to gRPC format
             grpc_recommendations = []
-            for rec in recommendations:
+            for rec in result.recommendations:
                 grpc_rec = reco_pb2.GameRecommendation(
                     title=rec.get('title', ''),
                     genre=rec.get('genre', ''),
@@ -73,8 +71,8 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
 
             return reco_pb2.RecommendationResponse(
                 success=True,
-                message=f"Generated {len(grpc_recommendations)} recommendations based on preferences and Steam library",
-                reasoning=reasoning,
+                message=result.reply,
+                reasoning=result.reasoning,
                 recommendations=grpc_recommendations,
                 provider=self.service_registry.get_active_provider()
             )

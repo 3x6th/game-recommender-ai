@@ -3,12 +3,22 @@ Base class for AI service providers.
 """
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass, field
 from typing import List, Dict, Any
+
+
+@dataclass(frozen=True)
+class RecommendationResult:
+    """Provider-neutral successful result."""
+
+    recommendations: List[Dict[str, Any]] = field(default_factory=list)
+    reasoning: str = ""
+    reply: str = ""
 
 class BaseAIService(ABC):
     """Base class for AI service providers"""
     
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str | None = None):
         self.api_key = api_key
         self.name = self.__class__.__name__
     
@@ -16,8 +26,8 @@ class BaseAIService(ABC):
     async def get_recommendations(
         self, 
         preferences: str, 
-        genres: List[str] = None, 
-        platforms: List[str] = None,
+        genres: List[str] | None = None,
+        platforms: List[str] | None = None,
         max_recommendations: int = 5
     ) -> List[Dict[str, Any]]:
         """Get game recommendations"""
@@ -30,14 +40,14 @@ class BaseAIService(ABC):
         steam_library: str | None,
         max_recommendations: int = 5,
         history: List[Dict[str, str]] | None = None,
-    ) -> tuple[List[Dict[str, Any]], str]:
+    ) -> RecommendationResult:
         """Provider-neutral fallback for services without profile-aware prompts."""
         recommendations = await self.get_recommendations(
             user_message,
             genres=selected_tags,
             max_recommendations=max_recommendations,
         )
-        return recommendations, ""
+        return RecommendationResult(recommendations=recommendations)
     
     @abstractmethod
     async def is_available(self) -> bool:

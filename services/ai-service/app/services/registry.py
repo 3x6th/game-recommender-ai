@@ -4,9 +4,9 @@ Service registry for managing AI service providers.
 
 import logging
 import os
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any
 
-from app.services.base import BaseAIService
+from app.services.base import BaseAIService, RecommendationResult
 from app.services.deepseek_service import DeepSeekService
 from app.services.gigachat_service import GigaChatService
 
@@ -17,17 +17,23 @@ class ServiceRegistry:
     
     def __init__(self):
         self.services: List[BaseAIService] = []
-        self.active_service: BaseAIService = None
+        self.active_service: BaseAIService | None = None
         self._initialize_services()
     
     def _initialize_services(self):
         """Initialize available AI services"""
         try:
             # Add DeepSeek service if API key is available
-            if os.getenv('DEEPSEEK_API_KEY'):
+            mock_fallback_enabled = os.getenv(
+                "AI_MOCK_FALLBACK_ENABLED", "false"
+            ).lower() in {"1", "true", "yes"}
+            if os.getenv('DEEPSEEK_API_KEY') or mock_fallback_enabled:
                 deepseek_service = DeepSeekService()
                 self.services.append(deepseek_service)
-                logger.info("DeepSeek service initialized")
+                logger.info(
+                    "DeepSeek service initialized, mock_fallback_enabled=%s",
+                    mock_fallback_enabled,
+                )
             
             # Add GigaChat service if API key is available
             if os.getenv('GIGACHAT_API_KEY'):
@@ -62,14 +68,14 @@ class ServiceRegistry:
     async def get_recommendations(
         self, 
         preferences: str, 
-        genres: List[str] = None, 
-        platforms: List[str] = None,
+        genres: List[str] | None = None,
+        platforms: List[str] | None = None,
         max_recommendations: int = 5
     ) -> List[Dict[str, Any]]:
         """Get recommendations from active service"""
         if not self.active_service:
             logger.error("No active AI service")
-            return []
+            raise RuntimeError("No active AI service")
         
         try:
             logger.info(f"Getting recommendations from {self.active_service.get_name()}")
@@ -80,7 +86,7 @@ class ServiceRegistry:
             return recommendations
         except Exception as e:
             logger.error(f"Error getting recommendations: {e}")
-            return []
+            raise
 
     async def get_recommendations_with_steam_library(
             self,
@@ -89,28 +95,33 @@ class ServiceRegistry:
             steam_library: str | None,
             max_recommendations: int = 5,
             history: List[Dict[str, str]] | None = None,
-    ) -> Tuple[List[Dict[str, Any]], str]:
+    ) -> RecommendationResult:
         """Get recommendations based on user preferences and Steam library"""
         if not self.active_service:
             logger.error("No active AI service")
-            return [], ""
+            raise RuntimeError("No active AI service")
 
         try:
             logger.info(f"Getting recommendations from {self.active_service.get_name()} with Steam library data")
-            recommendations, reasoning = await self.active_service.get_recommendations_with_steam_library(
+            result = await self.active_service.get_recommendations_with_steam_library(
                 user_message,
                 selected_tags,
                 steam_library,
                 max_recommendations,
                 history,
             )
-            logger.info(f"Service {self.active_service.get_name()} returned {len(recommendations)} recommendations")
-            if reasoning:
-                logger.info(f"Reasoning: {reasoning}")
-            return recommendations, reasoning
+            logger.info(
+                "Service %s returned %d recommendations, has_reply=%s",
+                self.active_service.get_name(),
+                len(result.recommendations),
+                bool(result.reply),
+            )
+            if result.reasoning:
+                logger.info(f"Reasoning: {result.reasoning}")
+            return result
         except Exception as e:
             logger.error(f"Error getting recommendations with Steam library: {e}")
-            return [], ""
+            raise
 
     def get_available_services(self) -> List[str]:
         """Get list of available service names"""

@@ -11,6 +11,7 @@ import ru.perevalov.gamerecommenderai.dto.GameRecommendation;
 import ru.perevalov.gamerecommenderai.message.dto.MessageCardDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageItemDto;
 import ru.perevalov.gamerecommenderai.message.dto.MessageReasoningItemDto;
+import ru.perevalov.gamerecommenderai.message.dto.MessageTextItemDto;
 
 /**
  * Контрактный инвариант PCAI-141 follow-up: {@code buildItems} собирает
@@ -86,6 +87,23 @@ class PipelineSupportBuildItemsTest {
         assertThat(items.get(2)).isInstanceOf(MessageCardDto.class);
         assertThat(((MessageCardDto) items.get(1)).getTitle()).isEqualTo("A");
         assertThat(((MessageCardDto) items.get(2)).getTitle()).isEqualTo("B");
+    }
+
+    @Test
+    void buildItems_whenReplyAndCards_thenTextIsFirst() {
+        GameRecommendation rec = GameRecommendation.builder().title("Hades").build();
+
+        List<MessageItemDto> items = support.buildItems(
+                "Да, я помню наш диалог.",
+                "Подобрал короткие сессии.",
+                List.of(rec)
+        );
+
+        assertThat(items).hasSize(3);
+        assertThat(items.get(0)).isInstanceOf(MessageTextItemDto.class);
+        assertThat(((MessageTextItemDto) items.get(0)).getText()).contains("помню");
+        assertThat(items.get(1)).isInstanceOf(MessageReasoningItemDto.class);
+        assertThat(items.get(2)).isInstanceOf(MessageCardDto.class);
     }
 
     @Test
