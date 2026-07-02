@@ -355,6 +355,30 @@ class PipelineIT extends IntegrationTestBase {
         );
     }
 
+    @Test
+    void pipeline_textOnlyAiResponse_isPersistedAsReply() throws Exception {
+        when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
+                .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
+        when(grpcClient.getGameRecommendations(any()))
+                .thenReturn(Mono.just(RecommendationResponse.newBuilder()
+                        .setSuccess(true)
+                        .setMessage("В первом сообщении я советовал Elden Ring и Hades.")
+                        .build()));
+
+        GameRecommendationRequest request = GameRecommendationRequest.builder()
+                .content("Что ты советовал раньше?")
+                .steamId("76561198000000005")
+                .build();
+
+        JsonNode response = executePipeline(request, null);
+        JsonNode assistant = response.path("messages").get(0);
+
+        assertThat(assistant.path("content").asText()).contains("Elden Ring");
+        assertThat(assistant.path("meta").path("type").asText()).isEqualTo("reply");
+        assertThat(assistant.path("meta").path("payload").path("text").asText())
+                .contains("Hades");
+    }
+
     /**
      * Строит успешный mock gRPC-ответ для интеграционных тестов.
      *
@@ -372,7 +396,6 @@ class PipelineIT extends IntegrationTestBase {
 
         return RecommendationResponse.newBuilder()
                 .setSuccess(true)
-                .setMessage("ok")
                 .setReasoning("Подобрал RPG исходя из истории чата и предпочтений по жанру.")
                 .addRecommendations(rec)
                 .build();

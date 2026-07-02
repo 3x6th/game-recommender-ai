@@ -18,17 +18,22 @@ sys.path.insert(0, str(Path(__file__).parent / "app"))
 
 from app.services.deepseek_service import DeepSeekService
 from app.services.registry import ServiceRegistry
+from unittest.mock import patch
 
 def test_deepseek_service():
     """Basic sanity test for DeepSeekService without pytest-asyncio."""
     async def run():
-        service = DeepSeekService()
-        recommendations = await service.get_recommendations(
-            preferences="I like action RPGs with good story",
-            genres=["RPG", "Action"],
-            platforms=["PC", "PS5"],
-            max_recommendations=3,
-        )
+        with patch.dict(os.environ, {
+            "DEEPSEEK_API_KEY": "",
+            "AI_MOCK_FALLBACK_ENABLED": "true",
+        }):
+            service = DeepSeekService()
+            recommendations = await service.get_recommendations(
+                preferences="I like action RPGs with good story",
+                genres=["RPG", "Action"],
+                platforms=["PC", "PS5"],
+                max_recommendations=3,
+            )
         assert isinstance(recommendations, list)
         assert len(recommendations) <= 3
 
@@ -40,7 +45,12 @@ def test_deepseek_service():
 def test_service_registry():
     """Basic sanity test for ServiceRegistry without pytest-asyncio."""
     async def run():
-        registry = ServiceRegistry()
+        with patch.dict(os.environ, {
+            "DEEPSEEK_API_KEY": "",
+            "GIGACHAT_API_KEY": "",
+            "AI_MOCK_FALLBACK_ENABLED": "true",
+        }):
+            registry = ServiceRegistry()
 
         active_provider = registry.get_active_provider()
         assert isinstance(active_provider, str)

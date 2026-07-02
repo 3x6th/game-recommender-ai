@@ -6,6 +6,7 @@ Test script for DeepSeek service improvements.
 import asyncio
 import logging
 import os
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from dotenv import load_dotenv
 
@@ -28,19 +29,17 @@ def test_deepseek_service():
         with patch('app.services.deepseek_service.DeepSeekAI') as mock_sdk:
             # Mock SDK methods (create is synchronous, not async)
             mock_client = AsyncMock()
-            mock_response = {
-                "choices": [{
-                    "message": {
-                        "content": '{"recommendations": [{"title": "The Witcher 3", "genre": "RPG"}, {"title": "Elden Ring", "genre": "Action RPG"}]}'
-                    }
-                }]
-            }
+            mock_response = SimpleNamespace(choices=[SimpleNamespace(
+                message=SimpleNamespace(
+                    content='{"recommendations": [{"title": "The Witcher 3", "genre": "RPG"}, {"title": "Elden Ring", "genre": "Action RPG"}]}'
+                )
+            )])
             # Create is synchronous, not async
             from unittest.mock import Mock
             mock_client.chat.completions.create = Mock(return_value=mock_response)
             mock_sdk.return_value = mock_client
 
-            service = DeepSeekService()
+            service = DeepSeekService(api_key="test-key")
             recommendations = await service.get_recommendations(
                 preferences="I like RPG games with good story",
                 genres=["RPG", "Action"],

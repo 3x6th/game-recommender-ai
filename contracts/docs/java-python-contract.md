@@ -73,6 +73,18 @@ Example conversation context:
 
 ## 2) Python → Java: `RecommendationResponse`
 
+The runtime transport is protobuf (`contracts/proto/reco.proto`):
+
+- `message` contains a real conversational reply, never a generated-count placeholder;
+- `reasoning` contains recommendation rationale;
+- `recommendations[]` contains validated cards;
+- a text-only model answer is valid and is mapped to REST `meta.type = reply`;
+- text plus cards is mapped to `meta.type = cards` with a leading `kind = text` item.
+
+Python validates model JSON with Pydantic. Invalid output gets one LLM repair call.
+If repair still fails, plain natural-language output is returned as `reply`, while
+malformed JSON becomes a controlled retryable error. Silent production mocks are disabled.
+
 Python returns `RecommendationResponse` with top-level fields:
 
 ```json

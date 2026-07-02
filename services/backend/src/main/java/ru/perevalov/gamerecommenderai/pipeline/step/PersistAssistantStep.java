@@ -25,7 +25,7 @@ import ru.perevalov.gamerecommenderai.service.ChatMessageService;
  * <ul>
  *     <li>есть карточки или reasoning → {@code type=cards} с
  *         полиморфными {@code payload.items[]} (см. {@link PipelineSupport#buildItems});</li>
- *     <li>пусто → {@code type=reply} с пустым текстом.</li>
+ *     <li>есть только разговорный текст → {@code type=reply}.</li>
  * </ul>
  *
  * <p>{@code content} сообщения умышленно пустой для cards — весь визуал
@@ -47,7 +47,13 @@ public class PersistAssistantStep implements PipelineStep, Ordered {
         }
 
         GameRecommendationResponse response = context.getResponse();
+        String reply = response.getRecommendation();
+        boolean hasRecommendations = response.getRecommendations() != null
+                && !response.getRecommendations().isEmpty();
+        boolean hasReasoning = response.getReasoning() != null
+                && !response.getReasoning().isBlank();
         List<MessageItemDto> items = support.buildItems(
+                reply,
                 response.getReasoning(),
                 response.getRecommendations()
         );
@@ -55,10 +61,10 @@ public class PersistAssistantStep implements PipelineStep, Ordered {
         MessageMetaType type;
         Object payload;
         String content;
-        if (items.isEmpty()) {
+        if (!hasRecommendations && !hasReasoning && reply != null && !reply.isBlank()) {
             type = MessageMetaType.REPLY;
-            payload = new MessageReplyPayloadDto("", null, null, null);
-            content = "";
+            payload = new MessageReplyPayloadDto(reply, null, null, null);
+            content = reply;
         } else {
             type = MessageMetaType.CARDS;
             payload = new MessageCardsPayloadDto(items);

@@ -12,16 +12,23 @@ from typing import List, Dict, Any
 
 from deepseek_ai import DeepSeekAI
 from json_repair import repair_json
-from app.services.base import BaseAIService
+from pydantic import ValidationError
+
+from app.services.base import BaseAIService, RecommendationResult
+from app.services.output_models import RecommendationOutput
 
 logger = logging.getLogger(__name__)
 
 class DeepSeekService(BaseAIService):
     """DeepSeek AI service provider using official SDK"""
     
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str | None = None):
         super().__init__(api_key or os.getenv('DEEPSEEK_API_KEY'))
         self.model = "deepseek-chat"
+        self.max_tokens = int(os.getenv("DEEPSEEK_MAX_TOKENS", "2500"))
+        self.mock_fallback_enabled = os.getenv(
+            "AI_MOCK_FALLBACK_ENABLED", "false"
+        ).lower() in {"1", "true", "yes"}
         
         # Initialize DeepSeek client
         if self.api_key:
@@ -31,7 +38,7 @@ class DeepSeekService(BaseAIService):
         
         # Circuit breaker state
         self.failure_count = 0
-        self.last_failure_time = 0
+        self.last_failure_time = 0.0
         self.circuit_open = False
         self.circuit_open_timeout = 60  # 1 minute
         
@@ -103,56 +110,129 @@ class DeepSeekService(BaseAIService):
 
         return None
 
+    def _parse_output(
+        self,
+        content: str,
+        max_recommendations: int,
+    ) -> RecommendationOutput | None:
+        """Parse, locally repair, and validate structured model output."""
+        json_str = self._extract_json_string(content)
+        if not json_str:
+            return None
+
+        logger.info(f"Extracted JSON string: {json_str[:200]}...")
+        parsed_response = self._loads_json_with_repair(json_str)
+        if not parsed_response:
+            return None
+
+        try:
+            output = RecommendationOutput.model_validate(parsed_response)
+        except ValidationError as error:
+            logger.warning("Model output schema validation failed: %s", error)
+            return None
+
+        return output.model_copy(
+            update={"recommendations": output.recommendations[:max_recommendations]}
+        )
+
     def _parse_recommendations_from_content(
         self,
         content: str,
         max_recommendations: int,
     ) -> tuple[List[Dict[str, Any]], str] | tuple[None, None]:
-        """
-        Parse JSON response from LLM content.
-
-        Returns:
-            Tuple of (recommendations_list, reasoning_string)
-            or (None, None) if parsing fails
-        """
-        json_str = self._extract_json_string(content)
-        if not json_str:
+        """Backward-compatible parser used by existing unit tests."""
+        output = self._parse_output(content, max_recommendations)
+        if output is None:
             return None, None
+        return [item.model_dump() for item in output.recommendations], output.reasoning
 
-        logger.info(f"Extracted JSON string: {json_str[:200]}...")
-        parsed_response = self._loads_json_with_repair(json_str)
-        if not parsed_response:
-            return None, None
+    @staticmethod
+    def _response_content(response: Dict[str, Any] | None) -> str | None:
+        if not response:
+            return None
+        if isinstance(response.get("recommendations"), list):
+            return json.dumps(response, ensure_ascii=False)
+        choices = response.get("choices")
+        if not isinstance(choices, list) or not choices:
+            return None
+        content = choices[0].get("message", {}).get("content")
+        return content if isinstance(content, str) and content.strip() else None
 
-        recommendations = parsed_response.get('recommendations')
-        if isinstance(recommendations, list):
-            recommendations = recommendations[:max_recommendations]
-            reasoning = parsed_response.get('reasoning', '')
-            return recommendations, reasoning
-
-        logger.warning(
-            "JSON parsed but no 'recommendations' list found. Keys: %s",
-            list(parsed_response.keys()),
+    @staticmethod
+    def _to_result(output: RecommendationOutput) -> RecommendationResult:
+        return RecommendationResult(
+            recommendations=[item.model_dump() for item in output.recommendations],
+            reasoning=output.reasoning,
+            reply=output.reply,
         )
-        return None, None
+
+    async def _repair_invalid_output(
+        self,
+        content: str,
+        max_recommendations: int,
+    ) -> RecommendationOutput | None:
+        """Ask the model exactly once to convert its prior answer to the schema."""
+        logger.warning("Invalid model output; performing one structured-output repair call")
+        repair_messages = [
+            {
+                "role": "system",
+                "content": (
+                    "Convert the supplied answer to valid JSON only. Preserve its meaning and language. "
+                    "Use this object: {\"reply\": string, \"reasoning\": string, "
+                    "\"recommendations\": [{\"title\": string, \"genre\": string, "
+                    "\"description\": string, \"why_recommended\": string, "
+                    "\"platforms\": string[], \"rating\": number 0..10, "
+                    "\"release_year\": string}]}. If it is only a conversational answer, put it in "
+                    "reply and use an empty recommendations array. Do not invent games or facts."
+                ),
+            },
+            {"role": "user", "content": content},
+        ]
+        response = await self._call_deepseek_api_with_retry(repair_messages)
+        repaired_content = self._response_content(response)
+        if not repaired_content:
+            return None
+        return self._parse_output(repaired_content, max_recommendations)
+
+    async def _guard_output(
+        self,
+        response: Dict[str, Any] | None,
+        max_recommendations: int,
+    ) -> RecommendationResult:
+        content = self._response_content(response)
+        if not content:
+            raise ValueError("DeepSeek returned an empty response")
+
+        logger.info("Parsing recommendations from chat response: %s...", content[:200])
+        output = self._parse_output(content, max_recommendations)
+        if output is None:
+            output = await self._repair_invalid_output(content, max_recommendations)
+        if output is not None:
+            self._record_success()
+            return self._to_result(output)
+
+        # A natural-language answer is still useful for a conversational request.
+        # Malformed JSON is not: returning it would expose a broken contract.
+        if not self._extract_json_string(content) and not content.lstrip().startswith(("{", "```json")):
+            logger.warning("Structured repair failed; returning original answer as reply text")
+            self._record_success()
+            return RecommendationResult(reply=content.strip())
+
+        raise ValueError("DeepSeek output is invalid after one repair attempt")
     
     async def get_recommendations(
         self,
         preferences: str,
-        genres: List[str] = None,
-        platforms: List[str] = None,
+        genres: List[str] | None = None,
+        platforms: List[str] | None = None,
         max_recommendations: int = 5
     ) -> List[Dict[str, Any]]:
         """Get game recommendations from DeepSeek"""
         try:
             if not self.api_key or not self.client:
-                logger.warning("No DeepSeek API key or client available")
-                return self._get_mock_recommendations(max_recommendations)
-            
-            # Check circuit breaker
+                raise RuntimeError("DeepSeek API key or client is unavailable")
             if self._is_circuit_open():
-                logger.warning("Circuit breaker is open, returning mock data")
-                return self._get_mock_recommendations(max_recommendations)
+                raise RuntimeError("DeepSeek circuit breaker is open")
             
             logger.info(f"Getting recommendations from DeepSeek: {preferences}")
             
@@ -187,42 +267,15 @@ class DeepSeekService(BaseAIService):
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(prompt)
 
-            if response and 'recommendations' in response:
-                self._record_success()
-                return response['recommendations'][:max_recommendations]
-            elif response and 'choices' in response and len(response['choices']) > 0:
-                # Try to parse content from chat response
-                content = response['choices'][0]['message']['content']
-                logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
-
-                json_recommendations, _ = self._parse_recommendations_from_content(content, max_recommendations)
-                if json_recommendations is not None:
-                    self._record_success()
-                    logger.info("Successfully parsed JSON recommendations from chat response")
-                    return json_recommendations
-
-                logger.warning("Failed to parse JSON recommendations from chat response; falling back to text extraction")
-                logger.warning(f"Raw content: {content[:500]}...")
-                
-                # Try to extract recommendations manually from text
-                extracted_recommendations = self._extract_recommendations_from_text(content, max_recommendations)
-                if extracted_recommendations:
-                    self._record_success()
-                    logger.info("Successfully extracted recommendations from text response")
-                    return extracted_recommendations
-                
-                # For now, return mock data but log the actual response for analysis
-                logger.info(f"Full DeepSeek response content: {content}")
-                
-            # Log the full response for debugging
-            logger.warning(f"Invalid response structure from DeepSeek. Response keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
-            logger.warning("Using mock data")
-            return self._get_mock_recommendations(max_recommendations)
-            
+            result = await self._guard_output(response, max_recommendations)
+            return result.recommendations
         except Exception as e:
             self._record_failure()
             logger.error(f"Error getting recommendations from DeepSeek: {e}")
-            return self._get_mock_recommendations(max_recommendations)
+            if self.mock_fallback_enabled:
+                logger.warning("AI mock fallback enabled; returning sample data")
+                return self._get_mock_recommendations(max_recommendations)
+            raise
 
     def _format_library_data(self, steam_library_json: Dict[str, Any]) -> str:
         recently_played = steam_library_json.get("recentlyPlayed") or []
@@ -283,16 +336,14 @@ class DeepSeekService(BaseAIService):
             steam_library: str | None,
             max_recommendations: int = 5,
             history: List[Dict[str, str]] | None = None,
-    ) -> tuple[List[Dict[str, Any]], str]:
+    ) -> RecommendationResult:
         """Get recommendations based on user preferences and Steam library"""
         try:
             if not self.api_key or not self.client:
-                logger.warning("No DeepSeek API key or client available")
-                return self._get_mock_recommendations(max_recommendations), ""
+                raise RuntimeError("DeepSeek API key or client is unavailable")
 
             if self._is_circuit_open():
-                logger.warning("Circuit breaker is open, returning mock data")
-                return self._get_mock_recommendations(max_recommendations), ""
+                raise RuntimeError("DeepSeek circuit breaker is open")
 
             library_prompt_block = self._build_library_prompt_block(steam_library)
 
@@ -310,6 +361,7 @@ class DeepSeekService(BaseAIService):
 
             RESPOND WITH ONLY valid JSON in this exact format:
             {{
+                "reply": "A direct answer to the user's current message. May be empty when cards are sufficient.",
                 "reasoning": "A brief explanation (2-4 sentences) of why these particular games were chosen, with a link to the Steam library: which games/genres/patterns influenced the choice",
                 "recommendations": [
                     {{
@@ -323,6 +375,8 @@ class DeepSeekService(BaseAIService):
                     }}
                 ]
             }}
+
+            For a conversational question that does not need new game cards, put the full answer in "reply" and return an empty recommendations array.
             """
 
             messages = [{"role": "system", "content": system_prompt}]
@@ -336,47 +390,18 @@ class DeepSeekService(BaseAIService):
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(messages)
 
-            # Process response (using existing response handling logic)
-            if response and 'recommendations' in response:
-                recommendations = response['recommendations'][:max_recommendations]
-                reasoning = response.get('reasoning', '')
-                self._record_success()
-                return recommendations, reasoning
-            elif response and 'choices' in response and len(response['choices']) > 0:
-                # Try to parse content from chat response
-                content = response['choices'][0]['message']['content']
-                logger.info(f"Parsing recommendations from chat response: {content[:200]}...")
-
-                recommendations, reasoning = self._parse_recommendations_from_content(content, max_recommendations)
-                if recommendations is not None:
-                    self._record_success()
-                    logger.info("Successfully parsed JSON recommendations from chat response")
-                    return recommendations, reasoning
-
-                logger.warning("Failed to parse JSON recommendations from chat response; falling back to text extraction")
-                logger.warning(f"Raw content: {content[:500]}...")
-
-                # Try to extract recommendations manually from text
-                extracted_recommendations = self._extract_recommendations_from_text(content, max_recommendations)
-                if extracted_recommendations:
-                    self._record_success()
-                    logger.info("Successfully extracted recommendations from text response")
-                    return extracted_recommendations, ""
-
-                # For now, return mock data but log the actual response for analysis
-                logger.info(f"Full DeepSeek response content: {content}")
-
-                # Log the full response for debugging
-            logger.warning(
-                f"Invalid response structure from DeepSeek. Response keys: {list(response.keys()) if isinstance(response, dict) else 'Not a dict'}")
-            logger.warning("Using mock data")
-
-            return self._get_mock_recommendations(max_recommendations), ""
+            return await self._guard_output(response, max_recommendations)
 
         except Exception as e:
             self._record_failure()
             logger.error(f"Error getting recommendations with Steam library: {e}")
-            return self._get_mock_recommendations(max_recommendations), ""
+            if self.mock_fallback_enabled:
+                logger.warning("AI mock fallback enabled; returning visibly marked sample data")
+                return RecommendationResult(
+                    recommendations=self._get_mock_recommendations(max_recommendations),
+                    reply="AI provider is unavailable. Showing sample recommendations.",
+                )
+            raise
 
     async def _call_deepseek_api_with_retry(
         self,
@@ -407,7 +432,7 @@ class DeepSeekService(BaseAIService):
                 else:
                     raise
         
-        return None
+        raise RuntimeError("DeepSeek returned no response after retries")
     
     async def _call_deepseek_api(
         self,
@@ -421,8 +446,8 @@ class DeepSeekService(BaseAIService):
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                max_tokens=1000,
-                temperature=0.7
+                max_tokens=self.max_tokens,
+                temperature=0.3
             )
             
             # Convert SDK response to dict-like structure
@@ -440,7 +465,7 @@ class DeepSeekService(BaseAIService):
                         
         except Exception as e:
             logger.error(f"Error calling DeepSeek API via SDK: {e}")
-            return None
+            raise
     
     def _get_mock_recommendations(self, max_recommendations: int) -> List[Dict[str, Any]]:
         """Return mock recommendations when API is not available"""
@@ -471,8 +496,7 @@ class DeepSeekService(BaseAIService):
                 "platforms": ["PC", "PS4", "PS5", "Xbox One", "Xbox Series X"],
                 "rating": 9.5,
                 "release_year": "2022"
-            }
-            ,
+            },
             {
                 "title": "Forza Horizon 5",
                 "genre": "Racing",
@@ -494,87 +518,6 @@ class DeepSeekService(BaseAIService):
         ]
 
         return recommendations[:max_recommendations]
-    
-    def _extract_recommendations_from_text(self, text: str, max_recommendations: int) -> List[Dict[str, Any]]:
-        """Extract game recommendations from text response when JSON parsing fails"""
-        try:
-            recommendations = []
-            
-            # Simple pattern matching for common game recommendation formats
-            lines = text.split('\n')
-            current_game = {}
-            
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                
-                # Look for game titles (usually start with numbers or dashes)
-                if re.match(r'^[\d\-\.]+\.?\s*([A-Z][^:]+)', line):
-                    if current_game and len(recommendations) < max_recommendations:
-                        recommendations.append(current_game)
-                    
-                    title_match = re.match(r'^[\d\-\.]+\.?\s*([A-Z][^:]+)', line)
-                    if title_match:
-                        current_game = {
-                            'title': title_match.group(1).strip(),
-                            'genre': 'Unknown',
-                            'description': '',
-                            'why_recommended': '',
-                            'platforms': [],
-                            'rating': 0.0,
-                            'release_year': ''
-                        }
-                
-                # Look for genre information
-                elif 'genre' in line.lower() or 'type' in line.lower():
-                    if current_game:
-                        current_game['genre'] = line.split(':')[-1].strip()
-                
-                # Look for description
-                elif 'description' in line.lower() or 'about' in line.lower():
-                    if current_game:
-                        current_game['description'] = line.split(':')[-1].strip()
-                
-                # Look for platforms
-                elif any(platform in line.lower() for platform in ['pc', 'ps', 'xbox', 'switch', 'nintendo']):
-                    if current_game:
-                        platforms = []
-                        for platform in ['PC', 'PS4', 'PS5', 'Xbox One', 'Xbox Series X', 'Nintendo Switch']:
-                            if platform.lower() in line.lower():
-                                platforms.append(platform)
-                        if platforms:
-                            current_game['platforms'] = platforms
-            
-            # Add the last game if exists
-            if current_game and len(recommendations) < max_recommendations:
-                recommendations.append(current_game)
-            
-            # Fill with mock data if not enough recommendations found
-            if len(recommendations) < max_recommendations:
-                existing_titles = {
-                    rec.get('title')
-                    for rec in recommendations
-                    if isinstance(rec, dict) and isinstance(rec.get('title'), str)
-                }
-                for mock in self._get_mock_recommendations(max_recommendations):
-                    if len(recommendations) >= max_recommendations:
-                        break
-
-                    title = mock.get('title')
-                    if isinstance(title, str) and title in existing_titles:
-                        continue
-
-                    recommendations.append(mock)
-                    if isinstance(title, str):
-                        existing_titles.add(title)
-            
-            logger.info(f"Extracted {len(recommendations)} recommendations from text")
-            return recommendations[:max_recommendations]
-
-        except Exception as e:
-            logger.error(f"Error extracting recommendations from text: {e}")
-            return []
     
     async def is_available(self) -> bool:
         """Check if DeepSeek service is available"""

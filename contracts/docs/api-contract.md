@@ -438,10 +438,12 @@ kind'ы, FE безопасно игнорирует если случайно в
 When mapping from Python `RecommendationResponse` to HTTP `message.meta.type`:
 
 - gRPC возвращает reasoning и/или recommendations → `cards` с
-  полиморфным `items[]` (reasoning-блок + игровые карточки).
+  полиморфным `items[]` (опциональный text/reply, reasoning-блок + игровые карточки).
 - gRPC вернул только текст без карточек и без reasoning → `reply`
   (`payload.text`).
-- gRPC вернул error/fallback → `error`.
+- gRPC вернул ошибку провайдера или невалидный JSON после одного repair-retry → `error`.
+- Sample/mock fallback разрешён только при `AI_MOCK_FALLBACK_ENABLED=true` и
+  обязательно содержит видимый пользователю текст о sample-данных.
 - Backend emits intermediate progress (future SSE) → `status`.
 - Внутренние шаги агента (LangChain tool-цикл) → `tool_call` от ассистента,
   `tool_result` от роли `TOOL`. Эти сообщения сохраняются в чат-истории

@@ -13,7 +13,7 @@ def test_history_is_sent_as_chat_messages_before_current_user_message():
             choices=[SimpleNamespace(message=SimpleNamespace(content='{"reasoning":"ok","recommendations":[]}'))]
         )
 
-        recommendations, reasoning = await service.get_recommendations_with_steam_library(
+        result = await service.get_recommendations_with_steam_library(
             user_message="Only co-op among those",
             selected_tags=["Co-op"],
             steam_library=None,
@@ -28,7 +28,7 @@ def test_history_is_sent_as_chat_messages_before_current_user_message():
         assert [message["role"] for message in messages] == ["system", "user", "assistant", "user"]
         assert messages[-1]["content"] == "Only co-op among those"
         assert sum(message["content"] == "Only co-op among those" for message in messages) == 1
-        assert recommendations == []
-        assert reasoning == "ok"
+        assert result.recommendations == []
+        assert result.reasoning == "ok"
 
     asyncio.run(run())
