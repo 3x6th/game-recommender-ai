@@ -2,9 +2,11 @@ package ru.perevalov.gamerecommenderai.mapper;
 
 import org.springframework.stereotype.Component;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
+import ru.perevalov.gamerecommenderai.dto.AiChatHistoryMessage;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto;
 import ru.perevalov.gamerecommenderai.dto.steam.SteamOwnedGamesResponse;
 import ru.perevalov.gamerecommenderai.grpc.FullAiContextRequestProto;
+import ru.perevalov.gamerecommenderai.grpc.ChatHistoryMessageProto;
 import ru.perevalov.gamerecommenderai.grpc.GameProto;
 import ru.perevalov.gamerecommenderai.grpc.ResponseProto;
 import ru.perevalov.gamerecommenderai.grpc.SimilarGamesResponse;
@@ -60,11 +62,28 @@ public class GrpcMapper {
             builder.addAllExcludeGenres(dto.getExcludeGenres());
         }
 
+        if (dto.getHistory() != null) {
+            builder.addAllHistory(dto.getHistory().stream()
+                    .map(this::toProto)
+                    .toList());
+        }
+
 
         builder.setMaxResults(dto.getMaxResults() > 0 ? dto.getMaxResults() : 10);
 
         return builder.build();
 
+    }
+
+    private ChatHistoryMessageProto toProto(AiChatHistoryMessage message) {
+        ChatHistoryMessageProto.Role role = switch (message.role()) {
+            case USER -> ChatHistoryMessageProto.Role.ROLE_USER;
+            case ASSISTANT -> ChatHistoryMessageProto.Role.ROLE_ASSISTANT;
+        };
+        return ChatHistoryMessageProto.newBuilder()
+                .setRole(role)
+                .setText(message.text())
+                .build();
     }
 
     public SteamOwnedGamesResponseProto toProto(SteamOwnedGamesResponse dto) {

@@ -7,6 +7,9 @@ import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto.Stea
 import ru.perevalov.gamerecommenderai.dto.steam.SteamGameDetailsResponseDto.SteamGenreResponseDto;
 import ru.perevalov.gamerecommenderai.grpc.SimilarGamesResponse;
 import ru.perevalov.gamerecommenderai.grpc.SteamAppResponse;
+import ru.perevalov.gamerecommenderai.dto.AiChatHistoryMessage;
+import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
+import ru.perevalov.gamerecommenderai.grpc.ChatHistoryMessageProto;
 
 import java.util.List;
 import java.util.Optional;
@@ -22,6 +25,24 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 class GrpcMapperTest {
 
     private final GrpcMapper mapper = new GrpcMapper();
+
+    @Test
+    void mapsChatHistoryRolesAndText() {
+        AiContextRequest request = AiContextRequest.builder()
+                .userMessage("Only co-op, please")
+                .history(List.of(
+                        new AiChatHistoryMessage(AiChatHistoryMessage.Role.USER, "Recommend space games"),
+                        new AiChatHistoryMessage(AiChatHistoryMessage.Role.ASSISTANT, "Outer Wilds; No Man's Sky")
+                ))
+                .build();
+
+        var proto = mapper.toProto(request);
+
+        assertThat(proto.getHistoryList()).hasSize(2);
+        assertThat(proto.getHistory(0).getRole()).isEqualTo(ChatHistoryMessageProto.Role.ROLE_USER);
+        assertThat(proto.getHistory(1).getRole()).isEqualTo(ChatHistoryMessageProto.Role.ROLE_ASSISTANT);
+        assertThat(proto.getHistory(1).getText()).contains("Outer Wilds");
+    }
 
     @Test
     @DisplayName("toSteamAppResponse(DTO) → empty при null")

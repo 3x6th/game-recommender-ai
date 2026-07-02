@@ -23,4 +23,5 @@ public class AiContextRequest {
     private String language;
     private List<String> excludeGenres;
     private int maxResults;
+    private List<AiChatHistoryMessage> history;
 }

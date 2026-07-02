@@ -53,7 +53,8 @@ public class AiCallStep implements PipelineStep, Ordered {
     private Mono<PipelineContext> callAi(PipelineContext context) {
         return gameRecommenderService.getGameRecommendationsWithContext(
                         context.getRequest(),
-                        context.getChatId().toString())
+                        context.getChatId(),
+                        context.getUserMessageId())
                 .map(response -> {
                     context.setResponse(response);
                     return context;

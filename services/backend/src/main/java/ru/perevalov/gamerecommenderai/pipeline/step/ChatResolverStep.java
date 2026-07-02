@@ -64,6 +64,7 @@ public class ChatResolverStep implements PipelineStep, Ordered {
      */
     private PipelineContext applyDuplicate(PipelineContext context, ChatMessage message) {
         context.setChatId(message.getChatId());
+        context.setUserMessageId(message.getId());
         context.setDuplicate(true);
         return context;
     }

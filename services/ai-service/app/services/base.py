@@ -22,6 +22,22 @@ class BaseAIService(ABC):
     ) -> List[Dict[str, Any]]:
         """Get game recommendations"""
         pass
+
+    async def get_recommendations_with_steam_library(
+        self,
+        user_message: str,
+        selected_tags: List[str],
+        steam_library: str | None,
+        max_recommendations: int = 5,
+        history: List[Dict[str, str]] | None = None,
+    ) -> tuple[List[Dict[str, Any]], str]:
+        """Provider-neutral fallback for services without profile-aware prompts."""
+        recommendations = await self.get_recommendations(
+            user_message,
+            genres=selected_tags,
+            max_recommendations=max_recommendations,
+        )
+        return recommendations, ""
     
     @abstractmethod
     async def is_available(self) -> bool:
