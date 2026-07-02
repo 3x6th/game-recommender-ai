@@ -2,6 +2,7 @@ package ru.perevalov.gamerecommenderai.service;
 
 
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
+import ru.perevalov.gamerecommenderai.dto.AiChatHistoryMessage;
 
 import java.util.Collections;
 import java.util.List;
@@ -20,6 +21,7 @@ public class AiContextBuilder {
     private int maxResults;
     private final int defaultMaxResults;
     private String profileSummary;
+    private List<AiChatHistoryMessage> history;
 
     public AiContextBuilder(String defaultLanguage, int defaultMaxResults) {
         this.defaultLanguage = defaultLanguage;
@@ -34,6 +36,10 @@ public class AiContextBuilder {
     public AiContextBuilder reqId(String val) { this.requestId = val; return this; }
     public AiContextBuilder corrId(String val) { this.correlationId = val; return this; }
     public AiContextBuilder excludeGenres(List<String> val) { this.excludeGenres = val; return this; };
+    public AiContextBuilder history(List<AiChatHistoryMessage> val) {
+        this.history = val;
+        return this;
+    }
 
     public AiContextBuilder language(String val) {
         this.language = val;
@@ -59,6 +65,7 @@ public class AiContextBuilder {
         req.setLanguage(this.language != null ? this.language : defaultLanguage);
         req.setExcludeGenres(this.excludeGenres != null ? this.excludeGenres :Collections.emptyList());
         req.setMaxResults(this.maxResults > 0 ? this.maxResults : defaultMaxResults);
+        req.setHistory(this.history != null ? List.copyOf(this.history) : Collections.emptyList());
 
         return req;
     }

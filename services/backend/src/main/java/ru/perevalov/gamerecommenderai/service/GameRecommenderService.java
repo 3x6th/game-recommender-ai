@@ -1,6 +1,7 @@
 package ru.perevalov.gamerecommenderai.service;
 
 import java.util.List;
+import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +10,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
 import ru.perevalov.gamerecommenderai.dto.AiContextRequest;
+import ru.perevalov.gamerecommenderai.dto.AiChatHistoryMessage;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationRequest;
 import ru.perevalov.gamerecommenderai.dto.GameRecommendationResponse;
 import ru.perevalov.gamerecommenderai.entity.UserGameStats;
@@ -38,21 +40,35 @@ public class GameRecommenderService {
     private final ProfileSummaryBuilder profileSummaryBuilder;
     private final UserGameStatsRepository userGameStatsRepository;
     private final OwnedGamesSnapshotMapper ownedGamesSnapshotMapper;
+    private final AiChatHistoryService aiChatHistoryService;
 
     /**
      * Получает рекомендации с учетом контекста чата.
      *
      * @param request входной запрос на рекомендации
      * @param chatId идентификатор чата для передачи в AI-контекст
+     * @param currentUserMessageId сохранённое текущее сообщение, которое не должно дублироваться в истории
      * @return ответ с рекомендациями
+     */
+    public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(
+            GameRecommendationRequest request,
+            UUID chatId,
+            UUID currentUserMessageId
+    ) {
+        return buildAiContextRequest(request, chatId, currentUserMessageId)
+                .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
+                .flatMap(this::processGrpcResponse);
+    }
+
+    /**
+     * Backward-compatible entry point for callers that do not persist chat messages.
      */
     public Mono<GameRecommendationResponse> getGameRecommendationsWithContext(
             GameRecommendationRequest request,
             String chatId
     ) {
-        return buildAiContextRequest(request, chatId)
-                .flatMap(aiContextRequest -> grpcClient.getGameRecommendations(Mono.just(aiContextRequest)))
-                .flatMap(this::processGrpcResponse);
+        UUID parsedChatId = chatId == null || chatId.isBlank() ? null : UUID.fromString(chatId);
+        return getGameRecommendationsWithContext(request, parsedChatId, null);
     }
 
     /**
@@ -72,24 +88,32 @@ public class GameRecommenderService {
      * @param chatId идентификатор чата
      * @return собранный AI-контекст
      */
-    private Mono<AiContextRequest> buildAiContextRequest(GameRecommendationRequest request, String chatId) {
-        return getProfileSummaryJson(request.getSteamId())
-                .defaultIfEmpty("")
-                .flatMap(profileSummary -> Mono.deferContextual(ctxView -> {
+    private Mono<AiContextRequest> buildAiContextRequest(
+            GameRecommendationRequest request,
+            UUID chatId,
+            UUID currentUserMessageId
+    ) {
+        Mono<String> profileSummaryMono = getProfileSummaryJson(request.getSteamId()).defaultIfEmpty("");
+        Mono<List<AiChatHistoryMessage>> historyMono =
+                aiChatHistoryService.load(chatId, currentUserMessageId);
+
+        return Mono.zip(profileSummaryMono, historyMono)
+                .flatMap(tuple -> Mono.deferContextual(ctxView -> {
                     // Серверный request id должен приходить из Reactor Context, если он там уже есть.
                     String serverRequestId = ctxView.getOrDefault(RequestIdWebFilter.REQUEST_ID_CONTEXT_KEY, null);
 
                     return Mono.just(builderFactory.create()
                             .userMessage(request.getContent())
                             .selectedTags(request.getTags())
-                            .profileSummary(profileSummary)
+                            .profileSummary(tuple.getT1())
                             .reqId(serverRequestId)
                             .corrId(serverRequestId)
                             .language(null)
                             .maxResults(0)
-                            .chatId(chatId)
+                            .chatId(chatId != null ? chatId.toString() : null)
                             .agentId(null)
                             .excludeGenres(null)
+                            .history(tuple.getT2())
                             .build());
                 }));
     }

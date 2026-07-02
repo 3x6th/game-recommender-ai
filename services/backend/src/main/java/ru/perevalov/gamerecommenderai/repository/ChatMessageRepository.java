@@ -48,6 +48,26 @@ public interface ChatMessageRepository extends ReactiveCrudRepository<ChatMessag
     Flux<ChatMessage> findBeforeByChatId(UUID chatId, Instant before, int limit);
 
     /**
+     * Returns semantic USER/ASSISTANT history strictly before the current user
+     * message. Comparing the database tuple avoids timezone conversion and also
+     * prevents concurrent newer messages from leaking into this request.
+     */
+    @Query("""
+            SELECT cm.*
+            FROM game_recommender.chat_messages cm
+            JOIN game_recommender.chat_messages current_message
+              ON current_message.id = :currentMessageId
+             AND current_message.chat_id = :chatId
+            WHERE cm.chat_id = :chatId
+              AND (cm.created_at, cm.id) < (current_message.created_at, current_message.id)
+              AND cm.role IN ('USER', 'ASSISTANT')
+              AND COALESCE(cm.meta->>'type', '') NOT IN ('error', 'status', 'tool_call', 'tool_result')
+            ORDER BY cm.created_at DESC, cm.id DESC
+            LIMIT :limit
+            """)
+    Flux<ChatMessage> findAiHistoryBeforeMessage(UUID chatId, UUID currentMessageId, int limit);
+
+    /**
      * Возвращает последнее сообщение пользователя по clientRequestId в рамках конкретного чата.
      */
     @Query("""

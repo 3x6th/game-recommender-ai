@@ -36,12 +36,25 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             logger.info(f"User message: {request.userMessage}")
             logger.info(f"Selected tags: {request.selectedTags}")
 
+            history = []
+            for message in request.history:
+                if message.role == reco_pb2.ChatHistoryMessageProto.ROLE_USER:
+                    role = "user"
+                elif message.role == reco_pb2.ChatHistoryMessageProto.ROLE_ASSISTANT:
+                    role = "assistant"
+                else:
+                    continue
+                if message.text:
+                    history.append({"role": role, "content": message.text})
+            logger.info("Received chat history: message_count=%d", len(history))
+
             # Get recommendations, reasoning from service registry with Steam library context
             recommendations, reasoning = await self.service_registry.get_recommendations_with_steam_library(
                 user_message=request.userMessage,
                 selected_tags=list(request.selectedTags),
                 steam_library=request.profileSummary,
-                max_recommendations=request.maxResults
+                max_recommendations=request.maxResults,
+                history=history,
             )
 
             # Convert to gRPC format

@@ -86,8 +86,9 @@ class ServiceRegistry:
             self,
             user_message: str,
             selected_tags: List[str],
-            steam_library: Dict[str, Any],
-            max_recommendations: int = 5
+            steam_library: str | None,
+            max_recommendations: int = 5,
+            history: List[Dict[str, str]] | None = None,
     ) -> Tuple[List[Dict[str, Any]], str]:
         """Get recommendations based on user preferences and Steam library"""
         if not self.active_service:
@@ -97,7 +98,11 @@ class ServiceRegistry:
         try:
             logger.info(f"Getting recommendations from {self.active_service.get_name()} with Steam library data")
             recommendations, reasoning = await self.active_service.get_recommendations_with_steam_library(
-                user_message, selected_tags, steam_library, max_recommendations
+                user_message,
+                selected_tags,
+                steam_library,
+                max_recommendations,
+                history,
             )
             logger.info(f"Service {self.active_service.get_name()} returned {len(recommendations)} recommendations")
             if reasoning:
