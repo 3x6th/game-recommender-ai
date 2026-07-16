@@ -16,5 +16,5 @@ public final class GrpcAiMetricsConstant {
 
     public static final String OUTCOME_SUCCESS = "success";
     public static final String OUTCOME_ERROR = "error";
+    public static final String REASON_APPLICATION_ERROR = "AI_RESPONSE_UNSUCCESSFUL";
 }
-

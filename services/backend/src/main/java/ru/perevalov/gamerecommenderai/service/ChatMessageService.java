@@ -53,6 +53,16 @@ public class ChatMessageService {
      * @return сохраненное сообщение
      */
     public Mono<ChatMessage> append(UUID chatId, MessageRole role, String content, JsonNode meta) {
+        return append(chatId, role, content, meta, null);
+    }
+
+    private Mono<ChatMessage> append(
+            UUID chatId,
+            MessageRole role,
+            String content,
+            JsonNode meta,
+            UUID explicitClientRequestId
+    ) {
         return Mono.defer(() -> {
             chatMessageValidator.validateForAppend(chatId, role, content, meta);
 
@@ -61,7 +71,10 @@ public class ChatMessageService {
             message.setRole(role);
             message.setContent(content);
             message.setMeta(meta);
-            message.setClientRequestId(chatMessageValidator.extractClientRequestId(meta));
+            UUID clientRequestId = explicitClientRequestId != null
+                    ? explicitClientRequestId
+                    : chatMessageValidator.extractClientRequestId(meta);
+            message.setClientRequestId(clientRequestId);
 
             return chatMessageRepository.save(message)
                     .doOnSuccess(saved -> log.info("Saved message id={} chatId={} role={}",
@@ -116,6 +129,19 @@ public class ChatMessageService {
      * @return сохраненное сообщение
      */
     public Mono<ChatMessage> appendAssistantMessage(UUID chatId, String content, MessageMetaType type, Object payload) {
+        return appendAssistantMessage(chatId, content, type, payload, null);
+    }
+
+    /**
+     * Добавляет ASSISTANT-сообщение и связывает его с исходным идемпотентным запросом.
+     */
+    public Mono<ChatMessage> appendAssistantMessage(
+            UUID chatId,
+            String content,
+            MessageMetaType type,
+            Object payload,
+            UUID clientRequestId
+    ) {
         return Mono.defer(() -> {
             if (type == null) {
                 return Mono.error(new GameRecommenderException(
@@ -126,7 +152,7 @@ public class ChatMessageService {
             ObjectNode meta = (type == MessageMetaType.REPLY && payload == null)
                     ? messageMetaFactory.reply(content)
                     : messageMetaFactory.envelope(type, payload);
-            return append(chatId, MessageRole.ASSISTANT, content, meta);
+            return append(chatId, MessageRole.ASSISTANT, content, meta, clientRequestId);
         });
     }
 
@@ -169,15 +195,15 @@ public class ChatMessageService {
     }
 
     /**
-     * Возвращает последнее ASSISTANT-сообщение в чате.
-     *
-     * @param chatId идентификатор целевого чата
-     * @return последнее ASSISTANT-сообщение или пустой результат
+     * Возвращает ASSISTANT-сообщение, созданное для конкретного clientRequestId.
      */
-    public Mono<ChatMessage> findLastAssistantMessage(UUID chatId) {
-        return Mono.defer(() -> chatId == null
+    public Mono<ChatMessage> findAssistantMessage(UUID chatId, UUID clientRequestId) {
+        return Mono.defer(() -> chatId == null || clientRequestId == null
                 ? Mono.empty()
-                : chatMessageRepository.findLastAssistantByChatId(chatId));
+                : chatMessageRepository.findAssistantByChatIdAndClientRequestId(
+                        chatId,
+                        clientRequestId
+                ));
     }
 
     /**

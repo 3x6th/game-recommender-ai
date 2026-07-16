@@ -1,0 +1,160 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "description": "Cross-service Java to Python agent to Java tools observability.",
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, outcome) (rate(ai_service_latency_seconds_bucket[5m])))",
+          "legendFormat": "p95 {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Java → Python latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "reqps"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 2,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "sum by (outcome) (rate(ai_service_latency_seconds_count[5m]))",
+          "legendFormat": "{{outcome}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (reason) (rate(ai_failures_total[5m]))",
+          "legendFormat": "failure {{reason}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Java → Python outcomes",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 3,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, provider, model, outcome) (rate(llm_latency_seconds_bucket[5m])))",
+          "legendFormat": "{{provider}} {{model}} {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Python LLM latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 4,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, tool, outcome) (rate(tool_latency_seconds_bucket[5m])))",
+          "legendFormat": "{{tool}} {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Python → Java tool latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "id": 5,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "sum by (tool, outcome) (rate(tool_calls_total[5m]))",
+          "legendFormat": "{{tool}} {{outcome}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Tool calls by outcome",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "ops"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 6,
+      "options": {"legend": {"displayMode": "table", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "sum by (result) (rate(output_validation_total[5m]))",
+          "legendFormat": "{{result}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Output guard decisions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 8, "x": 0, "y": 24},
+      "id": 7,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [
+        {"expr": "sum(increase(agent_limit_total[1h]))", "refId": "A"}
+      ],
+      "title": "Agent limits (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 8, "x": 8, "y": 24},
+      "id": 8,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [
+        {"expr": "sum(increase(mock_fallback_total[1h]))", "refId": "A"}
+      ],
+      "title": "Mock fallbacks (1h)",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "prometheus"},
+      "fieldConfig": {"defaults": {"mappings": [], "unit": "short"}, "overrides": []},
+      "gridPos": {"h": 7, "w": 8, "x": 16, "y": 24},
+      "id": 9,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"], "values": false}},
+      "targets": [
+        {"expr": "max(up{job=\"ai-service\"})", "refId": "A"}
+      ],
+      "title": "AI metrics target up",
+      "type": "stat"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 41,
+  "tags": ["playcure", "ai", "langgraph", "grpc"],
+  "templating": {"list": []},
+  "time": {"from": "now-6h", "to": "now"},
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "PlayCure AI Agent E2E",
+  "uid": "playcure-ai-agent",
+  "version": 1
+}

@@ -176,7 +176,7 @@ poetry run command
 | `DEEPSEEK_MAX_RETRIES` | Retry transient provider-ошибок | 2 |
 | `AI_AGENT_DEADLINE_SECONDS` | Общий deadline LangGraph run, включая tools/finalize | 30 |
 | `AI_AGENT_MAX_TOOL_ITERATIONS` | Максимум model→tools циклов | 3 |
-| `AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION` | Лимит tool calls за итерацию | 4 |
+| `AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION` | Лимит tool calls за итерацию | 5 |
 | `AI_AGENT_MAX_TOOL_RESULT_CHARS` | Максимальный размер tool result для модели | 4000 |
 | `JAVA_TOOLS_GRPC_TARGET` | Java Internal Tools API | localhost:9091 |
 | `JAVA_TOOLS_DEADLINE_SECONDS` | Deadline одного tool RPC | 2.5 |
@@ -355,6 +355,14 @@ curl http://localhost:8000/metrics
 `output_validation_total`, `mock_fallback_total`, `agent_limit_total`,
 `llm_tokens_total` и `llm_cost_usd_total` (только если стоимость явно вернул
 provider). Идентификаторы request/chat/user/run не используются как labels.
+
+Для gRPC используется канонический metadata header `x-request-id`. Python
+предпочитает его protobuf-полям `requestId`/`correlationId`, а при отсутствии
+всех значений создаёт UUID. Тот же ID возвращается в Java Tools API; отдельный
+`run_id` создаётся на каждый LangGraph run и присутствует только в безопасных
+`agent_event` логах. REST-заголовок `X-Client-Request-Id` служит только ключом
+идемпотентности в Java pipeline/БД и в Python, LangGraph или Tools API не
+передаётся.
 
 
 ## 🐛 Troubleshooting

@@ -8,6 +8,7 @@ import io.grpc.ServerCallHandler;
 import io.grpc.ServerInterceptor;
 import lombok.extern.slf4j.Slf4j;
 import net.devh.boot.grpc.server.interceptor.GrpcGlobalServerInterceptor;
+import ru.perevalov.gamerecommenderai.util.RequestIdUtils;
 
 /**
  * Достаёт {@code x-request-id} из gRPC metadata и кладёт в {@link Context} текущего
@@ -37,10 +38,9 @@ public class GrpcRequestIdServerInterceptor implements ServerInterceptor {
                                                                  Metadata headers,
                                                                  ServerCallHandler<ReqT, RespT> next) {
 
-        String requestId = headers.get(REQUEST_ID_KEY);
-        if (requestId == null || requestId.isBlank()) {
-            requestId = REQUEST_ID_FALLBACK;
-        }
+        String requestId = RequestIdUtils.normalizeOrDefault(
+                headers.get(REQUEST_ID_KEY),
+                REQUEST_ID_FALLBACK);
 
         log.debug("RequestId from metadata: {}", requestId);
 

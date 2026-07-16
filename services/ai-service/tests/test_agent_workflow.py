@@ -233,6 +233,36 @@ def test_tool_call_limit_per_iteration_is_enforced() -> None:
     asyncio.run(run())
 
 
+def test_default_tool_call_limit_supports_one_lookup_per_recommendation() -> None:
+    @tool
+    async def search_games(query: str) -> str:
+        """Search the game catalog by title."""
+        return query
+
+    async def run() -> None:
+        calls = [
+            {
+                "name": "search_games",
+                "args": {"query": f"game-{index}"},
+                "id": f"call-{index}",
+                "type": "tool_call",
+            }
+            for index in range(5)
+        ]
+        model = ScriptedChatModel(
+            [AIMessage(content="", tool_calls=calls), AIMessage(content="final answer")]
+        )
+        workflow = AgentWorkflow(model, [search_games], reply_finalizer)
+
+        result = await workflow.run(request())
+
+        assert result.reply == "final answer"
+        assert len(model.calls) == 2
+        assert all(isinstance(message, ToolMessage) for message in model.calls[1][-5:])
+
+    asyncio.run(run())
+
+
 def test_tool_result_is_truncated_before_returning_to_model() -> None:
     @tool
     async def large_result(query: str) -> str:

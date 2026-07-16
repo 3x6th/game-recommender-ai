@@ -271,6 +271,33 @@ class GameRecommenderGrpcClientTest {
         )).isEqualTo(1.0);
     }
 
+    @Test
+    void getGameRecommendations_whenResponseEnvelopeFails_thenRecordsApplicationFailure() {
+        RecommendationResponse response = RecommendationResponse.newBuilder()
+                .setSuccess(false)
+                .setMessage("AI recommendation is temporarily unavailable")
+                .build();
+        when(grpcStub.recommendGames(any(FullAiContextRequestProto.class)))
+                .thenReturn(Mono.just(response));
+        GameRecommenderGrpcClient client = buildClient(
+                CircuitBreaker.ofDefaults("application-error"));
+
+        StepVerifier.create(client.getGameRecommendations(requestMono()))
+                .assertNext(item -> assertThat(item.getSuccess()).isFalse())
+                .verifyComplete();
+
+        assertThat(counterValue(
+                GrpcAiMetricsConstant.AI_FAILURES_TOTAL,
+                GrpcAiMetricsConstant.TAG_REASON,
+                GrpcAiMetricsConstant.REASON_APPLICATION_ERROR
+        )).isEqualTo(1.0);
+        assertThat(timerCount(
+                GrpcAiMetricsConstant.AI_SERVICE_LATENCY,
+                GrpcAiMetricsConstant.TAG_OUTCOME,
+                GrpcAiMetricsConstant.OUTCOME_ERROR
+        )).isEqualTo(1L);
+    }
+
     private GameRecommenderGrpcClient buildClient(CircuitBreaker circuitBreaker) {
         GameRecommenderGrpcClient client = new GameRecommenderGrpcClient(
                 grpcMapper,

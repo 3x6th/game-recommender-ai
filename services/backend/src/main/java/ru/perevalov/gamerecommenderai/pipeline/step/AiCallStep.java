@@ -20,7 +20,7 @@ import ru.perevalov.gamerecommenderai.service.GameRecommenderService;
  * Шаг вызова AI и переиспользования сохранённого ответа при идемпотентном дубле.
  *
  * <p>При дубле (ChatResolverStep пометил {@code duplicate=true}) находим
- * последнее ASSISTANT-сообщение в чате и кладём его entity в
+ * ASSISTANT-сообщение с тем же {@code clientRequestId} и кладём его entity в
  * {@code context.assistantMessages}. {@code PersistAssistantStep} увидит
  * выставленный {@code assistantMessageId} и пропустит запись, а
  * {@code ResponseStep} соберёт {@code ProceedResponse} из готовой записи.
@@ -40,7 +40,7 @@ public class AiCallStep implements PipelineStep, Ordered {
     public Mono<PipelineContext> handle(PipelineContext context) {
         if (context.isDuplicate()) {
             return findReusableAssistant(context)
-                    .switchIfEmpty(callAi(context));
+                    .switchIfEmpty(Mono.defer(() -> callAi(context)));
         }
         return callAi(context);
     }
@@ -79,7 +79,9 @@ public class AiCallStep implements PipelineStep, Ordered {
      * что persist-шаг пропускать (через {@code assistantMessageId}).
      */
     private Mono<PipelineContext> findReusableAssistant(PipelineContext context) {
-        return chatMessageService.findLastAssistantMessage(context.getChatId())
+        return chatMessageService.findAssistantMessage(
+                        context.getChatId(),
+                        context.getClientRequestId())
                 .map(message -> {
                     context.setAssistantMessageId(message.getId());
                     context.getAssistantMessages().add(message);

@@ -100,15 +100,16 @@ public interface ChatMessageRepository extends ReactiveCrudRepository<ChatMessag
     Mono<ChatMessage> findLatestUserByClientRequestId(UUID clientRequestId, UUID userId, String sessionId);
 
     /**
-     * Возвращает последнее сообщение ассистента в чате.
+     * Возвращает ответ ассистента для конкретного идемпотентного запроса.
      */
     @Query("""
             SELECT *
             FROM game_recommender.chat_messages
             WHERE chat_id = :chatId
               AND role = 'ASSISTANT'
+              AND client_request_id = :clientRequestId
             ORDER BY created_at DESC, id DESC
             LIMIT 1
             """)
-    Mono<ChatMessage> findLastAssistantByChatId(UUID chatId);
+    Mono<ChatMessage> findAssistantByChatIdAndClientRequestId(UUID chatId, UUID clientRequestId);
 }

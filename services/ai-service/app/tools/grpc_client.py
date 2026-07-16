@@ -16,6 +16,7 @@ import grpc
 from grpc import aio
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.observability.request_context import normalize_request_id
 
 PROTO_DIR = Path(__file__).resolve().parents[2] / "proto"
 if str(PROTO_DIR) not in sys.path:
@@ -125,8 +126,8 @@ class JavaToolsClient:
 
     @staticmethod
     def _metadata(request_id: str | None) -> tuple[tuple[str, str], ...]:
-        safe_request_id = request_id.strip() if request_id else "unknown"
-        return (("x-request-id", safe_request_id or "unknown"),)
+        safe_request_id = normalize_request_id(request_id) or "unknown"
+        return (("x-request-id", safe_request_id),)
 
     @staticmethod
     def _error_code(status: grpc.StatusCode) -> ToolErrorCode:
@@ -142,9 +143,12 @@ class JavaToolsClient:
         status: str,
         started: float,
         attempts: int,
+        request_id: str | None,
     ) -> None:
         logger.info(
-            "Java tool completed tool=%s status=%s latency_ms=%.1f attempts=%d",
+            "Java tool completed request_id=%s tool=%s status=%s "
+            "latency_ms=%.1f attempts=%d",
+            normalize_request_id(request_id) or "unknown",
             tool_name,
             status,
             (time.perf_counter() - started) * 1000,
@@ -170,7 +174,13 @@ class JavaToolsClient:
                     metadata=self._metadata(request_id),
                 )
                 status = "OK"
-                self._log_completion(tool_name, status, started, attempts)
+                self._log_completion(
+                    tool_name,
+                    status,
+                    started,
+                    attempts,
+                    request_id,
+                )
                 return response, None
             except grpc.RpcError as error:
                 grpc_status = error.code()
@@ -182,11 +192,23 @@ class JavaToolsClient:
                     if self.config.retry_backoff_seconds:
                         await asyncio.sleep(self.config.retry_backoff_seconds)
                     continue
-                self._log_completion(tool_name, status, started, attempts)
+                self._log_completion(
+                    tool_name,
+                    status,
+                    started,
+                    attempts,
+                    request_id,
+                )
                 return None, ToolError(code=self._error_code(grpc_status))
             except Exception:
                 status = "INTERNAL"
-                self._log_completion(tool_name, status, started, attempts)
+                self._log_completion(
+                    tool_name,
+                    status,
+                    started,
+                    attempts,
+                    request_id,
+                )
                 return None, ToolError(code=ToolErrorCode.INTERNAL)
         return None, ToolError(code=ToolErrorCode.INTERNAL)
 

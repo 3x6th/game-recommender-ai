@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import signal
 from collections.abc import Sequence
@@ -199,6 +200,7 @@ class ContractRegistry:
 
 
 async def serve() -> None:
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     port = int(os.getenv("CONTRACT_AI_GRPC_PORT", "19090"))
     registry = ContractRegistry()
     server = aio.server()
