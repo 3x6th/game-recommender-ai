@@ -87,7 +87,7 @@ services:
       dockerfile: services/ai-service/Dockerfile
     environment:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - GIGACHAT_API_KEY=${GIGACHAT_API_KEY}
+      - GIGACHAT_MOCK_ENABLED=${GIGACHAT_MOCK_ENABLED:-false}
       - GRPC_PORT=${GRPC_PORT}
       - HTTP_PORT=${HTTP_PORT}
     expose:

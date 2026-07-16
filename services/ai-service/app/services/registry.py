@@ -35,11 +35,15 @@ class ServiceRegistry:
                     mock_fallback_enabled,
                 )
             
-            # Add GigaChat service if API key is available
-            if os.getenv('GIGACHAT_API_KEY'):
-                gigachat_service = GigaChatService()
+            # The real GigaChat adapter is not implemented.  An API key alone
+            # must never activate the hardcoded development sample provider.
+            gigachat_mock_enabled = os.getenv(
+                "GIGACHAT_MOCK_ENABLED", "false"
+            ).lower() in {"1", "true", "yes"}
+            if gigachat_mock_enabled:
+                gigachat_service = GigaChatService(mock_enabled=True)
                 self.services.append(gigachat_service)
-                logger.info("GigaChat service initialized")
+                logger.warning("GigaChat development mock initialized explicitly")
             
             # Set active service (first available one)
             if self.services:
