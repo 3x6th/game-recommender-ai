@@ -21,7 +21,7 @@ PUBLIC_AI_ERROR = "AI recommendation is temporarily unavailable"
 
 class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
     """gRPC servicer for game recommendations"""
-    
+
     def __init__(self, service_registry: ServiceRegistry):
         self.service_registry = service_registry
 
@@ -33,8 +33,11 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
         """Handle game recommendations with full context including Steam library"""
         try:
             logger.info("Received full context recommendation request")
-            logger.info(f"User message: {request.userMessage}")
-            logger.info(f"Selected tags: {request.selectedTags}")
+            logger.info(
+                "Recommendation request received, message_chars=%d selected_tags=%d",
+                len(request.userMessage),
+                len(request.selectedTags),
+            )
 
             history = []
             for message in request.history:
@@ -92,4 +95,3 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
                 recommendations=[],
                 provider=""
             )
-        

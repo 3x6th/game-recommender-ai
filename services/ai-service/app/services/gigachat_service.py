@@ -9,21 +9,25 @@ import logging
 import os
 from typing import List, Dict, Any
 
+from app.observability import AI_METRICS, AIMetrics
 from app.services.base import BaseAIService, RecommendationResult
 
 logger = logging.getLogger(__name__)
+
 
 class GigaChatService(BaseAIService):
     """Development-only sample provider guarded by an explicit flag."""
 
     MOCK_REPLY = "GigaChat provider is not implemented. Showing sample recommendations."
-    
+
     def __init__(
         self,
         api_key: str | None = None,
         mock_enabled: bool | None = None,
+        metrics: AIMetrics | None = None,
     ):
         super().__init__(api_key or os.getenv('GIGACHAT_API_KEY'))
+        self.metrics = metrics or AI_METRICS
         self.mock_enabled = (
             mock_enabled
             if mock_enabled is not None
@@ -33,10 +37,10 @@ class GigaChatService(BaseAIService):
         if self.mock_enabled:
             self.name = "GigaChatMockService"
         self.base_url = "https://gigachat.devices.sberbank.ru/api/v1"
-        
+
     async def get_recommendations(
-        self, 
-        preferences: str, 
+        self,
+        preferences: str,
         genres: List[str] | None = None,
         platforms: List[str] | None = None,
         max_recommendations: int = 5
@@ -48,6 +52,8 @@ class GigaChatService(BaseAIService):
         logger.warning(
             "GigaChat development mock is active; returning visibly marked sample data"
         )
+        self.metrics.record_ai_request("gigachat", "development-mock", "mock_fallback")
+        self.metrics.record_mock_fallback("gigachat")
         recommendations = [
             {
                 "title": "Red Dead Redemption 2",
@@ -88,7 +94,7 @@ class GigaChatService(BaseAIService):
             recommendations=recommendations,
             reply=self.MOCK_REPLY,
         )
-    
+
     async def is_available(self) -> bool:
         """A sample provider is available only in explicit mock mode."""
         return self.mock_enabled
