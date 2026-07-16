@@ -4,7 +4,6 @@ gRPC server implementation for the Game Recommender Service.
 
 import logging
 
-import grpc
 from grpc import ServicerContext
 from app.services.registry import ServiceRegistry
 import sys
@@ -86,8 +85,6 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
                 "RecommendGames failed, error_type=%s",
                 type(e).__name__,
             )
-            context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(PUBLIC_AI_ERROR)
             return reco_pb2.RecommendationResponse(
                 success=False,
                 message=PUBLIC_AI_ERROR,

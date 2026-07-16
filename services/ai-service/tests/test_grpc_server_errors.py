@@ -1,8 +1,6 @@
 import asyncio
 from unittest.mock import AsyncMock, Mock
 
-import grpc
-
 from app.grpc_server import PUBLIC_AI_ERROR, GameRecommenderServicer, reco_pb2
 
 
@@ -26,8 +24,8 @@ def test_grpc_error_does_not_expose_raw_provider_exception() -> None:
         assert response.success is False
         assert response.message == PUBLIC_AI_ERROR
         assert "secret" not in response.message
-        context.set_code.assert_called_once_with(grpc.StatusCode.INTERNAL)
-        context.set_details.assert_called_once_with(PUBLIC_AI_ERROR)
+        context.set_code.assert_not_called()
+        context.set_details.assert_not_called()
         call = registry.get_recommendations_with_steam_library.await_args
         assert call.kwargs["request_id"] is None
 
