@@ -17,6 +17,9 @@ import reco_pb2_grpc  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
+PUBLIC_AI_ERROR = "AI recommendation is temporarily unavailable"
+
+
 class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
     """gRPC servicer for game recommendations"""
     
@@ -78,12 +81,15 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
             )
 
         except Exception as e:
-            logger.error(f"Error in RecommendGames: {e}")
+            logger.error(
+                "RecommendGames failed, error_type=%s",
+                type(e).__name__,
+            )
             context.set_code(grpc.StatusCode.INTERNAL)
-            context.set_details(str(e))
+            context.set_details(PUBLIC_AI_ERROR)
             return reco_pb2.RecommendationResponse(
                 success=False,
-                message=f"Error: {str(e)}",
+                message=PUBLIC_AI_ERROR,
                 reasoning="",
                 recommendations=[],
                 provider=""

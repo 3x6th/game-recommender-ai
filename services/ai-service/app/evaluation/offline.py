@@ -19,9 +19,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any, Literal, Sequence
 
+from langchain_core.messages import AIMessage, BaseMessage
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.services.base import RecommendationResult
@@ -122,20 +122,36 @@ class EvaluationReport(BaseModel):
     comparison: dict[str, Any] | None = None
 
 
-class _ScriptedCompletions:
-    def __init__(self, outputs: Sequence[dict[str, Any] | str]):
-        self._outputs = list(outputs)
-        self.calls: list[dict[str, Any]] = []
+class _ScriptedChatModel:
+    """Minimal async chat model used by evals without network access."""
 
-    def create(self, **kwargs: Any) -> SimpleNamespace:
-        self.calls.append(kwargs)
+    def __init__(self, outputs: Sequence[dict[str, Any] | str]) -> None:
+        self._outputs = list(outputs)
+        self.calls: list[list[BaseMessage]] = []
+
+    async def ainvoke(self, messages: list[BaseMessage]) -> AIMessage:
+        self.calls.append(list(messages))
         if not self._outputs:
             raise RuntimeError("scripted model has no output left")
         output = self._outputs.pop(0)
         content = output if isinstance(output, str) else json.dumps(output, ensure_ascii=False)
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-        )
+        return AIMessage(content=content)
+
+
+def _serialize_model_messages(messages: Sequence[BaseMessage]) -> list[dict[str, Any]]:
+    role_by_type = {
+        "system": "system",
+        "human": "user",
+        "ai": "assistant",
+        "tool": "tool",
+    }
+    return [
+        {
+            "role": role_by_type.get(message.type, message.type),
+            "content": message.content,
+        }
+        for message in messages
+    ]
 
 
 class ScriptedDeepSeekAdapter:
@@ -144,10 +160,10 @@ class ScriptedDeepSeekAdapter:
     name = "current-deepseek-scripted"
 
     async def invoke(self, scenario: EvalScenario) -> EvaluationObservation:
-        service = DeepSeekService(api_key="offline-eval")
-        completions = _ScriptedCompletions(scenario.scripted_outputs)
-        service.client = SimpleNamespace(
-            chat=SimpleNamespace(completions=completions)
+        model = _ScriptedChatModel(scenario.scripted_outputs)
+        service = DeepSeekService(
+            api_key="offline-eval",
+            chat_model=model,
         )
         steam_library = (
             json.dumps(scenario.request.steam_library, ensure_ascii=False)
@@ -169,14 +185,12 @@ class ScriptedDeepSeekAdapter:
             error = f"{type(exc).__name__}: {exc}"
 
         messages: list[dict[str, Any]] = []
-        if completions.calls:
-            raw_messages = completions.calls[0].get("messages", [])
-            if isinstance(raw_messages, list):
-                messages = raw_messages
+        if model.calls:
+            messages = _serialize_model_messages(model.calls[0])
         return EvaluationObservation(
             result=result,
             model_messages=messages,
-            model_calls=len(completions.calls),
+            model_calls=len(model.calls),
             latency_ms=(time.perf_counter() - started) * 1000,
             error=error,
         )

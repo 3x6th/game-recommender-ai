@@ -156,6 +156,14 @@ jobs:
       - name: Install dependencies (incl. dev)
         run: poetry install --no-interaction --with dev
 
+      - name: Generate Python gRPC contract
+        run: >
+          poetry run python -m grpc_tools.protoc
+          -I../../contracts/proto
+          --python_out=proto
+          --grpc_python_out=proto
+          ../../contracts/proto/reco.proto
+
       - name: Run tests with coverage and HTML report
         run: poetry run pytest --cov=app --cov-report=xml:coverage.xml --cov-report=html:htmlcov --junitxml=pytest-report.xml --html=pytest-report.html --self-contained-html -v --asyncio-mode=auto
 

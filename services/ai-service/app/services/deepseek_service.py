@@ -1,40 +1,81 @@
-"""
-DeepSeek AI service implementation using official SDK.
-"""
+"""DeepSeek implementation using async LangChain and bounded LangGraph."""
 
 import logging
 import os
 import json
-import asyncio
 import time
 import re
+from collections.abc import Sequence
 from typing import List, Dict, Any
 
-from deepseek_ai import DeepSeekAI
 from json_repair import repair_json
-from pydantic import ValidationError
+from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
+from langchain_core.tools import BaseTool
+from langchain_deepseek import ChatDeepSeek
+from pydantic import SecretStr, ValidationError
 
+from app.agent.workflow import (
+    AgentExecutionError,
+    AgentRequest,
+    AgentWorkflow,
+    AgentWorkflowConfig,
+)
 from app.services.base import BaseAIService, RecommendationResult
 from app.services.output_models import RecommendationOutput
 
 logger = logging.getLogger(__name__)
 
+
+class DeepSeekRequestError(RuntimeError):
+    """Sanitized provider error safe to return across the gRPC boundary."""
+
+
 class DeepSeekService(BaseAIService):
-    """DeepSeek AI service provider using official SDK"""
+    """DeepSeek provider with native async calls and a bounded agent graph."""
     
-    def __init__(self, api_key: str | None = None):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        chat_model: Any | None = None,
+        agent_tools: Sequence[BaseTool] = (),
+        agent_config: AgentWorkflowConfig | None = None,
+    ):
         super().__init__(api_key or os.getenv('DEEPSEEK_API_KEY'))
-        self.model = "deepseek-chat"
+        self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
         self.max_tokens = int(os.getenv("DEEPSEEK_MAX_TOKENS", "2500"))
         self.mock_fallback_enabled = os.getenv(
             "AI_MOCK_FALLBACK_ENABLED", "false"
         ).lower() in {"1", "true", "yes"}
-        
-        # Initialize DeepSeek client
-        if self.api_key:
-            self.client = DeepSeekAI(api_key=self.api_key)
+        self.agent_tools = tuple(agent_tools)
+        self.agent_config = agent_config or AgentWorkflowConfig(
+            max_tool_iterations=int(
+                os.getenv("AI_AGENT_MAX_TOOL_ITERATIONS", "3")
+            ),
+            max_tool_calls_per_iteration=int(
+                os.getenv("AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION", "4")
+            ),
+            max_tool_result_chars=int(
+                os.getenv("AI_AGENT_MAX_TOOL_RESULT_CHARS", "4000")
+            ),
+            deadline_seconds=float(
+                os.getenv("AI_AGENT_DEADLINE_SECONDS", "30")
+            ),
+        )
+        if chat_model is not None:
+            self.chat_model = chat_model
+        elif self.api_key:
+            self.chat_model = ChatDeepSeek(
+                model=self.model,
+                api_key=SecretStr(self.api_key),
+                max_tokens=self.max_tokens,
+                temperature=0.3,
+                timeout=float(
+                    os.getenv("DEEPSEEK_REQUEST_TIMEOUT_SECONDS", "20")
+                ),
+                max_retries=int(os.getenv("DEEPSEEK_MAX_RETRIES", "2")),
+            )
         else:
-            self.client = None
+            self.chat_model = None
         
         # Circuit breaker state
         self.failure_count = 0
@@ -203,6 +244,15 @@ class DeepSeekService(BaseAIService):
         if not content:
             raise ValueError("DeepSeek returned an empty response")
 
+        return await self._guard_content(content, max_recommendations)
+
+    async def _guard_content(
+        self,
+        content: str,
+        max_recommendations: int,
+    ) -> RecommendationResult:
+        """Validate one final agent answer with the existing PCAI-130 policy."""
+
         logger.info("Parsing recommendations from chat response: %s...", content[:200])
         output = self._parse_output(content, max_recommendations)
         if output is None:
@@ -229,8 +279,8 @@ class DeepSeekService(BaseAIService):
     ) -> List[Dict[str, Any]]:
         """Get game recommendations from DeepSeek"""
         try:
-            if not self.api_key or not self.client:
-                raise RuntimeError("DeepSeek API key or client is unavailable")
+            if not self.api_key or self.chat_model is None:
+                raise DeepSeekRequestError("DeepSeek provider is unavailable")
             if self._is_circuit_open():
                 raise RuntimeError("DeepSeek circuit breaker is open")
             
@@ -271,11 +321,16 @@ class DeepSeekService(BaseAIService):
             return result.recommendations
         except Exception as e:
             self._record_failure()
-            logger.error(f"Error getting recommendations from DeepSeek: {e}")
+            logger.error(
+                "DeepSeek recommendation failed, error_type=%s",
+                type(e).__name__,
+            )
             if self.mock_fallback_enabled:
                 logger.warning("AI mock fallback enabled; returning sample data")
                 return self._get_mock_recommendations(max_recommendations)
-            raise
+            if isinstance(e, (DeepSeekRequestError, AgentExecutionError, ValueError)):
+                raise
+            raise DeepSeekRequestError("DeepSeek request failed") from e
 
     def _format_library_data(self, steam_library_json: Dict[str, Any]) -> str:
         recently_played = steam_library_json.get("recentlyPlayed") or []
@@ -339,8 +394,8 @@ class DeepSeekService(BaseAIService):
     ) -> RecommendationResult:
         """Get recommendations based on user preferences and Steam library"""
         try:
-            if not self.api_key or not self.client:
-                raise RuntimeError("DeepSeek API key or client is unavailable")
+            if not self.api_key or self.chat_model is None:
+                raise DeepSeekRequestError("DeepSeek provider is unavailable")
 
             if self._is_circuit_open():
                 raise RuntimeError("DeepSeek circuit breaker is open")
@@ -379,92 +434,104 @@ class DeepSeekService(BaseAIService):
             For a conversational question that does not need new game cards, put the full answer in "reply" and return an empty recommendations array.
             """
 
-            messages = [{"role": "system", "content": system_prompt}]
-            for previous_message in history or []:
-                role = previous_message.get("role")
-                content = previous_message.get("content")
-                if role in {"user", "assistant"} and isinstance(content, str) and content.strip():
-                    messages.append({"role": role, "content": content})
-            messages.append({"role": "user", "content": user_message})
+            async def finalize(content: str) -> RecommendationResult:
+                return await self._guard_content(content, max_recommendations)
 
-            # Call DeepSeek API with retry logic
-            response = await self._call_deepseek_api_with_retry(messages)
-
-            return await self._guard_output(response, max_recommendations)
+            workflow = AgentWorkflow(
+                model=self.chat_model,
+                tools=self.agent_tools,
+                finalizer=finalize,
+                config=self.agent_config,
+            )
+            request = AgentRequest(
+                system_prompt=system_prompt,
+                user_message=user_message,
+                history=tuple(history or []),
+                selected_tags=tuple(selected_tags),
+                steam_profile_summary=steam_library,
+            )
+            return await workflow.run(request)
 
         except Exception as e:
             self._record_failure()
-            logger.error(f"Error getting recommendations with Steam library: {e}")
+            logger.error(
+                "DeepSeek agent request failed, error_type=%s",
+                type(e).__name__,
+            )
             if self.mock_fallback_enabled:
                 logger.warning("AI mock fallback enabled; returning visibly marked sample data")
                 return RecommendationResult(
                     recommendations=self._get_mock_recommendations(max_recommendations),
                     reply="AI provider is unavailable. Showing sample recommendations.",
                 )
-            raise
+            if isinstance(e, (DeepSeekRequestError, AgentExecutionError, ValueError)):
+                raise
+            raise DeepSeekRequestError("DeepSeek agent request failed") from e
 
     async def _call_deepseek_api_with_retry(
         self,
         prompt: str | List[Dict[str, str]],
         is_chat: bool = False,
     ) -> Dict[str, Any]:
-        """Make API call to DeepSeek with retry logic using SDK"""
-        start_time = time.time()
-        max_retries = 3
-        retry_delay = 2
-        
-        for attempt in range(max_retries):
-            try:
-                logger.info(f"DeepSeek API call attempt {attempt + 1}/{max_retries}")
-                response = await self._call_deepseek_api(prompt, is_chat)
-                if response:
-                    elapsed_time = time.time() - start_time
-                    logger.info(f"DeepSeek API call successful in {elapsed_time:.2f} seconds")
-                    return response
-                    
-            except Exception as e:
-                elapsed_time = time.time() - start_time
-                logger.error(f"DeepSeek API error on attempt {attempt + 1} after {elapsed_time:.2f} seconds: {e}")
-                if attempt < max_retries - 1:
-                    delay = retry_delay * (2 ** attempt)
-                    logger.info(f"Retrying in {delay} seconds...")
-                    await asyncio.sleep(delay)
-                else:
-                    raise
-        
-        raise RuntimeError("DeepSeek returned no response after retries")
+        """Invoke the async LangChain model; provider retries are configured once."""
+        return await self._call_deepseek_api(prompt, is_chat)
+
+    @staticmethod
+    def _to_langchain_messages(
+        prompt: str | List[Dict[str, str]],
+    ) -> list[BaseMessage]:
+        if isinstance(prompt, str):
+            return [HumanMessage(content=prompt)]
+        messages: list[BaseMessage] = []
+        for item in prompt:
+            role = item.get("role")
+            content = item.get("content", "")
+            if role == "system":
+                messages.append(SystemMessage(content=content))
+            elif role == "assistant":
+                messages.append(AIMessage(content=content))
+            else:
+                messages.append(HumanMessage(content=content))
+        return messages
+
+    @staticmethod
+    def _ai_message_content(response: AIMessage) -> str:
+        if isinstance(response.content, str):
+            return response.content
+        parts: list[str] = []
+        for block in response.content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict):
+                value = block.get("text") or block.get("content")
+                if isinstance(value, str):
+                    parts.append(value)
+        return "\n".join(parts)
     
     async def _call_deepseek_api(
         self,
         prompt: str | List[Dict[str, str]],
         is_chat: bool = False,
     ) -> Dict[str, Any]:
-        """Make actual API call to DeepSeek using SDK"""
+        """Make a non-blocking DeepSeek call through ChatDeepSeek.ainvoke."""
+        if self.chat_model is None:
+            raise DeepSeekRequestError("DeepSeek provider is unavailable")
         try:
-            # Use SDK for API call
-            messages = prompt if isinstance(prompt, list) else [{"role": "user", "content": prompt}]
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=messages,
-                max_tokens=self.max_tokens,
-                temperature=0.3
+            response = await self.chat_model.ainvoke(
+                self._to_langchain_messages(prompt)
             )
-            
-            # Convert SDK response to dict-like structure
-            response_dict = {
-                'choices': [
-                    {
-                        'message': {
-                            'content': response.choices[0].message.content
-                        }
-                    }
-                ] if response.choices else []
-            }
-            logger.info("DeepSeek API call successful via SDK")
-            return response_dict
-                        
+            if not isinstance(response, AIMessage):
+                raise DeepSeekRequestError(
+                    "DeepSeek provider returned an unsupported response"
+                )
+            content = self._ai_message_content(response)
+            logger.info("DeepSeek API call successful via async LangChain integration")
+            return {"choices": [{"message": {"content": content}}]}
         except Exception as e:
-            logger.error(f"Error calling DeepSeek API via SDK: {e}")
+            logger.error(
+                "Async DeepSeek call failed, error_type=%s",
+                type(e).__name__,
+            )
             raise
     
     def _get_mock_recommendations(self, max_recommendations: int) -> List[Dict[str, Any]]:
@@ -521,7 +588,7 @@ class DeepSeekService(BaseAIService):
     
     async def is_available(self) -> bool:
         """Check if DeepSeek service is available"""
-        if not self.api_key or not self.client:
+        if not self.api_key or self.chat_model is None:
             return False
         
         # Check circuit breaker status
