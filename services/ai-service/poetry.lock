@@ -2980,6 +2980,18 @@ shellingham = ">=1.3.0"
 typing-extensions = ">=3.7.4.3"
 
 [[package]]
+name = "types-grpcio"
+version = "1.82.1.20260711"
+description = "Typing stubs for grpcio"
+optional = false
+python-versions = ">=3.10"
+groups = ["dev"]
+files = [
+    {file = "types_grpcio-1.82.1.20260711-py3-none-any.whl", hash = "sha256:fce686cb818e9ab8b731632fd3d0efb234b79faadd6a3f7cca37afb3565ae57f"},
+    {file = "types_grpcio-1.82.1.20260711.tar.gz", hash = "sha256:c7ac13accf615cad897a91dbd09d6e77d28a4dc8c9ea3efd425fe84b27f84780"},
+]
+
+[[package]]
 name = "typing-extensions"
 version = "4.14.1"
 description = "Backported and Experimental Type Hints for Python 3.9+"
@@ -3657,4 +3669,4 @@ cffi = ["cffi (>=1.17,<2.0) ; platform_python_implementation != \"PyPy\" and pyt
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "76620cd0a2352bd8ce8d87562fbfb5feca58fe0b1235a1c03a0e292fe09b6c0f"
+content-hash = "08a49b4ad3727f47467846da24239d57509a22d0c40d981a88ab1a0e7913ebaf"

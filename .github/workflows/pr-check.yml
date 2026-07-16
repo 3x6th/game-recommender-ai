@@ -163,6 +163,7 @@ jobs:
           --python_out=proto
           --grpc_python_out=proto
           ../../contracts/proto/reco.proto
+          ../../contracts/proto/tools.proto
 
       - name: Run tests with coverage and HTML report
         run: poetry run pytest --cov=app --cov-report=xml:coverage.xml --cov-report=html:htmlcov --junitxml=pytest-report.xml --html=pytest-report.html --self-contained-html -v --asyncio-mode=auto
@@ -171,7 +172,7 @@ jobs:
         run: >
           poetry run python -m app.evaluation.offline
           --output eval-report.json
-          --compare-to evals/baseline-major-mvp-3-context.json
+          --compare-to evals/baseline-major-mvp-4-agent.json
           --fail-on-current-regression
 
       - name: Upload Python test reports

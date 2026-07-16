@@ -56,6 +56,7 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
                 steam_library=request.profileSummary,
                 max_recommendations=request.maxResults,
                 history=history,
+                request_id=request.requestId or request.correlationId or None,
             )
 
             # Convert to gRPC format

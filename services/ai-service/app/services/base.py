@@ -40,6 +40,7 @@ class BaseAIService(ABC):
         steam_library: str | None,
         max_recommendations: int = 5,
         history: List[Dict[str, str]] | None = None,
+        request_id: str | None = None,
     ) -> RecommendationResult:
         """Provider-neutral fallback for services without profile-aware prompts."""
         recommendations = await self.get_recommendations(

@@ -57,6 +57,8 @@ temp/
 # Proto generated files
 /services/ai-service/proto/reco_pb2.py
 /services/ai-service/proto/reco_pb2_grpc.py
+/services/ai-service/proto/tools_pb2.py
+/services/ai-service/proto/tools_pb2_grpc.py
 
 /services/ai-service/ai-service.iml
 /services/ai-service/pytest-report.xml

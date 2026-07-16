@@ -71,6 +71,7 @@ class AgentRequest:
     history: tuple[dict[str, str], ...] = ()
     selected_tags: tuple[str, ...] = ()
     steam_profile_summary: str | None = None
+    request_id: str | None = None
 
     def initial_messages(self) -> list[BaseMessage]:
         messages: list[BaseMessage] = [SystemMessage(content=self.system_prompt)]
