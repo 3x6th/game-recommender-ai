@@ -25,13 +25,15 @@ RUN poetry install --no-root
 # Create proto directory and copy proto files
 RUN mkdir -p proto
 COPY contracts/proto/reco.proto ./proto/
+COPY contracts/proto/tools.proto ./proto/
 
 # Generate gRPC code до копирования app кода
 RUN python -m grpc_tools.protoc \
     -I./proto \
     --python_out=./proto \
     --grpc_python_out=./proto \
-    ./proto/reco.proto
+    ./proto/reco.proto \
+    ./proto/tools.proto
 
 # Copy application code
 COPY services/ai-service/app/ ./app/

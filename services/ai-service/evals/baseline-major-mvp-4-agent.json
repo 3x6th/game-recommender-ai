@@ -1,0 +1,923 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-07-16T13:19:46.179621+00:00",
+  "adapter": "current-deepseek-scripted",
+  "total_scenarios": 36,
+  "passed_scenarios": 30,
+  "pass_rate": 0.8333,
+  "stage_metrics": {
+    "agent": {
+      "total": 10,
+      "passed": 10,
+      "pass_rate": 1.0
+    },
+    "current": {
+      "total": 20,
+      "passed": 20,
+      "pass_rate": 1.0
+    },
+    "rag": {
+      "total": 6,
+      "passed": 0,
+      "pass_rate": 0.0
+    }
+  },
+  "check_metrics": {
+    "constraints": {
+      "applicable": 36,
+      "passed": 36,
+      "pass_rate": 1.0
+    },
+    "grounded_cards": {
+      "applicable": 6,
+      "passed": 6,
+      "pass_rate": 1.0
+    },
+    "history_preserved": {
+      "applicable": 36,
+      "passed": 36,
+      "pass_rate": 1.0
+    },
+    "model_call_limit": {
+      "applicable": 36,
+      "passed": 36,
+      "pass_rate": 1.0
+    },
+    "no_pipeline_error": {
+      "applicable": 36,
+      "passed": 36,
+      "pass_rate": 1.0
+    },
+    "response_mode": {
+      "applicable": 36,
+      "passed": 36,
+      "pass_rate": 1.0
+    },
+    "schema_valid": {
+      "applicable": 36,
+      "passed": 36,
+      "pass_rate": 1.0
+    },
+    "tool_selection": {
+      "applicable": 36,
+      "passed": 30,
+      "pass_rate": 0.8333
+    }
+  },
+  "totals": {
+    "model_calls": 46,
+    "tool_calls": 9,
+    "latency_ms": 146.663,
+    "estimated_input_tokens": 19822,
+    "estimated_output_tokens": 1601,
+    "estimated_cost_usd": null
+  },
+  "scenarios": [
+    {
+      "scenario_id": "context-follow-up-second-game",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 5.792,
+      "estimated_input_tokens": 558,
+      "estimated_output_tokens": 34,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "context-follow-up-filter-coop",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.456,
+      "estimated_input_tokens": 560,
+      "estimated_output_tokens": 65,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "context-answer-recall",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.37,
+      "estimated_input_tokens": 552,
+      "estimated_output_tokens": 20,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "context-pronoun-resolution",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.062,
+      "estimated_input_tokens": 548,
+      "estimated_output_tokens": 21,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "context-language-switch",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.939,
+      "estimated_input_tokens": 555,
+      "estimated_output_tokens": 24,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "context-change-preference",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.84,
+      "estimated_input_tokens": 563,
+      "estimated_output_tokens": 62,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "context-rejected-game",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.894,
+      "estimated_input_tokens": 551,
+      "estimated_output_tokens": 62,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "context-multi-turn-constraint",
+      "category": "context",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.656,
+      "estimated_input_tokens": 558,
+      "estimated_output_tokens": 57,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "constraints-exclude-recent",
+      "category": "constraints",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.456,
+      "estimated_input_tokens": 635,
+      "estimated_output_tokens": 61,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "constraints-exclude-owned-request",
+      "category": "constraints",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 4.457,
+      "estimated_input_tokens": 622,
+      "estimated_output_tokens": 60,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "constraints-platform-pc",
+      "category": "constraints",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.848,
+      "estimated_input_tokens": 536,
+      "estimated_output_tokens": 55,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "constraints-no-horror",
+      "category": "constraints",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.28,
+      "estimated_input_tokens": 540,
+      "estimated_output_tokens": 54,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "constraints-max-results",
+      "category": "constraints",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.626,
+      "estimated_input_tokens": 536,
+      "estimated_output_tokens": 85,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "constraints-selected-tag",
+      "category": "constraints",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.608,
+      "estimated_input_tokens": 539,
+      "estimated_output_tokens": 55,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "response-text-only-memory",
+      "category": "response_mode",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.394,
+      "estimated_input_tokens": 542,
+      "estimated_output_tokens": 23,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "response-cards-only",
+      "category": "response_mode",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.169,
+      "estimated_input_tokens": 538,
+      "estimated_output_tokens": 55,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "response-natural-text-repair",
+      "category": "response_mode",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [],
+      "latency_ms": 30.936,
+      "estimated_input_tokens": 539,
+      "estimated_output_tokens": 18,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "response-reasoning-and-card",
+      "category": "response_mode",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.058,
+      "estimated_input_tokens": 538,
+      "estimated_output_tokens": 63,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "security-history-prompt-injection",
+      "category": "security",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.898,
+      "estimated_input_tokens": 553,
+      "estimated_output_tokens": 25,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "security-assistant-history-injection",
+      "category": "security",
+      "stage": "current",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.705,
+      "estimated_input_tokens": 549,
+      "estimated_output_tokens": 54,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-no-tool-conversation",
+      "category": "tools",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.119,
+      "estimated_input_tokens": 538,
+      "estimated_output_tokens": 18,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-search-exact-title",
+      "category": "tools",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [
+        "search_games"
+      ],
+      "latency_ms": 4.383,
+      "estimated_input_tokens": 541,
+      "estimated_output_tokens": 49,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-search-typo",
+      "category": "tools",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [
+        "search_games"
+      ],
+      "latency_ms": 4.068,
+      "estimated_input_tokens": 540,
+      "estimated_output_tokens": 50,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-steam-details-by-id",
+      "category": "tools",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [
+        "steam_app_details"
+      ],
+      "latency_ms": 3.763,
+      "estimated_input_tokens": 538,
+      "estimated_output_tokens": 20,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-search-then-details",
+      "category": "tools",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 3,
+      "tool_calls": [
+        "search_games",
+        "steam_app_details"
+      ],
+      "latency_ms": 3.962,
+      "estimated_input_tokens": 540,
+      "estimated_output_tokens": 59,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-no-unnecessary-details",
+      "category": "tools",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.904,
+      "estimated_input_tokens": 550,
+      "estimated_output_tokens": 22,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-tool-not-found",
+      "category": "tool_errors",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [
+        "steam_app_details"
+      ],
+      "latency_ms": 3.404,
+      "estimated_input_tokens": 540,
+      "estimated_output_tokens": 24,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-tool-timeout",
+      "category": "tool_errors",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [
+        "search_games"
+      ],
+      "latency_ms": 3.729,
+      "estimated_input_tokens": 536,
+      "estimated_output_tokens": 25,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-tool-unavailable",
+      "category": "tool_errors",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [
+        "steam_app_details"
+      ],
+      "latency_ms": 4.016,
+      "estimated_input_tokens": 537,
+      "estimated_output_tokens": 22,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "agent-tool-result-injection",
+      "category": "security",
+      "stage": "agent",
+      "passed": true,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": true,
+        "grounded_cards": null,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 2,
+      "tool_calls": [
+        "search_games"
+      ],
+      "latency_ms": 3.467,
+      "estimated_input_tokens": 539,
+      "estimated_output_tokens": 61,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "rag-grounded-single-candidate",
+      "category": "rag",
+      "stage": "rag",
+      "passed": false,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": false,
+        "grounded_cards": true,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.019,
+      "estimated_input_tokens": 541,
+      "estimated_output_tokens": 51,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "rag-grounded-multiple-candidates",
+      "category": "rag",
+      "stage": "rag",
+      "passed": false,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": false,
+        "grounded_cards": true,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.721,
+      "estimated_input_tokens": 538,
+      "estimated_output_tokens": 87,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "rag-exclude-outside-candidate",
+      "category": "rag",
+      "stage": "rag",
+      "passed": false,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": false,
+        "grounded_cards": true,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.86,
+      "estimated_input_tokens": 538,
+      "estimated_output_tokens": 57,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "rag-empty-result-fallback",
+      "category": "rag",
+      "stage": "rag",
+      "passed": false,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": false,
+        "grounded_cards": true,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.637,
+      "estimated_input_tokens": 542,
+      "estimated_output_tokens": 25,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "rag-retriever-unavailable",
+      "category": "rag",
+      "stage": "rag",
+      "passed": false,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": false,
+        "grounded_cards": true,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 3.348,
+      "estimated_input_tokens": 538,
+      "estimated_output_tokens": 23,
+      "estimated_cost_usd": null,
+      "error": null
+    },
+    {
+      "scenario_id": "rag-filter-recently-played",
+      "category": "rag",
+      "stage": "rag",
+      "passed": false,
+      "checks": {
+        "schema_valid": true,
+        "response_mode": true,
+        "constraints": true,
+        "history_preserved": true,
+        "tool_selection": false,
+        "grounded_cards": true,
+        "model_call_limit": true,
+        "no_pipeline_error": true
+      },
+      "model_calls": 1,
+      "tool_calls": [],
+      "latency_ms": 2.819,
+      "estimated_input_tokens": 614,
+      "estimated_output_tokens": 55,
+      "estimated_cost_usd": null,
+      "error": null
+    }
+  ],
+  "comparison": null
+}

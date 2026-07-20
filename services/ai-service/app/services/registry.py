@@ -6,9 +6,12 @@ import logging
 import os
 from typing import List, Dict, Any
 
+from langchain_core.tools import BaseTool
+
 from app.services.base import BaseAIService, RecommendationResult
 from app.services.deepseek_service import DeepSeekService
 from app.services.gigachat_service import GigaChatService
+from app.tools import JavaToolsClient, create_java_tools
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +21,7 @@ class ServiceRegistry:
     def __init__(self):
         self.services: List[BaseAIService] = []
         self.active_service: BaseAIService | None = None
+        self.java_tools_client: JavaToolsClient | None = None
         self._initialize_services()
     
     def _initialize_services(self):
@@ -28,7 +32,10 @@ class ServiceRegistry:
                 "AI_MOCK_FALLBACK_ENABLED", "false"
             ).lower() in {"1", "true", "yes"}
             if os.getenv('DEEPSEEK_API_KEY') or mock_fallback_enabled:
-                deepseek_service = DeepSeekService()
+                self.java_tools_client = JavaToolsClient()
+                deepseek_service = DeepSeekService(
+                    agent_tool_factory=self._create_agent_tools,
+                )
                 self.services.append(deepseek_service)
                 logger.info(
                     "DeepSeek service initialized, mock_fallback_enabled=%s",
@@ -54,6 +61,13 @@ class ServiceRegistry:
                 
         except Exception as e:
             logger.error(f"Error initializing services: {e}")
+
+    def _create_agent_tools(
+        self,
+        request_id: str | None,
+    ) -> tuple[BaseTool, ...]:
+        client = self.java_tools_client
+        return create_java_tools(client, request_id) if client is not None else ()
     
     def get_active_provider(self) -> str:
         """Get name of active provider"""
@@ -99,6 +113,7 @@ class ServiceRegistry:
             steam_library: str | None,
             max_recommendations: int = 5,
             history: List[Dict[str, str]] | None = None,
+            request_id: str | None = None,
     ) -> RecommendationResult:
         """Get recommendations based on user preferences and Steam library"""
         if not self.active_service:
@@ -113,6 +128,7 @@ class ServiceRegistry:
                 steam_library,
                 max_recommendations,
                 history,
+                request_id,
             )
             logger.info(
                 "Service %s returned %d recommendations, has_reply=%s",
@@ -141,3 +157,9 @@ class ServiceRegistry:
                 logger.error(f"Error checking health of {service.get_name()}: {e}")
                 health_status[service.get_name()] = False
         return health_status
+
+    async def close(self) -> None:
+        """Release lazy outbound resources created by active providers."""
+
+        if self.java_tools_client is not None:
+            await self.java_tools_client.close()

@@ -77,6 +77,7 @@ class GigaChatService(BaseAIService):
         steam_library: str | None,
         max_recommendations: int = 5,
         history: List[Dict[str, str]] | None = None,
+        request_id: str | None = None,
     ) -> RecommendationResult:
         recommendations = await self.get_recommendations(
             user_message,

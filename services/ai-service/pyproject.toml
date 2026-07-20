@@ -30,6 +30,7 @@ pytest-cov = "^6.0.0"
 flake8 = "^7.1.1"
 mypy = "^1.13.0"
 safety = "^3.2.7"
+types-grpcio = ">=1.0,<2.0"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

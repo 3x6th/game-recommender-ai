@@ -9,7 +9,8 @@ AI Service
 ├── gRPC Server (порт 9090)     # Основной API для Java backend
 ├── FastAPI Server (порт 8000)  # Health checks и метрики
 └── LangGraph Agent             # Bounded model → tools → final workflow
-    └── ChatDeepSeek            # Native async model integration
+    ├── ChatDeepSeek            # Native async model integration
+    └── Java Tools gRPC :9091   # search_games, steam_app_details
 ```
 
 LangGraph state существует только в рамках одного запроса и не хранит скрытые
@@ -55,7 +56,8 @@ cp env.example .env
 ```env
 # AI Service API Keys
 DEEPSEEK_API_KEY=sk-your-deepseek-api-key-here
-GIGACHAT_API_KEY=your-gigachat-api-key-here
+# Development sample provider only; never enable in production.
+GIGACHAT_MOCK_ENABLED=false
 
 # Service Configuration
 GRPC_PORT=9090
@@ -74,7 +76,8 @@ python -m grpc_tools.protoc \
     -I./../../contracts/proto \
     --python_out=./proto \
     --grpc_python_out=./proto \
-    ./../../contracts/proto/reco.proto
+    ./../../contracts/proto/reco.proto \
+    ./../../contracts/proto/tools.proto
 ```
 
 ### 3.1 Генерация с использованием Poetry
@@ -84,7 +87,8 @@ poetry run python -m grpc_tools.protoc \
     -I./../../contracts/proto \
     --python_out=./proto \
     --grpc_python_out=./proto \
-    ./../../contracts/proto/reco.proto
+    ./../../contracts/proto/reco.proto \
+    ./../../contracts/proto/tools.proto
 ```
 
 ### 3.2 Генерация на macOS с использованием pipx
@@ -98,7 +102,8 @@ pipx run grpcio-tools \
     -I./../../contracts/proto \
     --python_out=./proto \
     --grpc_python_out=./proto \
-    ./../../contracts/proto/reco.proto
+    ./../../contracts/proto/reco.proto \
+    ./../../contracts/proto/tools.proto
 ```
 
 ### 4. Запуск сервиса
@@ -173,7 +178,11 @@ poetry run command
 | `AI_AGENT_MAX_TOOL_ITERATIONS` | Максимум model→tools циклов | 3 |
 | `AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION` | Лимит tool calls за итерацию | 4 |
 | `AI_AGENT_MAX_TOOL_RESULT_CHARS` | Максимальный размер tool result для модели | 4000 |
-| `GIGACHAT_API_KEY` | API ключ GigaChat | - |
+| `JAVA_TOOLS_GRPC_TARGET` | Java Internal Tools API | localhost:9091 |
+| `JAVA_TOOLS_DEADLINE_SECONDS` | Deadline одного tool RPC | 2.5 |
+| `JAVA_TOOLS_MAX_RETRIES` | Retry transient gRPC errors, максимум 1 | 1 |
+| `JAVA_TOOLS_RETRY_BACKOFF_MS` | Backoff перед единственным retry | 100 |
+| `GIGACHAT_MOCK_ENABLED` | Явно включает маркированные sample-ответы для UI/dev | false |
 | `GRPC_PORT` | Порт gRPC сервера | 9090 |
 | `HTTP_PORT` | Порт FastAPI сервера | 8000 |
 | `GRPC_HOST` | Хост gRPC сервера | [::] |
@@ -233,7 +242,7 @@ production prompt/output guard, но не обращается к DeepSeek:
 ```bash
 poetry run python -m app.evaluation.offline \
   --output evals/report.json \
-  --compare-to evals/baseline-major-mvp-3-context.json \
+  --compare-to evals/baseline-major-mvp-4-agent.json \
   --fail-on-current-regression
 ```
 

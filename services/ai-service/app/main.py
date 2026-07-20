@@ -75,7 +75,9 @@ class AIService:
         if self.grpc_server:
             await self.grpc_server.stop(grace=5)
             logger.info("gRPC server stopped")
-            
+
+        await self.service_registry.close()
+
         logger.info("AI Service stopped")
 
 # Global service instance

@@ -31,7 +31,7 @@ def test_regression_dataset_has_required_size_categories_and_unique_ids() -> Non
     }
 
 
-def test_current_release_baseline_passes_and_future_capability_gaps_are_visible() -> None:
+def test_current_and_agent_release_stages_pass_while_rag_gap_remains_visible() -> None:
     scenarios = load_scenarios(DATASET)
     report = asyncio.run(run_baseline_evaluation(scenarios))
 
@@ -41,10 +41,11 @@ def test_current_release_baseline_passes_and_future_capability_gaps_are_visible(
 
     assert current_results
     assert all(item.passed for item in current_results)
-    assert any(not item.passed for item in agent_results)
+    assert all(item.passed for item in agent_results)
+    assert all(not item.passed for item in rag_results)
     assert all(item.checks["schema_valid"] for item in report.scenarios)
     assert all(item.checks["grounded_cards"] for item in rag_results)
-    assert report.check_metrics["tool_selection"]["pass_rate"] < 1.0
+    assert report.check_metrics["tool_selection"]["pass_rate"] > 0.8
     input_tokens = report.totals["estimated_input_tokens"]
     output_tokens = report.totals["estimated_output_tokens"]
     assert isinstance(input_tokens, (int, float)) and input_tokens > 0
