@@ -210,8 +210,31 @@ grpcurl -plaintext localhost:9090 list
 
 # Тест рекомендаций
 grpcurl -plaintext -d '{"userMessage": "action RPGs"}' \
-    localhost:9090 gamerecommender.GameRecommenderService/RecommendGames
+  localhost:9090 gamerecommender.GameRecommenderService/RecommendGames
 ```
+
+### Offline regression eval
+
+Набор `evals/scenarios.json` содержит проверяемые инварианты для текущего
+контекста, будущего tool-loop и RAG. Детерминированный прогон использует
+production prompt/output guard, но не обращается к DeepSeek:
+
+```bash
+poetry run python -m app.evaluation.offline \
+  --output evals/report.json \
+  --compare-to evals/baseline-major-mvp-3-context.json \
+  --fail-on-current-regression
+```
+
+Сценарии с `stage=current` обязаны проходить в каждом PR. Сценарии `agent` и
+`rag` остаются в том же отчёте как измеримый capability gap и должны зеленеть
+по мере реализации соответствующих релизов. Стоимость считается только если
+заданы `EVAL_INPUT_USD_PER_MILLION` и `EVAL_OUTPUT_USD_PER_MILLION`; без них в
+отчёте сохраняются latency и детерминированная оценка количества токенов.
+
+Ручной provider-прогон запускается с `--adapter live` при заданном
+`DEEPSEEK_API_KEY`. Он создаёт сравнительный отчёт, но не является обязательным
+CI gate.
 
 ## 🔌 Интеграция с Java Backend
 
