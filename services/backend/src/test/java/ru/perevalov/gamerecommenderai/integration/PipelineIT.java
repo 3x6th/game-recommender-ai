@@ -315,6 +315,53 @@ class PipelineIT extends IntegrationTestBase {
         assertThat(userMessage.getClientRequestId()).isEqualTo(UUID.fromString(clientRequestId));
         assertThat(userMessage.getMeta().get("payload").get("clientRequestId").asText())
                 .isEqualTo(clientRequestId);
+
+        ChatMessage assistantMessage = messages.stream()
+                .filter(m -> m.getRole() == MessageRole.ASSISTANT)
+                .findFirst()
+                .orElseThrow();
+        assertThat(assistantMessage.getClientRequestId()).isEqualTo(UUID.fromString(clientRequestId));
+    }
+
+    @Test
+    void pipeline_retryAfterAiError_callsAiAgainWithoutDuplicatingUser() throws Exception {
+        when(steamService.getOwnedGames(anyString(), anyBoolean(), anyBoolean()))
+                .thenReturn(Mono.just(new SteamOwnedGamesResponse()));
+        when(grpcClient.getGameRecommendations(any()))
+                .thenReturn(
+                        Mono.just(RecommendationResponse.newBuilder()
+                                .setSuccess(false)
+                                .setMessage("AI unavailable")
+                                .build()),
+                        Mono.just(successResponse())
+                );
+
+        String clientRequestId = UUID.randomUUID().toString();
+        GameRecommendationRequest request = GameRecommendationRequest.builder()
+                .content("Retry this turn")
+                .tags(new String[]{"Indie"})
+                .steamId("76561198000000006")
+                .clientRequestId(clientRequestId)
+                .build();
+
+        JsonNode first = executePipeline(request, null);
+        assertThat(first.path("messages").get(0).path("meta").path("type").asText())
+                .isEqualTo("error");
+
+        request.setChatId(first.path("chatId").asText());
+        JsonNode retry = executePipeline(request, null);
+        assertThat(retry.path("messages").get(0).path("meta").path("type").asText())
+                .isEqualTo("cards");
+
+        UUID chatId = UUID.fromString(first.path("chatId").asText());
+        List<ChatMessage> messages = chatMessageRepository.findLastByChatId(chatId, 10)
+                .collectList()
+                .block();
+
+        assertThat(messages).isNotNull();
+        assertThat(messages.stream().filter(m -> m.getRole() == MessageRole.USER)).hasSize(1);
+        assertThat(messages.stream().filter(m -> m.getRole() == MessageRole.ASSISTANT)).hasSize(1);
+        assertThat(messages.get(0).getClientRequestId()).isEqualTo(UUID.fromString(clientRequestId));
     }
 
     /**

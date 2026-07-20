@@ -1,0 +1,66 @@
+groups:
+  - name: playcure-ai-agent
+    rules:
+      - alert: AIServiceMetricsMissing
+        expr: up{job="ai-service"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI service metrics target is unavailable"
+          description: "Prometheus cannot scrape the Python AI service for 5 minutes."
+
+      - alert: JavaToPythonHighErrorRatio
+        expr: |
+          sum(rate(ai_service_latency_seconds_count{outcome="error"}[5m]))
+          /
+          clamp_min(sum(rate(ai_service_latency_seconds_count[5m])), 0.001)
+          > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Java to Python AI error ratio is above 10%"
+          description: "Transport and unsuccessful AI envelopes are counted as error outcomes."
+
+      - alert: PythonToJavaToolsHighErrorRatio
+        expr: |
+          sum(rate(tool_calls_total{outcome!="success"}[5m]))
+          /
+          clamp_min(sum(rate(tool_calls_total[5m])), 0.001)
+          > 0.10
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Python to Java tools error ratio is above 10%"
+          description: "At least one internal catalog tool has a sustained error outcome."
+
+      - alert: AIAgentP95LatencyHigh
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (rate(llm_latency_seconds_bucket[5m]))
+          ) > 15
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI provider p95 latency is above 15 seconds"
+          description: "The Python service reports sustained high LLM latency."
+
+      - alert: AIAgentSafetyLimitTriggered
+        expr: sum(increase(agent_limit_total[10m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "AI agent safety limit was triggered"
+          description: "A deadline, loop limit, or repeated tool call stopped an agent run."
+
+      - alert: AIMockFallbackUsed
+        expr: sum(increase(mock_fallback_total[5m])) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "AI mock fallback returned data"
+          description: "Mock fallback must remain zero in production."

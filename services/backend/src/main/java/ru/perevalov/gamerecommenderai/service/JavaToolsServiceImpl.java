@@ -119,7 +119,11 @@ public class JavaToolsServiceImpl extends ReactorJavaToolsServiceGrpc.JavaToolsS
                 .flatMap(req -> {
                     int limit = props.clampLimit(req.getLimit());
                     String query = req.getQuery() == null ? "" : req.getQuery().trim();
-                    log.info("gRPC SearchGames[{}] query='{}' limit={}", requestId, query, limit);
+                    log.info(
+                            "gRPC SearchGames[{}] queryChars={} limit={}",
+                            requestId,
+                            query.length(),
+                            limit);
 
                     if (query.isBlank()) {
                         return Mono.just(SearchGamesResponse.getDefaultInstance());

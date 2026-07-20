@@ -185,7 +185,8 @@ steam:
     endpoint: "${STEAM_OPENID_ENDPOINT:https://steamcommunity.com/openid/login}"
     timeout-seconds: "${STEAM_OPENID_TIMEOUT_SECONDS:5}"
 
-# Request tracing metadata
+# Request tracing: HTTP rquid is propagated inside gRPC as canonical x-request-id.
+# X-Client-Request-Id is a separate REST idempotency key and is never propagated.
 requestid:
   header:
     key: "${REQUEST_ID_HEADER_KEY:rquid}"

@@ -9,6 +9,7 @@ import org.springframework.web.server.ServerWebExchange;
 import org.springframework.web.server.WebFilter;
 import org.springframework.web.server.WebFilterChain;
 import reactor.core.publisher.Mono;
+import ru.perevalov.gamerecommenderai.util.RequestIdUtils;
 
 /**
  * WebFilter for generating request id and attaching it to headers and Reactor context.
@@ -28,8 +29,9 @@ public class RequestIdWebFilter implements WebFilter {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, WebFilterChain chain) {
-        String requestId = exchange.getRequest().getHeaders().getFirst(requestIdHeaderKey);
-        if (requestId == null || requestId.isEmpty()) {
+        String requestId = RequestIdUtils.normalizeOrNull(
+                exchange.getRequest().getHeaders().getFirst(requestIdHeaderKey));
+        if (requestId == null) {
             requestId = UUID.randomUUID().toString();
         }
 

@@ -29,6 +29,7 @@ import ru.perevalov.gamerecommenderai.exception.GameRecommenderException;
 import ru.perevalov.gamerecommenderai.message.ChatMessageValidator;
 import ru.perevalov.gamerecommenderai.message.MessageMetaFactory;
 import ru.perevalov.gamerecommenderai.message.MessageMetaFields;
+import ru.perevalov.gamerecommenderai.message.MessageMetaType;
 import ru.perevalov.gamerecommenderai.repository.ChatMessageRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -141,5 +142,34 @@ class ChatMessageServiceTest {
         StepVerifier.create(service.appendUserMessage(chatId, "hello", clientRequestId, null, null))
                 .assertNext(message -> assertThat(message.getId()).isEqualTo(existingMessageId))
                 .verifyComplete();
+    }
+
+    @Test
+    void appendAssistantMessage_whenClientRequestIdProvided_thenPersistsCorrelation() {
+        UUID chatId = UUID.randomUUID();
+        UUID clientRequestId = UUID.randomUUID();
+        ChatMessage saved = new ChatMessage();
+        saved.setId(UUID.randomUUID());
+
+        when(chatMessageRepository.save(any(ChatMessage.class))).thenReturn(Mono.just(saved));
+
+        ChatMessageService service = new ChatMessageService(
+                chatMessageRepository,
+                metaFactory,
+                chatMessageValidator
+        );
+
+        StepVerifier.create(service.appendAssistantMessage(
+                        chatId,
+                        "answer",
+                        MessageMetaType.REPLY,
+                        null,
+                        clientRequestId))
+                .expectNext(saved)
+                .verifyComplete();
+
+        ArgumentCaptor<ChatMessage> captor = ArgumentCaptor.forClass(ChatMessage.class);
+        verify(chatMessageRepository).save(captor.capture());
+        assertThat(captor.getValue().getClientRequestId()).isEqualTo(clientRequestId);
     }
 }

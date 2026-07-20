@@ -5,14 +5,15 @@ gRPC server implementation for the Game Recommender Service.
 import logging
 
 from grpc import ServicerContext
+from app.observability import bind_request_id, resolve_request_id
 from app.services.registry import ServiceRegistry
 import sys
 from pathlib import Path
 
 # Add proto directory to Python path
 sys.path.insert(0, str(Path(__file__).parent.parent / "proto"))
-import reco_pb2  # noqa: E402
-import reco_pb2_grpc  # noqa: E402
+import reco_pb2  # type: ignore[import-not-found]  # noqa: E402
+import reco_pb2_grpc  # type: ignore[import-not-found]  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,28 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
     ) -> reco_pb2.RecommendationResponse:
         """Handle game recommendations with full context including Steam library"""
         try:
-            logger.info("Received full context recommendation request")
+            metadata = context.invocation_metadata()
+        except Exception:
+            metadata = None
+        request_id = resolve_request_id(
+            metadata,
+            request.requestId,
+            request.correlationId,
+        )
+        with bind_request_id(request_id):
+            return await self._recommend(request, context, request_id)
+
+    async def _recommend(
+        self,
+        request: reco_pb2.FullAiContextRequestProto,
+        context: ServicerContext,
+        request_id: str,
+    ) -> reco_pb2.RecommendationResponse:
+        try:
+            logger.info(
+                "Received full context recommendation request request_id=%s",
+                request_id,
+            )
             logger.info(
                 "Recommendation request received, message_chars=%d selected_tags=%d",
                 len(request.userMessage),
@@ -58,7 +80,7 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
                 steam_library=request.profileSummary,
                 max_recommendations=request.maxResults,
                 history=history,
-                request_id=request.requestId or request.correlationId or None,
+                request_id=request_id,
             )
 
             # Convert to gRPC format
@@ -85,7 +107,8 @@ class GameRecommenderServicer(reco_pb2_grpc.GameRecommenderServiceServicer):
 
         except Exception as e:
             logger.error(
-                "RecommendGames failed, error_type=%s",
+                "RecommendGames failed request_id=%s error_type=%s",
+                request_id,
                 type(e).__name__,
             )
             return reco_pb2.RecommendationResponse(

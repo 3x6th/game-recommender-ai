@@ -93,7 +93,7 @@ services:
       - DEEPSEEK_MAX_RETRIES=${DEEPSEEK_MAX_RETRIES:-2}
       - AI_AGENT_DEADLINE_SECONDS=${AI_AGENT_DEADLINE_SECONDS:-30}
       - AI_AGENT_MAX_TOOL_ITERATIONS=${AI_AGENT_MAX_TOOL_ITERATIONS:-3}
-      - AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION=${AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION:-4}
+      - AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION=${AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION:-5}
       - AI_AGENT_MAX_TOOL_RESULT_CHARS=${AI_AGENT_MAX_TOOL_RESULT_CHARS:-4000}
       - JAVA_TOOLS_GRPC_TARGET=${JAVA_TOOLS_GRPC_TARGET:-backend:9091}
       - JAVA_TOOLS_DEADLINE_SECONDS=${JAVA_TOOLS_DEADLINE_SECONDS:-2.5}
@@ -159,6 +159,7 @@ services:
       - "9090"
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./prometheus-alerts.yml:/etc/prometheus/prometheus-alerts.yml
     networks: [ playcure ]
 
   grafana:
@@ -171,6 +172,9 @@ services:
       - "3000"
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana:/var/lib/grafana/dashboards:ro
     networks: [ playcure ]
     depends_on:
       - prometheus

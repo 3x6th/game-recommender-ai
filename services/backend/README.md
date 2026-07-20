@@ -92,12 +92,20 @@ src/main/java/ru/perevalov/gamerecommenderai/
 
 ## Метрики Prometheus и Grafana
 
-Необходимы docker images: prom/prometheus и grafana/grafana
-Запустить докер и в директроии /infra ввести команду:
+Prometheus автоматически собирает Java `/actuator/prometheus` и Python
+`/metrics`. Grafana datasource и dashboard `PlayCure AI Agent E2E`
+провижинятся из репозитория; alert rules загружаются Prometheus при старте.
+
+Correlation и идемпотентность разделены: HTTP-заголовок `rquid` идентифицирует
+серверный запрос и передаётся Java → Python → Java Tools как gRPC metadata
+`x-request-id`. `X-Client-Request-Id` — ключ идемпотентности `/proceed`; он
+используется только Java pipeline/БД и не передаётся AI-агенту или tools.
+
+Из директории `infra`:
 ```bash
-docker compose -f observability-compose.yml up --build
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up --build
 ```
 
-В Grafana добавляем data source - prometheus с URL: http://host.docker.internal:9999
-Импортируем дашборды из директории infra/grafana
-Вместо импората dashboard-jvm.json можно загрузить этот дашборд по id 4701
+Локально: Grafana — `http://localhost:3000`, Prometheus —
+`http://localhost:9999`. Старые JVM/database dashboards можно импортировать
+из `infra/grafana` вручную; AI E2E dashboard уже доступен в папке PlayCure.

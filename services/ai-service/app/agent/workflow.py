@@ -53,7 +53,7 @@ class AgentWorkflowConfig:
     """Hard safety bounds applied to every graph invocation."""
 
     max_tool_iterations: int = 3
-    max_tool_calls_per_iteration: int = 4
+    max_tool_calls_per_iteration: int = 5
     max_tool_result_chars: int = 4000
     deadline_seconds: float = 30.0
 
@@ -317,6 +317,12 @@ class AgentWorkflow:
 
             tool_calls = self._last_ai_message(state).tool_calls
             if len(tool_calls) > self.config.max_tool_calls_per_iteration:
+                logger.warning(
+                    "AI agent tool call limit exceeded, requested_tool_calls=%d "
+                    "max_tool_calls_per_iteration=%d",
+                    len(tool_calls),
+                    self.config.max_tool_calls_per_iteration,
+                )
                 raise AgentLoopLimitError("AI agent requested too many tools at once")
 
             seen = set(state["seen_tool_calls"])

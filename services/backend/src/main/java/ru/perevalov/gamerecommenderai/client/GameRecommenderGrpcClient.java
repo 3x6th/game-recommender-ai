@@ -50,8 +50,8 @@ public class GameRecommenderGrpcClient {
             Timer.Sample latencySample = Timer.start(meterRegistry);
 
             return aiContextRequest.doOnNext(req -> log.info(
-                                           "Sending recommendation request: message={}",
-                                           req.getUserMessage()
+                                           "Sending recommendation request: message_chars={}",
+                                           req.getUserMessage() == null ? 0 : req.getUserMessage().length()
                                    ))
                     .map(mapper::toProto)
                     .flatMap(stubWithDeadline::recommendGames)
@@ -75,8 +75,19 @@ public class GameRecommenderGrpcClient {
                         return grpcErrorMapper.mapGrpcError(error);
                     })
                     .doOnSuccess(response -> {
-                        stopLatency(latencySample, GrpcAiMetricsConstant.OUTCOME_SUCCESS);
-                        log.info("Received recommendation response: response={}", response.getSuccess());
+                        if (response != null && response.getSuccess()) {
+                            stopLatency(latencySample, GrpcAiMetricsConstant.OUTCOME_SUCCESS);
+                        } else {
+                            meterRegistry.counter(
+                                    GrpcAiMetricsConstant.AI_FAILURES_TOTAL,
+                                    GrpcAiMetricsConstant.TAG_REASON,
+                                    GrpcAiMetricsConstant.REASON_APPLICATION_ERROR
+                            ).increment();
+                            stopLatency(latencySample, GrpcAiMetricsConstant.OUTCOME_ERROR);
+                        }
+                        log.info(
+                                "Received recommendation response: response={}",
+                                response != null && response.getSuccess());
                     })
                     .doOnError(error -> {
                         String failureReason = grpcErrorMapper.resolveFailureReason(error);

@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
 import io.grpc.Context;
 import io.grpc.Contexts;
+import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.Metadata;
@@ -25,6 +26,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.slf4j.MDC;
 import org.springframework.test.util.ReflectionTestUtils;
 import reactor.core.publisher.Mono;
 import ru.perevalov.gamerecommenderai.client.GameRecommenderGrpcClient;
@@ -40,6 +42,7 @@ import ru.perevalov.gamerecommenderai.grpc.SimilarGamesRequest;
 import ru.perevalov.gamerecommenderai.grpc.SimilarGamesResponse;
 import ru.perevalov.gamerecommenderai.grpc.SteamAppRequest;
 import ru.perevalov.gamerecommenderai.grpc.SteamAppResponse;
+import ru.perevalov.gamerecommenderai.interceptor.GrpcRequestIdClientInterceptor;
 import ru.perevalov.gamerecommenderai.mapper.GrpcErrorMapper;
 import ru.perevalov.gamerecommenderai.mapper.GrpcMapper;
 
@@ -78,7 +81,11 @@ class CrossServiceContractTest {
                 .usePlaintext()
                 .build();
         ReactorGameRecommenderServiceGrpc.ReactorGameRecommenderServiceStub stub =
-                ReactorGameRecommenderServiceGrpc.newReactorStub(aiChannel);
+                ReactorGameRecommenderServiceGrpc.newReactorStub(
+                        ClientInterceptors.intercept(
+                                aiChannel,
+                                new GrpcRequestIdClientInterceptor(
+                                        "RequestID")));
 
         client = new GameRecommenderGrpcClient(
                 new GrpcMapper(),
@@ -145,15 +152,17 @@ class CrossServiceContractTest {
         int searchBefore = TOOLS_SERVICE.searchCalls.get();
         int detailsBefore = TOOLS_SERVICE.detailsCalls.get();
 
-        RecommendationResponse response = invoke(
-                request("contract:tool-chain", "tool-chain-request"));
+        RecommendationResponse response = invokeWithTrace(
+                request("contract:tool-chain", "tool-chain-protobuf-request"),
+                "e2e-observability-trace");
 
         assertThat(response.getSuccess()).isTrue();
         assertThat(response.getRecommendations(0).getTitle()).isEqualTo("Factorio");
         assertThat(response.getReasoning()).isEqualTo("Verified by Java tools");
         assertThat(TOOLS_SERVICE.searchCalls.get() - searchBefore).isEqualTo(1);
         assertThat(TOOLS_SERVICE.detailsCalls.get() - detailsBefore).isEqualTo(1);
-        assertThat(TOOLS_SERVICE.lastRequestId.get()).isEqualTo("tool-chain-request");
+        assertThat(TOOLS_SERVICE.lastRequestId.get())
+                .isEqualTo("e2e-observability-trace");
     }
 
     @Test
@@ -212,6 +221,17 @@ class CrossServiceContractTest {
     private static RecommendationResponse invoke(AiContextRequest request) {
         return client.getGameRecommendations(Mono.just(request))
                 .block(Duration.ofSeconds(10));
+    }
+
+    private static RecommendationResponse invokeWithTrace(
+            AiContextRequest request,
+            String requestId) {
+        MDC.put("RequestID", requestId);
+        try {
+            return invoke(request);
+        } finally {
+            MDC.remove("RequestID");
+        }
     }
 
     private static AiContextRequest request(String message, String requestId) {
