@@ -5,7 +5,7 @@ import os
 import json
 import time
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import List, Dict, Any
 
 from json_repair import repair_json
@@ -15,11 +15,16 @@ from langchain_deepseek import ChatDeepSeek
 from pydantic import SecretStr, ValidationError
 
 from app.agent.workflow import (
+    AgentDeadlineError,
     AgentExecutionError,
+    AgentFinalizationError,
+    AgentLoopLimitError,
+    AgentRepeatedToolCallError,
     AgentRequest,
     AgentWorkflow,
     AgentWorkflowConfig,
 )
+from app.observability import AI_METRICS, AIMetrics
 from app.services.base import BaseAIService, RecommendationResult
 from app.services.output_models import RecommendationOutput
 
@@ -32,7 +37,7 @@ class DeepSeekRequestError(RuntimeError):
 
 class DeepSeekService(BaseAIService):
     """DeepSeek provider with native async calls and a bounded agent graph."""
-    
+
     def __init__(
         self,
         api_key: str | None = None,
@@ -40,8 +45,10 @@ class DeepSeekService(BaseAIService):
         agent_tools: Sequence[BaseTool] = (),
         agent_tool_factory: Callable[[str | None], Sequence[BaseTool]] | None = None,
         agent_config: AgentWorkflowConfig | None = None,
+        metrics: AIMetrics | None = None,
     ):
         super().__init__(api_key or os.getenv('DEEPSEEK_API_KEY'))
+        self.metrics = metrics or AI_METRICS
         self.model = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
         self.max_tokens = int(os.getenv("DEEPSEEK_MAX_TOKENS", "2500"))
         self.mock_fallback_enabled = os.getenv(
@@ -84,37 +91,37 @@ class DeepSeekService(BaseAIService):
             )
         else:
             self.chat_model = None
-        
+
         # Circuit breaker state
         self.failure_count = 0
         self.last_failure_time = 0.0
         self.circuit_open = False
         self.circuit_open_timeout = 60  # 1 minute
-        
+
     def _is_circuit_open(self) -> bool:
         """Check if circuit breaker is open"""
         if not self.circuit_open:
             return False
-        
+
         # Check if enough time has passed to try again
         if time.time() - self.last_failure_time > self.circuit_open_timeout:
             self.circuit_open = False
             self.failure_count = 0
             logger.info("Circuit breaker closed, allowing requests again")
             return False
-        
+
         return True
-    
+
     def _record_failure(self):
         """Record a failure and potentially open circuit breaker"""
         self.failure_count += 1
         self.last_failure_time = time.time()
-        
+
         # Open circuit breaker after 3 consecutive failures
         if self.failure_count >= 3:
             self.circuit_open = True
             logger.warning("Circuit breaker opened due to multiple failures")
-    
+
     def _record_success(self):
         """Record a successful request"""
         self.failure_count = 0
@@ -140,24 +147,67 @@ class DeepSeekService(BaseAIService):
 
         return None
 
-    def _loads_json_with_repair(self, json_str: str) -> Dict[str, Any] | None:
+    def _loads_json_with_repair(
+        self,
+        json_str: str,
+    ) -> tuple[Dict[str, Any] | None, bool]:
         """Parse JSON, attempting repair on malformed LLM output."""
         try:
             parsed = json.loads(json_str)
-            return parsed if isinstance(parsed, dict) else None
+            return (parsed if isinstance(parsed, dict) else None), False
         except json.JSONDecodeError as e:
-            logger.warning(f"Standard JSON parsing failed: {e}. Trying JSON repair.")
+            logger.warning(
+                "Standard JSON parsing failed; trying local repair, error_type=%s",
+                type(e).__name__,
+            )
 
         try:
             repaired = repair_json(json_str)
             parsed = json.loads(repaired)
             if isinstance(parsed, dict):
                 logger.info("JSON repaired successfully")
-                return parsed
+                return parsed, True
         except Exception as repair_error:
-            logger.warning(f"Failed to repair JSON from chat response: {repair_error}")
+            logger.warning(
+                "Failed to repair JSON from chat response, error_type=%s",
+                type(repair_error).__name__,
+            )
 
-        return None
+        return None, True
+
+    def _parse_output_with_result(
+        self,
+        content: str,
+        max_recommendations: int,
+    ) -> tuple[RecommendationOutput | None, str | None]:
+        """Parse output and identify whether local JSON repair was required."""
+
+        json_str = self._extract_json_string(content)
+        if not json_str:
+            return None, None
+
+        logger.info("Extracted model JSON, json_chars=%d", len(json_str))
+        parsed_response, locally_repaired = self._loads_json_with_repair(json_str)
+        if not parsed_response:
+            return None, None
+
+        try:
+            output = RecommendationOutput.model_validate(parsed_response)
+        except ValidationError as error:
+            logger.warning(
+                "Model output schema validation failed, error_count=%d",
+                len(error.errors()),
+            )
+            return None, None
+
+        return (
+            output.model_copy(
+                update={
+                    "recommendations": output.recommendations[:max_recommendations]
+                }
+            ),
+            "repaired" if locally_repaired else "valid",
+        )
 
     def _parse_output(
         self,
@@ -165,24 +215,8 @@ class DeepSeekService(BaseAIService):
         max_recommendations: int,
     ) -> RecommendationOutput | None:
         """Parse, locally repair, and validate structured model output."""
-        json_str = self._extract_json_string(content)
-        if not json_str:
-            return None
-
-        logger.info(f"Extracted JSON string: {json_str[:200]}...")
-        parsed_response = self._loads_json_with_repair(json_str)
-        if not parsed_response:
-            return None
-
-        try:
-            output = RecommendationOutput.model_validate(parsed_response)
-        except ValidationError as error:
-            logger.warning("Model output schema validation failed: %s", error)
-            return None
-
-        return output.model_copy(
-            update={"recommendations": output.recommendations[:max_recommendations]}
-        )
+        output, _ = self._parse_output_with_result(content, max_recommendations)
+        return output
 
     def _parse_recommendations_from_content(
         self,
@@ -250,6 +284,7 @@ class DeepSeekService(BaseAIService):
     ) -> RecommendationResult:
         content = self._response_content(response)
         if not content:
+            self.metrics.record_output_validation("invalid")
             raise ValueError("DeepSeek returned an empty response")
 
         return await self._guard_content(content, max_recommendations)
@@ -261,11 +296,24 @@ class DeepSeekService(BaseAIService):
     ) -> RecommendationResult:
         """Validate one final agent answer with the existing PCAI-130 policy."""
 
-        logger.info("Parsing recommendations from chat response: %s...", content[:200])
-        output = self._parse_output(content, max_recommendations)
+        logger.info("Parsing model response, content_chars=%d", len(content))
+        output, validation_result = self._parse_output_with_result(
+            content,
+            max_recommendations,
+        )
         if output is None:
-            output = await self._repair_invalid_output(content, max_recommendations)
+            try:
+                output = await self._repair_invalid_output(
+                    content,
+                    max_recommendations,
+                )
+            except Exception:
+                self.metrics.record_output_validation("invalid")
+                raise
+            if output is not None:
+                validation_result = "repaired"
         if output is not None:
+            self.metrics.record_output_validation(validation_result or "valid")
             self._record_success()
             return self._to_result(output)
 
@@ -273,11 +321,27 @@ class DeepSeekService(BaseAIService):
         # Malformed JSON is not: returning it would expose a broken contract.
         if not self._extract_json_string(content) and not content.lstrip().startswith(("{", "```json")):
             logger.warning("Structured repair failed; returning original answer as reply text")
+            self.metrics.record_output_validation("text_fallback")
             self._record_success()
             return RecommendationResult(reply=content.strip())
 
+        self.metrics.record_output_validation("invalid")
         raise ValueError("DeepSeek output is invalid after one repair attempt")
-    
+
+    @staticmethod
+    def _request_outcome(error: BaseException) -> str:
+        if isinstance(error, AgentDeadlineError):
+            return "deadline"
+        if isinstance(error, AgentLoopLimitError):
+            return "loop_limit"
+        if isinstance(error, AgentRepeatedToolCallError):
+            return "repeated_tool_call"
+        if isinstance(error, (AgentFinalizationError, ValueError)):
+            return "output_invalid"
+        if isinstance(error, DeepSeekRequestError):
+            return "provider_error"
+        return "error"
+
     async def get_recommendations(
         self,
         preferences: str,
@@ -291,9 +355,12 @@ class DeepSeekService(BaseAIService):
                 raise DeepSeekRequestError("DeepSeek provider is unavailable")
             if self._is_circuit_open():
                 raise RuntimeError("DeepSeek circuit breaker is open")
-            
-            logger.info(f"Getting recommendations from DeepSeek: {preferences}")
-            
+
+            logger.info(
+                "Getting recommendations from DeepSeek, preferences_chars=%d",
+                len(preferences),
+            )
+
             # Prepare prompt for DeepSeek
             prompt = f"""
             You are a game recommendation AI. Based on the following user preferences, recommend {max_recommendations} video games.
@@ -308,7 +375,7 @@ class DeepSeekService(BaseAIService):
                 "recommendations": [
                     {{
                         "title": "Game Title",
-                        "genre": "Game Genre", 
+                        "genre": "Game Genre",
                         "description": "Brief description",
                         "why_recommended": "Why this game matches preferences",
                         "platforms": ["PC", "PS5", "Xbox"],
@@ -321,11 +388,12 @@ class DeepSeekService(BaseAIService):
             Reply in the language of the user's message!
             Focus on games that best match the user's preferences. Do not include any text before or after the JSON.
             """
-            
+
             # Call DeepSeek API with retry logic
             response = await self._call_deepseek_api_with_retry(prompt)
 
             result = await self._guard_output(response, max_recommendations)
+            self.metrics.record_ai_request("deepseek", self.model, "success")
             return result.recommendations
         except Exception as e:
             self._record_failure()
@@ -335,7 +403,18 @@ class DeepSeekService(BaseAIService):
             )
             if self.mock_fallback_enabled:
                 logger.warning("AI mock fallback enabled; returning sample data")
+                self.metrics.record_ai_request(
+                    "deepseek",
+                    self.model,
+                    "mock_fallback",
+                )
+                self.metrics.record_mock_fallback("deepseek")
                 return self._get_mock_recommendations(max_recommendations)
+            self.metrics.record_ai_request(
+                "deepseek",
+                self.model,
+                self._request_outcome(e),
+            )
             if isinstance(e, (DeepSeekRequestError, AgentExecutionError, ValueError)):
                 raise
             raise DeepSeekRequestError("DeepSeek request failed") from e
@@ -460,6 +539,9 @@ class DeepSeekService(BaseAIService):
                 tools=agent_tools,
                 finalizer=finalize,
                 config=self.agent_config,
+                metrics=self.metrics,
+                provider="deepseek",
+                model_name=self.model,
             )
             request = AgentRequest(
                 system_prompt=system_prompt,
@@ -469,7 +551,9 @@ class DeepSeekService(BaseAIService):
                 steam_profile_summary=steam_library,
                 request_id=request_id,
             )
-            return await workflow.run(request)
+            result = await workflow.run(request)
+            self.metrics.record_ai_request("deepseek", self.model, "success")
+            return result
 
         except Exception as e:
             self._record_failure()
@@ -479,10 +563,21 @@ class DeepSeekService(BaseAIService):
             )
             if self.mock_fallback_enabled:
                 logger.warning("AI mock fallback enabled; returning visibly marked sample data")
+                self.metrics.record_ai_request(
+                    "deepseek",
+                    self.model,
+                    "mock_fallback",
+                )
+                self.metrics.record_mock_fallback("deepseek")
                 return RecommendationResult(
                     recommendations=self._get_mock_recommendations(max_recommendations),
                     reply="AI provider is unavailable. Showing sample recommendations.",
                 )
+            self.metrics.record_ai_request(
+                "deepseek",
+                self.model,
+                self._request_outcome(e),
+            )
             if isinstance(e, (DeepSeekRequestError, AgentExecutionError, ValueError)):
                 raise
             raise DeepSeekRequestError("DeepSeek agent request failed") from e
@@ -526,7 +621,7 @@ class DeepSeekService(BaseAIService):
                 if isinstance(value, str):
                     parts.append(value)
         return "\n".join(parts)
-    
+
     async def _call_deepseek_api(
         self,
         prompt: str | List[Dict[str, str]],
@@ -535,6 +630,8 @@ class DeepSeekService(BaseAIService):
         """Make a non-blocking DeepSeek call through ChatDeepSeek.ainvoke."""
         if self.chat_model is None:
             raise DeepSeekRequestError("DeepSeek provider is unavailable")
+        started = time.monotonic()
+        outcome = "error"
         try:
             response = await self.chat_model.ainvoke(
                 self._to_langchain_messages(prompt)
@@ -544,6 +641,15 @@ class DeepSeekService(BaseAIService):
                     "DeepSeek provider returned an unsupported response"
                 )
             content = self._ai_message_content(response)
+            usage = getattr(response, "usage_metadata", None)
+            response_metadata = getattr(response, "response_metadata", None)
+            self.metrics.record_usage(
+                "deepseek",
+                self.model,
+                usage if isinstance(usage, Mapping) else None,
+                response_metadata if isinstance(response_metadata, Mapping) else None,
+            )
+            outcome = "success"
             logger.info("DeepSeek API call successful via async LangChain integration")
             return {"choices": [{"message": {"content": content}}]}
         except Exception as e:
@@ -552,7 +658,14 @@ class DeepSeekService(BaseAIService):
                 type(e).__name__,
             )
             raise
-    
+        finally:
+            self.metrics.observe_llm(
+                "deepseek",
+                self.model,
+                outcome,
+                time.monotonic() - started,
+            )
+
     def _get_mock_recommendations(self, max_recommendations: int) -> List[Dict[str, Any]]:
         """Return mock recommendations when API is not available"""
         recommendations = [
@@ -604,18 +717,18 @@ class DeepSeekService(BaseAIService):
         ]
 
         return recommendations[:max_recommendations]
-    
+
     async def is_available(self) -> bool:
         """Check if DeepSeek service is available"""
         if not self.api_key or self.chat_model is None:
             return False
-        
+
         # Check circuit breaker status
         if self._is_circuit_open():
             return False
-            
+
         return True
-    
+
     def get_circuit_breaker_status(self) -> Dict[str, Any]:
         """Get circuit breaker status for monitoring"""
         return {

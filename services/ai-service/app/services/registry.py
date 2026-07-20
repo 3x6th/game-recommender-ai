@@ -15,15 +15,16 @@ from app.tools import JavaToolsClient, create_java_tools
 
 logger = logging.getLogger(__name__)
 
+
 class ServiceRegistry:
     """Registry for AI service providers"""
-    
+
     def __init__(self):
         self.services: List[BaseAIService] = []
         self.active_service: BaseAIService | None = None
         self.java_tools_client: JavaToolsClient | None = None
         self._initialize_services()
-    
+
     def _initialize_services(self):
         """Initialize available AI services"""
         try:
@@ -41,7 +42,7 @@ class ServiceRegistry:
                     "DeepSeek service initialized, mock_fallback_enabled=%s",
                     mock_fallback_enabled,
                 )
-            
+
             # The real GigaChat adapter is not implemented.  An API key alone
             # must never activate the hardcoded development sample provider.
             gigachat_mock_enabled = os.getenv(
@@ -51,16 +52,19 @@ class ServiceRegistry:
                 gigachat_service = GigaChatService(mock_enabled=True)
                 self.services.append(gigachat_service)
                 logger.warning("GigaChat development mock initialized explicitly")
-            
+
             # Set active service (first available one)
             if self.services:
                 self.active_service = self.services[0]
                 logger.info(f"Active service set to: {self.active_service.get_name()}")
             else:
                 logger.warning("No AI services available")
-                
+
         except Exception as e:
-            logger.error(f"Error initializing services: {e}")
+            logger.error(
+                "Error initializing services, error_type=%s",
+                type(e).__name__,
+            )
 
     def _create_agent_tools(
         self,
@@ -68,11 +72,11 @@ class ServiceRegistry:
     ) -> tuple[BaseTool, ...]:
         client = self.java_tools_client
         return create_java_tools(client, request_id) if client is not None else ()
-    
+
     def get_active_provider(self) -> str:
         """Get name of active provider"""
         return self.active_service.get_name() if self.active_service else "none"
-    
+
     def switch_service(self, service_name: str) -> bool:
         """Switch to a different service"""
         for service in self.services:
@@ -82,10 +86,10 @@ class ServiceRegistry:
                 return True
         logger.warning(f"Service not found: {service_name}")
         return False
-    
+
     async def get_recommendations(
-        self, 
-        preferences: str, 
+        self,
+        preferences: str,
         genres: List[str] | None = None,
         platforms: List[str] | None = None,
         max_recommendations: int = 5
@@ -94,7 +98,7 @@ class ServiceRegistry:
         if not self.active_service:
             logger.error("No active AI service")
             raise RuntimeError("No active AI service")
-        
+
         try:
             logger.info(f"Getting recommendations from {self.active_service.get_name()}")
             recommendations = await self.active_service.get_recommendations(
@@ -103,7 +107,10 @@ class ServiceRegistry:
             logger.info(f"Service {self.active_service.get_name()} returned {len(recommendations)} recommendations")
             return recommendations
         except Exception as e:
-            logger.error(f"Error getting recommendations: {e}")
+            logger.error(
+                "Error getting recommendations, error_type=%s",
+                type(e).__name__,
+            )
             raise
 
     async def get_recommendations_with_steam_library(
@@ -137,16 +144,19 @@ class ServiceRegistry:
                 bool(result.reply),
             )
             if result.reasoning:
-                logger.info(f"Reasoning: {result.reasoning}")
+                logger.info("AI reasoning received, chars=%d", len(result.reasoning))
             return result
         except Exception as e:
-            logger.error(f"Error getting recommendations with Steam library: {e}")
+            logger.error(
+                "Error getting recommendations with Steam library, error_type=%s",
+                type(e).__name__,
+            )
             raise
 
     def get_available_services(self) -> List[str]:
         """Get list of available service names"""
         return [service.get_name() for service in self.services]
-    
+
     async def check_service_health(self) -> Dict[str, bool]:
         """Check health of all services"""
         health_status = {}
@@ -154,7 +164,11 @@ class ServiceRegistry:
             try:
                 health_status[service.get_name()] = await service.is_available()
             except Exception as e:
-                logger.error(f"Error checking health of {service.get_name()}: {e}")
+                logger.error(
+                    "Error checking provider health, provider=%s error_type=%s",
+                    service.get_name(),
+                    type(e).__name__,
+                )
                 health_status[service.get_name()] = False
         return health_status
 

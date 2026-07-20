@@ -131,7 +131,7 @@ poetry run python -m app.main
 ### HTTP API (порт 8000)
 
 - **GET** `/healthz` - проверка здоровья сервиса
-- **GET** `/metrics` - базовые метрики
+- **GET** `/metrics` - Prometheus-метрики provider/LangGraph/tools/output guard
 - **GET** `/` - информация о сервисе
 
 ## 🎯 Poetry команды
@@ -349,6 +349,12 @@ curl http://localhost:8000/healthz
 ```bash
 curl http://localhost:8000/metrics
 ```
+
+Основные серии: `ai_requests_total`, `llm_latency_seconds`,
+`agent_steps_total`, `tool_calls_total`, `tool_latency_seconds`,
+`output_validation_total`, `mock_fallback_total`, `agent_limit_total`,
+`llm_tokens_total` и `llm_cost_usd_total` (только если стоимость явно вернул
+provider). Идентификаторы request/chat/user/run не используются как labels.
 
 
 ## 🐛 Troubleshooting
