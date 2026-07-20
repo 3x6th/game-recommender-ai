@@ -230,8 +230,16 @@ grpcurl -plaintext localhost:9090 list
 
 # Тест рекомендаций
 grpcurl -plaintext -d '{"userMessage": "action RPGs"}' \
-  localhost:9090 gamerecommender.GameRecommenderService/RecommendGames
+    localhost:9090 gamerecommender.GameRecommenderService/RecommendGames
 ```
+
+### Cross-service contract
+
+CI job `cross-service-contract` поднимает production Python gRPC servicer с
+детерминированной chat model и Java Tools gRPC test server. Реальный Java
+`GameRecommenderGrpcClient` проверяет оба направления без DeepSeek и Steam.
+Контролируемые AI/graph ошибки передаются как protobuf `success=false` с публичным
+сообщением; transport-level `UNAVAILABLE`/`DEADLINE_EXCEEDED` остаются retryable.
 
 ### Offline regression eval
 
