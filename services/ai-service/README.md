@@ -8,10 +8,14 @@ Python AI сервис для рекомендаций игр, использу�
 AI Service
 ├── gRPC Server (порт 9090)     # Основной API для Java backend
 ├── FastAPI Server (порт 8000)  # Health checks и метрики
-└── AI Providers
-    ├── DeepSeek AI             # Основной провайдер
-    └── GigaChat                # Альтернативный провайдер
+└── LangGraph Agent             # Bounded model → tools → final workflow
+    └── ChatDeepSeek            # Native async model integration
 ```
+
+LangGraph state существует только в рамках одного запроса и не хранит скрытые
+рассуждения. Общий deadline, число tool-итераций, число calls за итерацию и размер
+результата tools ограничены переменными окружения. Финальный ответ проходит
+существующую schema validation и один repair-attempt перед отправкой в Java backend.
 
 ## 🚀 Быстрый старт
 
@@ -162,6 +166,13 @@ poetry run command
 | Переменная | Описание | По умолчанию |
 |------------|----------|---------------|
 | `DEEPSEEK_API_KEY` | API ключ DeepSeek | - |
+| `DEEPSEEK_MODEL` | Модель ChatDeepSeek; для tools нужен `deepseek-chat` | deepseek-chat |
+| `DEEPSEEK_REQUEST_TIMEOUT_SECONDS` | Timeout одного model-вызова | 20 |
+| `DEEPSEEK_MAX_RETRIES` | Retry transient provider-ошибок | 2 |
+| `AI_AGENT_DEADLINE_SECONDS` | Общий deadline LangGraph run, включая tools/finalize | 30 |
+| `AI_AGENT_MAX_TOOL_ITERATIONS` | Максимум model→tools циклов | 3 |
+| `AI_AGENT_MAX_TOOL_CALLS_PER_ITERATION` | Лимит tool calls за итерацию | 4 |
+| `AI_AGENT_MAX_TOOL_RESULT_CHARS` | Максимальный размер tool result для модели | 4000 |
 | `GIGACHAT_API_KEY` | API ключ GigaChat | - |
 | `GRPC_PORT` | Порт gRPC сервера | 9090 |
 | `HTTP_PORT` | Порт FastAPI сервера | 8000 |
@@ -196,10 +207,10 @@ services/ai-service/
 
 ```bash
 # Тест AI сервиса
-poetry run python test_service.py
+poetry run pytest -q
 
-# Тест через pytest
-poetry run pytest test_service.py -v
+# Отдельный live smoke test DeepSeek (требует API key)
+poetry run pytest -m integration -v
 ```
 
 ### Тестирование gRPC

@@ -1,30 +1,28 @@
 import asyncio
 import os
-from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from langchain_core.messages import AIMessage
 
 from app.services.deepseek_service import DeepSeekService
 
 
-def sdk_response(content: str):
-    return SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-    )
+def model_response(content: str) -> AIMessage:
+    return AIMessage(content=content)
 
 
 def test_plain_text_is_repaired_once_into_structured_output():
     async def run():
-        service = DeepSeekService(api_key="test-key")
-        service.client = Mock()
-        service.client.chat.completions.create.side_effect = [
-            sdk_response("Я помню: сначала советовал Elden Ring и Hades."),
-            sdk_response(
+        chat_model = AsyncMock()
+        chat_model.ainvoke.side_effect = [
+            model_response("Я помню: сначала советовал Elden Ring и Hades."),
+            model_response(
                 '{"reply":"Я помню первый ответ.","reasoning":"",'
                 '"recommendations":[{"title":"Elden Ring"},{"title":"Hades"}]}'
             ),
         ]
+        service = DeepSeekService(api_key="test-key", chat_model=chat_model)
 
         result = await service.get_recommendations_with_steam_library(
             user_message="Что ты советовал раньше?",
@@ -32,7 +30,7 @@ def test_plain_text_is_repaired_once_into_structured_output():
             steam_library=None,
         )
 
-        assert service.client.chat.completions.create.call_count == 2
+        assert chat_model.ainvoke.await_count == 2
         assert result.reply == "Я помню первый ответ."
         assert [item["title"] for item in result.recommendations] == ["Elden Ring", "Hades"]
 
@@ -41,13 +39,13 @@ def test_plain_text_is_repaired_once_into_structured_output():
 
 def test_plain_text_survives_when_structured_repair_still_fails():
     async def run():
-        service = DeepSeekService(api_key="test-key")
-        service.client = Mock()
+        chat_model = AsyncMock()
         original = "Я помню наш разговор и могу продолжить без новых карточек."
-        service.client.chat.completions.create.side_effect = [
-            sdk_response(original),
-            sdk_response("всё ещё не json"),
+        chat_model.ainvoke.side_effect = [
+            model_response(original),
+            model_response("всё ещё не json"),
         ]
+        service = DeepSeekService(api_key="test-key", chat_model=chat_model)
 
         result = await service.get_recommendations_with_steam_library(
             user_message="Ты помнишь контекст?",
@@ -63,12 +61,12 @@ def test_plain_text_survives_when_structured_repair_still_fails():
 
 def test_malformed_json_returns_error_in_production_instead_of_silent_mocks():
     async def run():
-        service = DeepSeekService(api_key="test-key")
-        service.client = Mock()
-        service.client.chat.completions.create.side_effect = [
-            sdk_response('{"recommendations": ['),
-            sdk_response('{"recommendations": ['),
+        chat_model = AsyncMock()
+        chat_model.ainvoke.side_effect = [
+            model_response('{"recommendations": ['),
+            model_response('{"recommendations": ['),
         ]
+        service = DeepSeekService(api_key="test-key", chat_model=chat_model)
 
         with pytest.raises(ValueError, match="invalid after one repair"):
             await service.get_recommendations_with_steam_library(
